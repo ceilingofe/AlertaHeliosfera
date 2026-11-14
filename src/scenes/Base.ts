@@ -9,6 +9,7 @@ import { Clock } from '../systems/Clock';
 import { Data, type CorviQAEntry } from '../systems/Data';
 import { Events } from '../systems/Events';
 import { Vitals } from '../systems/Vitals';
+import { AstronautAppearance } from '../ui/AstronautAppearance';
 import { DialogBox } from '../ui/DialogBox';
 import { getSharedJoystickVector } from '../ui/Joystick';
 
@@ -182,6 +183,13 @@ export class Base extends Phaser.Scene {
       this.goToSleep();
     });
 
+    this.createActionButton(552, 96, 92, 22, 0x3a4466, '#fee761', 'Traje', () => {
+      this.scene.stop('HUD');
+      this.scene.stop('Dialogo');
+      this.scene.stop('Tormenta');
+      this.scene.start('Personaliza', { nextScene: 'Base' });
+    });
+
     // 5. Estaciones e interior: Cama, Percha de Corvi, Mesa de muestras, Puerta al Refugio y Puerta de Salida
     const obstacles = this.physics.add.staticGroup();
     const addBlock = (x: number, y: number, w: number, h: number): void => {
@@ -281,9 +289,12 @@ export class Base extends Phaser.Scene {
       { id: 'exitDoor', x: 334, y: 274, prompt: uiText.base.interactExitDoor },
     ];
 
-    // 6. Astronauta en el interior (escala ×2)
-    const hairKey =
-      state.customization.hair === 2 ? 'astronaut_mini_hair2' : 'astronaut_mini_hair1';
+    // 6. Astronauta en el interior (escala ×2) con su color de traje y peinado actuales
+    const hairKey = AstronautAppearance.getMiniTextureKey(
+      this,
+      state.customization.hair,
+      state.customization.suit
+    );
     this.player = this.physics.add
       .sprite(300, 168, hairKey)
       .setScale(2)

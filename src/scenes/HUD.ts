@@ -7,6 +7,7 @@ import { Clock } from '../systems/Clock';
 import { Events } from '../systems/Events';
 import { Quota } from '../systems/Quota';
 import type { SampleType } from '../types';
+import { AstronautAppearance } from '../ui/AstronautAppearance';
 import { TouchControls } from '../ui/Joystick';
 
 const MINIGAME_KEYS = [
@@ -143,7 +144,12 @@ export class HUD extends Phaser.Scene {
       .rectangle(31, panelY + 33, 36, 46, 0x262b44)
       .setOrigin(0.5)
       .setStrokeStyle(1, 0x181425);
-    this.add.image(31, panelY + 34, 'astronaut_mini_hair1').setScale(2);
+    const hudMiniKey = AstronautAppearance.getMiniTextureKey(
+      this,
+      gameStore.state.customization.hair,
+      gameStore.state.customization.suit
+    );
+    this.add.image(31, panelY + 34, hudMiniKey).setScale(2);
     this.add
       .text(31, panelY + 64, uiText.hud.youLabel, {
         fontFamily: 'PixelifySans, monospace',

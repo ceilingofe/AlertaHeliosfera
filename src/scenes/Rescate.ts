@@ -1,8 +1,8 @@
 import Phaser from 'phaser';
 import uiText from '../../content/ui_text.json';
 import { gameStore } from '../state/GameState';
-import { Save } from '../state/Save';
 import type { RescueCause } from '../types';
+import { AstronautAppearance } from '../ui/AstronautAppearance';
 
 interface RescateData {
   cause?: RescueCause;
@@ -10,7 +10,7 @@ interface RescateData {
 
 /**
  * Escena de Rescate (fail forward): nunca muestra "Game over" ni "Perdiste".
- * El cohete desciende por el astronauta y Corvi explica qué ocurrió.
+ * El cohete desciende por el astronauta y Corvi explica qué ocurrió antes de pasar al Diploma.
  */
 export class Rescate extends Phaser.Scene {
   private cause: RescueCause = 'oxigeno';
@@ -26,6 +26,8 @@ export class Rescate extends Phaser.Scene {
   }
 
   create(): void {
+    const state = gameStore.state;
+
     // 1. Fondo del terreno marciano a escala ×2 para igualar la vista de Mundo
     const ground = this.add.tileSprite(0, 0, 640, 360, 'ground_placeholder').setOrigin(0, 0);
     ground.setTileScale(2, 2);
@@ -74,9 +76,22 @@ export class Rescate extends Phaser.Scene {
       color: '#be4a2f',
     });
 
-    // 4. Astronauta esperando el rescate y cohete descendiendo con llama animada
+    // 4. Astronauta con su traje personalizado y cohete descendiendo con llama animada y polvo
     this.add.ellipse(254, 240, 40, 10, 0x3e2731);
-    this.add.image(254, 214, 'astronaut_mini_hair1').setScale(2);
+    const miniKey = AstronautAppearance.getMiniTextureKey(
+      this,
+      state.customization.hair,
+      state.customization.suit
+    );
+    this.add.image(254, 214, miniKey).setScale(2);
+
+    const dust = this.add.graphics();
+    dust.fillStyle(0xe4a672, 0.85);
+    for (let i = 0; i < 24; i++) {
+      const dx = 370 + ((i * 19) % 130);
+      const dy = 212 + ((i * 11) % 18);
+      dust.fillRect(dx, dy, 2, 2);
+    }
 
     this.flameGraphics = this.add.graphics();
     this.rocket = this.add.image(432, 82, 'rocket').setScale(2);
@@ -134,15 +149,13 @@ export class Rescate extends Phaser.Scene {
       })
       .setOrigin(1, 1);
 
-    const restartMission = (): void => {
-      Save.clear();
-      gameStore.reset();
-      this.scene.start('Mundo');
+    const goToDiploma = (): void => {
+      this.scene.start('Diploma', { cause: this.cause });
     };
 
-    this.input.once('pointerdown', restartMission);
-    this.input.keyboard?.once('keydown-SPACE', restartMission);
-    this.input.keyboard?.once('keydown-E', restartMission);
+    this.input.once('pointerdown', goToDiploma);
+    this.input.keyboard?.once('keydown-SPACE', goToDiploma);
+    this.input.keyboard?.once('keydown-E', goToDiploma);
   }
 
   update(time: number): void {

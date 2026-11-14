@@ -1,12 +1,13 @@
 import Phaser from 'phaser';
 import uiText from '../../content/ui_text.json';
 import { gameStore } from '../state/GameState';
+import { AstronautAppearance } from '../ui/AstronautAppearance';
 import { DialogBox } from '../ui/DialogBox';
 
 /**
  * Escena Despegue (fiel al storyboard s01_despegue.png):
- * Pantalla del día 1 con cohete aterrizado, astronauta en traje blanco por defecto,
- * botón "¡Despegue rápido!", vista bloqueada de la personalización y saludo grande de Corvi.
+ * Pantalla del día 1 con cohete aterrizado, astronauta en traje por defecto o personalizado,
+ * botón "¡Despegue rápido!", vista de la personalización y saludo grande de Corvi.
  */
 export class Despegue extends Phaser.Scene {
   private dialogBox: DialogBox | null = null;
@@ -37,17 +38,22 @@ export class Despegue extends Phaser.Scene {
     this.add
       .text(320, 22, uiText.despegue.header, {
         fontFamily: 'PixelifySans, monospace',
+        resolution: 2,
         fontSize: '18px',
         color: '#ffffff',
       })
       .setOrigin(0.5);
 
-    // 3. Cohete aterrizado y astronauta con traje blanco por defecto a escala entera ×3
+    // 3. Cohete aterrizado y astronauta a escala entera ×3 con su traje/accesorio actual
     this.add.image(226, 206, 'rocket').setScale(1.8);
     this.add.ellipse(358, 260, 74, 14, 0x262b44);
-    const hairKey =
-      state.customization.hair === 2 ? 'astronaut_hair2' : 'astronaut_hair1';
-    this.add.image(358, 178, hairKey).setScale(3);
+    AstronautAppearance.createFullAstronautContainer(
+      this,
+      358,
+      178,
+      3,
+      state.customization
+    );
 
     // 4. Botón "¡Despegue rápido!" (arriba a la derecha, permite iniciar en menos de 15 s)
     const launchBtn = this.add
@@ -58,6 +64,7 @@ export class Despegue extends Phaser.Scene {
     this.add
       .text(522, 74, uiText.despegue.quickLaunchButton, {
         fontFamily: 'PixelifySans, monospace',
+        resolution: 2,
         fontSize: '18px',
         color: '#ffffff',
       })
@@ -68,11 +75,12 @@ export class Despegue extends Phaser.Scene {
         522,
         104,
         state.unlocks.customization
-          ? uiText.despegue.unlockedSuitLabel
+          ? `${uiText.despegue.unlockedSuitLabel} (clic abajo)`
           : uiText.despegue.defaultSuitLabel,
         {
           fontFamily: 'PixelifySans, monospace',
-          fontSize: '12px',
+          resolution: 2,
+          fontSize: '11px',
           color: '#c0cbdc',
         }
       )
@@ -82,10 +90,12 @@ export class Despegue extends Phaser.Scene {
     const prizePanel = this.add
       .rectangle(416, 118, 212, 122, 0x5a6988)
       .setOrigin(0, 0)
-      .setStrokeStyle(2, 0x3a4466);
+      .setStrokeStyle(2, 0x3a4466)
+      .setInteractive({ useHandCursor: state.unlocks.customization });
 
     this.add.text(428, 125, uiText.despegue.prizeTitle, {
       fontFamily: 'PixelifySans, monospace',
+      resolution: 2,
       fontSize: '11px',
       color: '#181425',
     });
@@ -122,6 +132,12 @@ export class Despegue extends Phaser.Scene {
       void prizePanel;
       void lockBox;
       void lockBody;
+    } else {
+      prizePanel.on('pointerdown', () => {
+        this.dialogBox?.destroy();
+        this.dialogBox = null;
+        this.scene.start('Personaliza', { nextScene: 'Despegue' });
+      });
     }
 
     // 6. Diálogo grande de Corvi con placa de nombre y sello NASA

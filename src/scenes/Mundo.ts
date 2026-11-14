@@ -9,6 +9,7 @@ import { Clock } from '../systems/Clock';
 import { Events } from '../systems/Events';
 import { Vitals } from '../systems/Vitals';
 import type { SampleType } from '../types';
+import { AstronautAppearance } from '../ui/AstronautAppearance';
 import { getSharedJoystickVector } from '../ui/Joystick';
 
 interface InteractPoint {
@@ -257,9 +258,12 @@ export class Mundo extends Phaser.Scene {
       { name: 'Octavia E. Butler Landing', bounds: new Phaser.Geom.Rectangle(440, 340, 360, 300) },
     ];
 
-    // 4. Astronauta mini (14×23 px)
-    const hairKey =
-      state.customization.hair === 2 ? 'astronaut_mini_hair2' : 'astronaut_mini_hair1';
+    // 4. Astronauta mini (14×23 px) con su color de traje y peinado actuales
+    const hairKey = AstronautAppearance.getMiniTextureKey(
+      this,
+      state.customization.hair,
+      state.customization.suit
+    );
     this.player = this.physics.add.sprite(
       state.astronaut.pos.x,
       state.astronaut.pos.y,

@@ -108,6 +108,10 @@ export class Data {
     return list.find((d) => d.day === day) ?? null;
   }
 
+  static getAllFacts(): FactEntry[] {
+    return factsData as FactEntry[];
+  }
+
   static getFactById(id: string): FactEntry {
     const list = factsData as FactEntry[];
     return list.find((f) => f.id === id) ?? list[0];

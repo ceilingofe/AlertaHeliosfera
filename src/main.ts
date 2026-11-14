@@ -9,9 +9,11 @@ import { Base } from './scenes/Base';
 import { Boot } from './scenes/Boot';
 import { Despegue } from './scenes/Despegue';
 import { Dialogo } from './scenes/Dialogo';
+import { Diploma } from './scenes/Diploma';
 import { HUD } from './scenes/HUD';
 import { Mundo } from './scenes/Mundo';
 import { Noche } from './scenes/Noche';
+import { Personaliza } from './scenes/Personaliza';
 import { Preload } from './scenes/Preload';
 import { Rescate } from './scenes/Rescate';
 import { Tormenta } from './scenes/Tormenta';
@@ -37,6 +39,7 @@ const config: Phaser.Types.Core.GameConfig = {
     Boot,
     Preload,
     Despegue,
+    Personaliza,
     Transmision,
     Mundo,
     Base,
@@ -51,6 +54,7 @@ const config: Phaser.Types.Core.GameConfig = {
     MinijuegoTuberias,
     Noche,
     Rescate,
+    Diploma,
   ],
 };
 

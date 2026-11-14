@@ -269,6 +269,46 @@
     "corviName": "CORVI",
     "corviRole": "Oficial de la base",
     "corviMessage": "¡Tranquila, LUNA-7! El cohete de rescate\nya viene. Tu misión queda en el diploma.",
-    "retryButton": "Espacio o toque: intentar de nuevo"
+    "retryButton": "Espacio, E o toque: ver diploma ▼"
+  },
+  "personaliza": {
+    "header": "PERSONALIZACIÓN · TRAJE Y EQUIPO DE LUNA-7",
+    "suitColorTitle": "COLOR DEL TRAJE",
+    "hairTitle": "PEINADO",
+    "hair1Label": "Peinado 1",
+    "hair2Label": "Peinado 2",
+    "accessoryTitle": "ACCESORIOS DESBLOQUEADOS",
+    "noAccessory": "Sin accesorio",
+    "accDiadema": "Diadema (Día 1)",
+    "accMono": "Moño (Día 1)",
+    "accAntena": "Antena (Día 5)",
+    "accGorrito": "Gorrito (Día 10)",
+    "accAudifonos": "Audífonos (Día 15)",
+    "patchTitle": "PARCHE DE MISIÓN",
+    "lockedNotice": "Completa el Día 1 y duerme en la base para desbloquear tu armario.",
+    "saveAndContinue": "Guardar y continuar",
+    "openButton": "Personalizar traje"
+  },
+  "diploma": {
+    "title": "DIPLOMA DE ASTRONAUTA EN MARTE",
+    "subtitle": "SpaceCrows · Octavia E. Butler Landing · cráter Jezero",
+    "missionName": "LUNA-7",
+    "daysPrefix": "¡Sobreviviste",
+    "daysSingular": "día en Marte!",
+    "daysPlural": "días en Marte!",
+    "samplesLabel": "Muestras entregadas",
+    "moxieLabel": "Oxígeno de MOXIE",
+    "stormsLabel": "Tormentas solares",
+    "stormsUnit": "superadas en el refugio",
+    "doseLabel": "Dosis total",
+    "doseUnit": "% del límite del juego",
+    "doseScaleNote": "(SIMULADO: escala del juego; límite real de carrera NASA: 600 mSv)",
+    "favoriteFactLabel": "Tu dato favorito:",
+    "rescueO2Summary": "Rescate automático: el oxígeno del traje llegó\na 0 en Bright Angel. ¡El cohete te trajo a salvo!",
+    "rescueO2Advice": "Qué habría ayudado: volver al 40 % de oxígeno.",
+    "rescueRadSummary": "Rescate automático: la dosis acumulada llegó al\nlímite del juego (150 DR). ¡El cohete te trajo a salvo!",
+    "rescueRadAdvice": "Qué habría ayudado: entrar al refugio durante tormentas.",
+    "downloadButton": "Descargar diploma",
+    "playAgainButton": "Jugar otra vez"
   }
 }
