@@ -3,6 +3,7 @@ import uiText from '../../content/ui_text.json';
 import { gameStore } from '../state/GameState';
 import { Clock } from '../systems/Clock';
 import { Data } from '../systems/Data';
+import { Events } from '../systems/Events';
 import { Quota } from '../systems/Quota';
 import type { Label } from '../types';
 
@@ -11,6 +12,7 @@ import type { Label } from '../types';
  * Animación del sobre viajando de la Tierra a Marte con el retraso real,
  * 4 tarjetas (Pronóstico de Jezero con ventana segura 09:00-17:00, Alerta Solar DONKI,
  * Cuota y envío, Dato del día) con sus etiquetas de honestidad y fuentes.
+ * Si la antena está dañada (!state.base.antennaOk), solo se muestra la tarjeta 3 y estática en las demás.
  */
 export class Transmision extends Phaser.Scene {
   private envelopeContainer!: Phaser.GameObjects.Container;
@@ -23,6 +25,7 @@ export class Transmision extends Phaser.Scene {
     const state = gameStore.state;
     Clock.setPaused(state, true);
     Quota.applyDailyQuota(state);
+    Events.initDay(state);
 
     // 1. Marco general de la consola de transmisión (s02_transmision.png)
     this.add.rectangle(320, 180, 640, 360, 0x262b44);
@@ -54,23 +57,19 @@ export class Transmision extends Phaser.Scene {
     const delayInfo = Data.getLightDelay(state.day);
     this.add.rectangle(320, 76, 596, 64, 0x262b44).setStrokeStyle(1, 0x3a4466);
 
-    // Planeta Tierra (izquierda)
     this.add.circle(60, 76, 24, 0x0099db);
     this.add.circle(54, 70, 9, 0x63c74d);
     this.add.circle(68, 84, 7, 0x63c74d);
 
-    // Planeta Marte (derecha)
     this.add.circle(580, 76, 22, 0xb86f50);
     this.add.circle(573, 71, 6, 0x733e39);
 
-    // Línea punteada entre Tierra y Marte
     const dots = this.add.graphics();
     for (let x = 96; x <= 544; x += 14) {
       dots.fillStyle(x < 380 ? 0xfee761 : 0x5a6988, 1);
       dots.fillRect(x, 75, 6, 3);
     }
 
-    // Sobre animado cruzando de la Tierra a Marte
     const envRect = this.add
       .rectangle(0, 0, 22, 15, 0xffffff)
       .setStrokeStyle(1, 0x181425);
@@ -115,50 +114,55 @@ export class Transmision extends Phaser.Scene {
       color: '#fee761',
     });
 
-    this.add
-      .text(192, 138, uiText.transmision.safeWindowLabel, {
+    if (state.base.antennaOk) {
+      this.add
+        .text(192, 138, uiText.transmision.safeWindowLabel, {
+          fontFamily: 'PixelifySans, monospace',
+          fontSize: '11px',
+          color: '#fee761',
+        })
+        .setOrigin(0.5, 0);
+
+      const chartBaseY = 222;
+      meda.tempsC.forEach((tempC, idx) => {
+        const bx = 44 + idx * 19;
+        const barH = Math.max(6, Math.round(((tempC + 90) / 90) * 62));
+        const hourNum = Number(meda.hours[idx]);
+        const isSafe = hourNum >= 9 && hourNum <= 17;
+        this.add
+          .rectangle(bx, chartBaseY, 14, barH, isSafe ? 0x63c74d : 0x5a6988)
+          .setOrigin(0, 1);
+      });
+
+      this.add
+        .rectangle(99, 154, 174, 69)
+        .setOrigin(0, 0)
+        .setStrokeStyle(1, 0xfee761);
+
+      const hourLabels = [
+        { h: '06', x: 44 },
+        { h: '09', x: 101 },
+        { h: '12', x: 158 },
+        { h: '15', x: 215 },
+        { h: '18', x: 272 },
+      ];
+      for (const hl of hourLabels) {
+        this.add.text(hl.x, 225, hl.h, {
+          fontFamily: 'PixelifySans, monospace',
+          fontSize: '10px',
+          color: '#c0cbdc',
+        });
+      }
+
+      this.drawHonestyTag(34, 244, meda.label, meda.source);
+    } else {
+      this.add.text(34, 160, uiText.transmision.antennaBrokenNotice, {
         fontFamily: 'PixelifySans, monospace',
         fontSize: '11px',
-        color: '#fee761',
-      })
-      .setOrigin(0.5, 0);
-
-    // Barras horarias de 06:00 a 18:00 (09:00 a 17:00 resaltadas en verde #63c74d)
-    const chartBaseY = 222;
-    meda.tempsC.forEach((tempC, idx) => {
-      const bx = 44 + idx * 19;
-      // Normalizamos de -90..0 °C a altura 8..62 px
-      const barH = Math.max(6, Math.round(((tempC + 90) / 90) * 62));
-      const hourNum = Number(meda.hours[idx]);
-      const isSafe = hourNum >= 9 && hourNum <= 17;
-      this.add
-        .rectangle(bx, chartBaseY, 14, barH, isSafe ? 0x63c74d : 0x5a6988)
-        .setOrigin(0, 1);
-    });
-
-    // Marco amarillo de ventana segura (09:00 a 17:00 = índices 3 a 11)
-    this.add
-      .rectangle(99, 154, 174, 69)
-      .setOrigin(0, 0)
-      .setStrokeStyle(1, 0xfee761);
-
-    // Etiquetas de horas 06, 09, 12, 15, 18
-    const hourLabels = [
-      { h: '06', x: 44 },
-      { h: '09', x: 101 },
-      { h: '12', x: 158 },
-      { h: '15', x: 215 },
-      { h: '18', x: 272 },
-    ];
-    for (const hl of hourLabels) {
-      this.add.text(hl.x, 225, hl.h, {
-        fontFamily: 'PixelifySans, monospace',
-        fontSize: '10px',
         color: '#c0cbdc',
+        wordWrap: { width: 266 },
       });
     }
-
-    this.drawHonestyTag(34, 244, meda.label, meda.source);
 
     // 4. Tarjeta 2 (arriba derecha): ALERTA SOLAR (events.json DONKI)
     const solar = Data.getSolarAlert(state.day);
@@ -173,28 +177,39 @@ export class Transmision extends Phaser.Scene {
       color: '#fee761',
     });
 
-    this.add.text(
-      336,
-      136,
-      solar.hasAlert
-        ? uiText.transmision.solarAlertStorm
-        : uiText.transmision.solarAlertCalm,
-      {
+    if (state.base.antennaOk) {
+      const alertDesc =
+        state.day === 3
+          ? uiText.transmision.solarAlertDay3
+          : state.day === 5
+            ? uiText.transmision.solarAlertDay5
+            : solar.hasAlert
+              ? uiText.transmision.solarAlertStorm
+              : uiText.transmision.solarAlertCalm;
+
+      this.add.text(336, 136, alertDesc, {
         fontFamily: 'PixelifySans, monospace',
         fontSize: '11px',
         color: '#ffffff',
         lineSpacing: 1,
-      }
-    );
+      });
 
-    this.drawHonestyTag(
-      336,
-      162,
-      solar.label,
-      `${solar.source} · ${solar.activityId} · ${solar.speedText}`
-    );
+      this.drawHonestyTag(
+        336,
+        162,
+        solar.label,
+        `${solar.source} · ${solar.activityId} · ${solar.speedText}`
+      );
+    } else {
+      this.add.text(336, 142, uiText.transmision.antennaBrokenNotice, {
+        fontFamily: 'PixelifySans, monospace',
+        fontSize: '10px',
+        color: '#c0cbdc',
+        wordWrap: { width: 274 },
+      });
+    }
 
-    // 5. Tarjeta 3 (centro derecha): CUOTA Y ENVÍO (SIMULADO)
+    // 5. Tarjeta 3 (centro derecha): CUOTA Y ENVÍO (SIMULADO - siempre llega)
     this.add
       .rectangle(326, 186, 292, 64, 0x262b44)
       .setOrigin(0, 0)
@@ -207,7 +222,10 @@ export class Transmision extends Phaser.Scene {
     });
 
     const quotaParts: string[] = [];
-    if (state.quotaToday.roca > 0) quotaParts.push(`${state.quotaToday.roca} roca`);
+    if (state.quotaToday.roca > 0)
+      quotaParts.push(
+        `${state.quotaToday.roca} ${state.quotaToday.roca > 1 ? 'rocas' : 'roca'}`
+      );
     if (state.quotaToday.suelo > 0) quotaParts.push(`${state.quotaToday.suelo} suelo`);
     if (state.quotaToday.minerales > 0)
       quotaParts.push(`${state.quotaToday.minerales} minerales`);
@@ -243,14 +261,23 @@ export class Transmision extends Phaser.Scene {
       color: '#fee761',
     });
 
-    this.add.text(336, 275, mainFact.text, {
-      fontFamily: 'PixelifySans, monospace',
-      fontSize: '11px',
-      color: '#ffffff',
-      wordWrap: { width: 274 },
-    });
+    if (state.base.antennaOk) {
+      this.add.text(336, 275, mainFact.text, {
+        fontFamily: 'PixelifySans, monospace',
+        fontSize: '11px',
+        color: '#ffffff',
+        wordWrap: { width: 274 },
+      });
 
-    this.drawNasaSealAndTag(336, 308, mainFact.source, mainFact.label);
+      this.drawNasaSealAndTag(336, 308, mainFact.source, mainFact.label);
+    } else {
+      this.add.text(336, 280, uiText.transmision.antennaBrokenNotice, {
+        fontFamily: 'PixelifySans, monospace',
+        fontSize: '10px',
+        color: '#c0cbdc',
+        wordWrap: { width: 274 },
+      });
+    }
 
     // 7. Nota inferior izquierda y botón "Empezar el día"
     this.add.text(24, 274, uiText.transmision.footerNote, {

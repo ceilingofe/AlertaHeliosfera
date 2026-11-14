@@ -1,6 +1,7 @@
+import corviQaData from '../../content/corvi_qa.json';
 import daysData from '../../content/days.json';
 import factsData from '../../content/facts.json';
-import type { Label, SampleType } from '../types';
+import type { GameState, Label, Mood, SampleType } from '../types';
 
 export interface FactEntry {
   id: string;
@@ -10,11 +11,31 @@ export interface FactEntry {
   source: string;
 }
 
+export interface CorviAnswerPage {
+  mood: Mood;
+  text: string;
+  source?: string;
+}
+
+export interface CorviQAEntry {
+  id: string;
+  q: string;
+  unlock: string;
+  a: CorviAnswerPage[];
+}
+
+export interface DayEventScript {
+  type: 'dust' | 'moxie_pipes' | 'antenna' | 'cme_hit' | 'cme_miss' | 'cold_night';
+  at?: string;
+  panels?: string[];
+  eventId?: string;
+}
+
 export interface DayScriptEntry {
   day: number;
   durationSec: number;
   quota: Partial<Record<SampleType, number>>;
-  events: { type: string; at?: string; panels?: string[]; eventId?: string }[];
+  events: DayEventScript[];
   endHook?: string;
   factIds: string[];
   corviIntro?: string;
@@ -38,8 +59,18 @@ export interface MedaForecastInfo {
 
 export interface SolarAlertInfo {
   hasAlert: boolean;
+  eventType: 'cme_hit' | 'cme_miss' | 'none';
   activityId: string;
   speedText: string;
+  label: Label;
+  source: string;
+}
+
+export interface DonkiCuratedEvent {
+  id: string;
+  type: 'cme_hit' | 'cme_miss';
+  donkiActivityID: string;
+  speedKmS: string | number;
   label: Label;
   source: string;
 }
@@ -85,7 +116,17 @@ export class Data {
   static getFactsForDay(day: number): FactEntry[] {
     const script = Data.getDayScript(day);
     if (script && script.factIds.length > 0) {
-      return script.factIds.map((id) => Data.getFactById(id));
+      const ids = [...script.factIds];
+      const list = factsData as FactEntry[];
+      let idx = 0;
+      while (ids.length < 3) {
+        const candidate = list[(day + idx) % list.length].id;
+        if (!ids.includes(candidate)) {
+          ids.push(candidate);
+        }
+        idx += 1;
+      }
+      return ids.slice(0, 3).map((id) => Data.getFactById(id));
     }
     const list = factsData as FactEntry[];
     const start = ((day - 1) * 3) % list.length;
@@ -94,6 +135,54 @@ export class Data {
       list[(start + 1) % list.length],
       list[(start + 2) % list.length],
     ];
+  }
+
+  /**
+   * Devuelve las preguntas de Corvi desbloqueadas hasta el día actual.
+   */
+  static getUnlockedCorviQA(stateOrDay: GameState | number): CorviQAEntry[] {
+    const day = typeof stateOrDay === 'number' ? stateOrDay : stateOrDay.day;
+    const all = corviQaData as CorviQAEntry[];
+    return all.filter((entry) => {
+      if (entry.unlock === 'start') return true;
+      if (entry.unlock.startsWith('day')) {
+        const minDay = Number(entry.unlock.replace('day', ''));
+        return day >= minDay;
+      }
+      return true;
+    });
+  }
+
+  /**
+   * Obtiene un evento curado de DONKI por su id ('cme_mayo_2024' o 'cme_falsa_alarma').
+   */
+  static getDonkiEventById(
+    eventId: string,
+    rawEvents: unknown = Data.eventsCache
+  ): DonkiCuratedEvent {
+    const obj = rawEvents as
+      | {
+          curated?: {
+            id?: string;
+            type?: 'cme_hit' | 'cme_miss';
+            donkiActivityID?: string;
+            speedKmS?: string | number;
+            label?: Label;
+            source?: string;
+          }[];
+        }
+      | null
+      | undefined;
+
+    const found = obj?.curated?.find((e) => e.id === eventId);
+    return {
+      id: found?.id ?? eventId,
+      type: found?.type ?? (eventId === 'cme_falsa_alarma' ? 'cme_miss' : 'cme_hit'),
+      donkiActivityID: found?.donkiActivityID ?? 'TODO_DATO',
+      speedKmS: found?.speedKmS ?? 'TODO_DATO',
+      label: found?.label ?? 'ARCHIVO REAL',
+      source: found?.source ?? 'DONKI',
+    };
   }
 
   /**
@@ -176,26 +265,17 @@ export class Data {
    * Obtiene la alerta solar desde events.json (DONKI).
    */
   static getSolarAlert(day: number, rawEvents: unknown = Data.eventsCache): SolarAlertInfo {
-    const obj = rawEvents as
-      | {
-          curated?: {
-            id?: string;
-            donkiActivityID?: string;
-            speedKmS?: unknown;
-            source?: string;
-          }[];
-        }
-      | null
-      | undefined;
-
-    const cme = obj?.curated?.find((e) => e.id === 'cme_mayo_2024');
-    const rawId = cme?.donkiActivityID ?? 'TODO_DATO';
+    const targetId = day === 5 ? 'cme_falsa_alarma' : 'cme_mayo_2024';
+    const ev = Data.getDonkiEventById(targetId, rawEvents);
+    const rawId = ev.donkiActivityID;
     const shortId = rawId.startsWith('TODO_DATO') ? 'TODO_DATO · CME-2024-05' : rawId;
     const speedText =
-      typeof cme?.speedKmS === 'number' ? `${cme.speedKmS} km/s` : 'TODO_DATO km/s';
+      typeof ev.speedKmS === 'number' ? `${ev.speedKmS} km/s` : 'TODO_DATO km/s';
 
+    const hasAlert = day <= 3 || day === 5;
     return {
-      hasAlert: day <= 3,
+      hasAlert,
+      eventType: day === 5 ? 'cme_miss' : day <= 3 ? 'cme_hit' : 'none',
       activityId: shortId,
       speedText,
       label: 'ARCHIVO REAL',

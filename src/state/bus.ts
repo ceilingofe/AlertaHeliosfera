@@ -15,6 +15,7 @@ export interface GameEvents {
   'dialog:open': DialogMessage;
   'dialog:closed': undefined;
   'minigame:finished': MinigameResult;
+  'tool:changed': { index: number };
 }
 
 type Handler<T> = (payload: T) => void;

@@ -4,8 +4,19 @@ import uiText from '../../content/ui_text.json';
 import { bus } from '../state/bus';
 import { gameStore } from '../state/GameState';
 import { Clock } from '../systems/Clock';
+import { Events } from '../systems/Events';
 import { Quota } from '../systems/Quota';
+import type { SampleType } from '../types';
 import { TouchControls } from '../ui/Joystick';
+
+const MINIGAME_KEYS = [
+  'MinijuegoRoca',
+  'MinijuegoSuelo',
+  'MinijuegoMinerales',
+  'MinijuegoAire',
+  'MinijuegoPaneles',
+  'MinijuegoTuberias',
+] as const;
 
 /**
  * Escena HUD en paralelo a zoom ×1 sobre el lienzo de 640×360.
@@ -33,6 +44,8 @@ export class HUD extends Phaser.Scene {
   private radTodayFill!: Phaser.GameObjects.Rectangle;
   private radTotalFill!: Phaser.GameObjects.Rectangle;
 
+  private toolSlots: Phaser.GameObjects.Rectangle[] = [];
+
   private boxCountText!: Phaser.GameObjects.Text;
   private tubeSprites: Phaser.GameObjects.Image[] = [];
 
@@ -52,6 +65,7 @@ export class HUD extends Phaser.Scene {
     this.tubeSprites = [];
     this.missionCheckBoxes = [];
     this.missionLabels = [];
+    this.toolSlots = [];
     this.unsubscribers = [];
 
     // 1. Arriba izquierda: MISIONES DEL DÍA
@@ -235,11 +249,12 @@ export class HUD extends Phaser.Scene {
     toolIcons.forEach((iconKey, idx) => {
       const slotX = 268 + idx * 26;
       const slotY = 338;
-      this.add
+      const slotBg = this.add
         .rectangle(slotX, slotY, 22, 22, idx === 0 ? 0xfee761 : 0xffffff)
         .setOrigin(0.5)
         .setStrokeStyle(1, 0x181425);
       this.add.image(slotX, slotY, iconKey).setScale(2);
+      this.toolSlots.push(slotBg);
     });
 
     // 6. Abajo derecha: Caja de tubos (CAJA n/6)
@@ -321,6 +336,11 @@ export class HUD extends Phaser.Scene {
       bus.on('zone:changed', ({ name }) => {
         this.zoneText.setText(`↑ ${name}`);
       }),
+      bus.on('tool:changed', ({ index }) => {
+        this.toolSlots.forEach((slot, idx) => {
+          slot.setFillStyle(idx === index ? 0xfee761 : 0xffffff);
+        });
+      }),
       bus.on('clock:warn16', () => {
         this.showRadioMessage(uiText.hud.radioWarn16);
       }),
@@ -356,33 +376,72 @@ export class HUD extends Phaser.Scene {
   update(time: number): void {
     const state = gameStore.state;
 
-    // Ocultar el HUD cuando corre un minijuego encima
-    const inMinigame = this.scene.isActive('MinijuegoRoca');
+    // Ocultar el HUD cuando corre cualquiera de los 6 minijuegos encima
+    const inMinigame = MINIGAME_KEYS.some((k) => this.scene.isActive(k));
     this.cameras.main.setVisible(!inMinigame);
     if (inMinigame) return;
 
-    this.missionsContainer.setVisible(state.location === 'mundo');
+    const stormActive = Events.getActiveStorm() !== null;
+    this.missionsContainer.setVisible(state.location === 'mundo' && !stormActive);
 
-    // Actualizar texto y casillas de MISIONES DEL DÍA según la cuota
-    const rockReq = state.quotaToday.roca || 1;
-    const rockCarryOrDelivered =
-      state.deliveredToday.roca +
-      state.tubes.filter((t) => t === 'roca').length;
-    const m0Done = Quota.isTypeMet(state, 'roca');
-    const m1Done = rockCarryOrDelivered >= rockReq;
-    const m2Done =
-      state.location !== 'mundo' && state.clock.minutes < balance.dayClock.curfewMin;
+    // Actualizar texto y casillas de MISIONES DEL DÍA según la cuota y eventos activos
+    const dynamicMissions: { label: string; done: boolean }[] = [];
+    const typeNameMap: Record<SampleType, string> = {
+      roca: uiText.hud.missionRockUnit,
+      suelo: uiText.hud.missionSoilUnit,
+      minerales: uiText.hud.missionMineralsUnit,
+      aire: uiText.hud.missionAirUnit,
+    };
 
-    this.missionLabels[0].setText(
-      `${uiText.hud.missionRockPrefix} ${rockReq} ${uiText.hud.missionRockUnit}`
-    );
-    this.missionLabels[1].setText(uiText.hud.defaultMissionExplore);
-    this.missionLabels[2].setText(uiText.hud.defaultMissionReturn);
+    for (const t of ['roca', 'suelo', 'minerales', 'aire'] as SampleType[]) {
+      const req = state.quotaToday[t] ?? 0;
+      if (req > 0) {
+        const unitLabel =
+          t === 'roca' && req > 1 ? uiText.hud.missionRocksUnit : typeNameMap[t];
+        dynamicMissions.push({
+          label: `${uiText.hud.missionRockPrefix} ${req} ${unitLabel}`,
+          done: Quota.isTypeMet(state, t),
+        });
+      }
+    }
 
-    const states = [m0Done, m1Done, m2Done];
+    if (state.activeEvents.includes('dust')) {
+      dynamicMissions.push({
+        label: uiText.hud.missionCleanPanel,
+        done: false,
+      });
+    }
+    if (!state.base.moxieOk) {
+      dynamicMissions.push({
+        label: uiText.hud.missionFixMoxie,
+        done: false,
+      });
+    }
+
+    while (dynamicMissions.length < 3) {
+      if (dynamicMissions.length === 1) {
+        dynamicMissions.push({
+          label: uiText.hud.defaultMissionExplore,
+          done:
+            state.deliveredToday.roca +
+              state.tubes.filter((t) => t !== null).length >
+            0,
+        });
+      } else {
+        dynamicMissions.push({
+          label: uiText.hud.defaultMissionReturn,
+          done:
+            state.location !== 'mundo' &&
+            state.clock.minutes < balance.dayClock.curfewMin,
+        });
+      }
+    }
+
     this.missionCheckBoxes.forEach((box, idx) => {
-      box.setFillStyle(states[idx] ? 0x2ce8f5 : 0xffffff);
-      this.missionLabels[idx].setColor(states[idx] ? '#5a6988' : '#181425');
+      const item = dynamicMissions[idx];
+      this.missionLabels[idx].setText(item.label);
+      box.setFillStyle(item.done ? 0x2ce8f5 : 0xffffff);
+      this.missionLabels[idx].setColor(item.done ? '#5a6988' : '#181425');
     });
 
     // Actualizar día y reloj

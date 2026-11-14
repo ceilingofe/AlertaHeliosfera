@@ -1,5 +1,6 @@
 import balance from '../../content/balance.json';
-import type { GameState, SampleType } from '../types';
+import type { Accessory, GameState, SampleType } from '../types';
+import { Events } from './Events';
 import { Quota } from './Quota';
 import { Vitals } from './Vitals';
 
@@ -150,8 +151,21 @@ export class BaseSystem {
     state.clock.minutes = balance.dayClock.startMin;
     state.clock.paused = false;
 
+    // Desbloquear accesorios según el día alcanzado (sección 9.6 y 10.8)
+    const accMap = balance.unlocks.accessories as Record<string, Accessory[]>;
+    for (const [dayKey, items] of Object.entries(accMap)) {
+      if (state.day >= Number(dayKey)) {
+        for (const acc of items) {
+          if (!state.unlocks.accessories.includes(acc)) {
+            state.unlocks.accessories.push(acc);
+          }
+        }
+      }
+    }
+
     Vitals.resetDailyDose(state);
     Quota.applyDailyQuota(state);
+    Events.initDay(state);
 
     if (bonus === 'extra') {
       state.base.o2Reserve = balance.supplies.extra.reserve;
