@@ -74,6 +74,7 @@ export class Noche extends Phaser.Scene {
 
     this.add.text(350, 22, uiText.night.learnedTitle, {
       fontFamily: 'PixelifySans, monospace',
+      resolution: 2,
       fontSize: '18px',
       color: '#181425',
     });
@@ -84,6 +85,7 @@ export class Noche extends Phaser.Scene {
       `${uiText.night.dayPassedPrefix} ${completedDay} ${uiText.night.dayPassedSuffix}`,
       {
         fontFamily: 'PixelifySans, monospace',
+        resolution: 2,
         fontSize: '11px',
         color: '#5a6988',
       }
@@ -95,12 +97,16 @@ export class Noche extends Phaser.Scene {
       this.add.image(364, fy + 16, `icon_${fact.icon}`).setScale(1.8);
       this.add.text(378, fy + 6, fact.text, {
         fontFamily: 'PixelifySans, monospace',
+        resolution: 2,
         fontSize: '11px',
         color: '#181425',
         wordWrap: { width: 230 },
       });
       this.add.text(378, fy + 33, `★ ${fact.label} · ${fact.source}`, {
         fontFamily: 'PixelifySans, monospace',
+        resolution: 2,
+        fontSize: '10px',
+        color: '#5a6988',
         fontSize: '9px',
         color: '#be4a2f',
       });
@@ -115,11 +121,13 @@ export class Noche extends Phaser.Scene {
     this.add.rectangle(350, 230, 264, 38, 0xfee761).setOrigin(0, 0);
     this.add.text(360, 234, unlockTitle, {
       fontFamily: 'PixelifySans, monospace',
+      resolution: 2,
       fontSize: '11px',
       color: '#181425',
     });
     this.add.text(360, 250, unlockSub, {
       fontFamily: 'PixelifySans, monospace',
+      resolution: 2,
       fontSize: '10px',
       color: '#be4a2f',
     });
@@ -134,6 +142,7 @@ export class Noche extends Phaser.Scene {
     this.add
       .text(482, 292, `${uiText.night.sleepButtonPrefix} ${nextDay}`, {
         fontFamily: 'PixelifySans, monospace',
+        resolution: 2,
         fontSize: '14px',
         color: '#ffffff',
       })
@@ -147,12 +156,14 @@ export class Noche extends Phaser.Scene {
     namePlate.setStrokeStyle(2, 0x181425);
     this.add.text(130, 256, uiText.night.corviTitle, {
       fontFamily: 'PixelifySans, monospace',
+      resolution: 2,
       fontSize: '14px',
       color: '#fee761',
     });
     this.add.text(130, 271, uiText.night.corviRole, {
       fontFamily: 'PixelifySans, monospace',
-      fontSize: '9px',
+      resolution: 2,
+      fontSize: '10px',
       color: '#c0cbdc',
     });
 
@@ -169,6 +180,7 @@ export class Noche extends Phaser.Scene {
 
     this.add.text(124, 290, hookText, {
       fontFamily: 'PixelifySans, monospace',
+      resolution: 2,
       fontSize: '11px',
       color: '#181425',
       lineSpacing: 2,
@@ -178,6 +190,7 @@ export class Noche extends Phaser.Scene {
     seal.setStrokeStyle(1, 0x181425);
     this.add.text(130, 332, `★ ${sealLabel}`, {
       fontFamily: 'PixelifySans, monospace',
+      resolution: 2,
       fontSize: '10px',
       color: '#181425',
     });

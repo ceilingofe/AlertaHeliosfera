@@ -37,6 +37,7 @@ export class Rescate extends Phaser.Scene {
     this.add
       .text(320, 14, bannerTitle, {
         fontFamily: 'PixelifySans, monospace',
+        resolution: 2,
         fontSize: '16px',
         color: '#fee761',
       })
@@ -48,6 +49,7 @@ export class Rescate extends Phaser.Scene {
 
     this.add.text(18, 44, uiText.rescue.whatHappenedTitle, {
       fontFamily: 'PixelifySans, monospace',
+      resolution: 2,
       fontSize: '13px',
       color: '#5a6988',
     });
@@ -59,6 +61,7 @@ export class Rescate extends Phaser.Scene {
 
     this.add.text(18, 62, causeText, {
       fontFamily: 'PixelifySans, monospace',
+      resolution: 2,
       fontSize: '13px',
       color: '#181425',
       lineSpacing: 2,
@@ -66,6 +69,7 @@ export class Rescate extends Phaser.Scene {
 
     this.add.text(18, 100, tipText, {
       fontFamily: 'PixelifySans, monospace',
+      resolution: 2,
       fontSize: '12px',
       color: '#be4a2f',
     });
@@ -98,11 +102,13 @@ export class Rescate extends Phaser.Scene {
     namePlate.setStrokeStyle(2, 0x181425);
     this.add.text(190, 269, uiText.rescue.corviName, {
       fontFamily: 'PixelifySans, monospace',
+      resolution: 2,
       fontSize: '15px',
       color: '#fee761',
     });
     this.add.text(190, 284, uiText.rescue.corviRole, {
       fontFamily: 'PixelifySans, monospace',
+      resolution: 2,
       fontSize: '10px',
       color: '#c0cbdc',
     });
@@ -113,6 +119,7 @@ export class Rescate extends Phaser.Scene {
 
     this.add.text(188, 306, uiText.rescue.corviMessage, {
       fontFamily: 'PixelifySans, monospace',
+      resolution: 2,
       fontSize: '14px',
       color: '#181425',
       lineSpacing: 4,
@@ -121,6 +128,7 @@ export class Rescate extends Phaser.Scene {
     this.add
       .text(618, 344, uiText.rescue.retryButton, {
         fontFamily: 'PixelifySans, monospace',
+        resolution: 2,
         fontSize: '11px',
         color: '#3e2731',
       })
