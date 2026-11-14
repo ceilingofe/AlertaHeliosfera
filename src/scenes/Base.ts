@@ -323,6 +323,9 @@ export class Base extends Phaser.Scene {
     if (!this.scene.isActive('HUD')) {
       this.scene.launch('HUD');
     }
+    if (!this.scene.isActive('Dialogo')) {
+      this.scene.launch('Dialogo');
+    }
 
     bus.emit('zone:changed', {
       name:
@@ -570,14 +573,13 @@ export class Base extends Phaser.Scene {
         this.tryExitToWorld();
         break;
       case 'corvi':
-        bus.emit('interact:prompt', { text: uiText.base.corviGreeting });
-        if (!this.scene.isActive('Dialogo')) {
-          this.scene.launch('Dialogo', {
-            lines: [uiText.base.corviGreeting],
-            mode: 'big',
-            pose: 'happy',
-          });
-        }
+        bus.emit('dialog:open', {
+          mode: 'big',
+          mood: 'happy',
+          text: uiText.base.corviGreeting,
+          source: 'Perseverance MOXIE',
+          label: 'ARCHIVO REAL',
+        });
         break;
     }
   }
