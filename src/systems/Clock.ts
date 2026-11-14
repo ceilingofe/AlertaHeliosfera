@@ -14,9 +14,9 @@ export interface ClockTickResult {
 export class Clock {
   /**
    * Obtiene la duración real en segundos de la jornada.
-   * SUPUESTO: Por defecto usa 300 s (criterio de aceptación de Fase 1); cuando se activa el guion del día 1 en Fase 3, usa 150 s.
+   * En el día 1 dura 150 s (sección 7.1 y Fase 3); los demás días duran 300 s.
    */
-  static getDayDurationSec(day: number, useDay1Short = false): number {
+  static getDayDurationSec(day: number, useDay1Short = true): number {
     if (useDay1Short && day === 1) {
       return balance.dayClock.day1Sec;
     }
@@ -29,7 +29,7 @@ export class Clock {
   static tick(
     state: GameState,
     dt: number,
-    durationSec: number = balance.dayClock.daySec
+    durationSec: number = Clock.getDayDurationSec(state.day, true)
   ): ClockTickResult {
     const result: ClockTickResult = {
       warned16: false,

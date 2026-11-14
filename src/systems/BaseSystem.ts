@@ -1,5 +1,6 @@
 import balance from '../../content/balance.json';
 import type { GameState, SampleType } from '../types';
+import { Quota } from './Quota';
 import { Vitals } from './Vitals';
 
 const SAMPLE_TYPES: SampleType[] = ['roca', 'suelo', 'minerales', 'aire'];
@@ -10,10 +11,6 @@ const SAMPLE_TYPES: SampleType[] = ['roca', 'suelo', 'minerales', 'aire'];
  * Escrito en TypeScript puro sin depender de Phaser.
  */
 export class BaseSystem {
-  /**
-   * Calcula la energía objetivo según el polvo promedio de los 3 paneles solares:
-   * 100 * (1 - promedio de dust).
-   */
   static getTargetEnergy(state: GameState): number {
     const panels = state.base.panels;
     if (panels.length === 0) return 0;
@@ -22,9 +19,6 @@ export class BaseSystem {
     return Math.max(0, Math.min(100, 100 * (1 - avgDust)));
   }
 
-  /**
-   * Avanza la simulación de energía solar y producción de O₂ de MOXIE.
-   */
   static tick(
     state: GameState,
     dt: number,
@@ -39,7 +33,6 @@ export class BaseSystem {
     const gameHoursDelta = gameMinutesDelta / 60;
     const isNight = state.clock.minutes >= balance.dayClock.curfewMin;
 
-    // 1. Energía de la base (sección 7.5)
     if (isNight) {
       const loss = balance.base.nightEnergyLossPerGameMin * gameMinutesDelta;
       state.base.energy = Math.max(0, state.base.energy - loss);
@@ -53,7 +46,6 @@ export class BaseSystem {
       }
     }
 
-    // 2. Producción de oxígeno de MOXIE (sección 7.5)
     if (state.base.energy > balance.base.moxieMinEnergy && state.base.moxieOk) {
       const o2Produced = balance.base.moxieFillPerGameHour * gameHoursDelta;
       state.base.o2Reserve = Math.min(100, state.base.o2Reserve + o2Produced);
@@ -61,11 +53,6 @@ export class BaseSystem {
     }
   }
 
-  /**
-   * Recarga el oxígeno del traje a 25 puntos/s mientras haya reserva de MOXIE y energía.
-   * Cada punto que sube el traje baja 0.5 de la reserva de la base (sección 7.2).
-   * Devuelve cuántos puntos de O₂ subió el traje.
-   */
   static refillO2(state: GameState, dt: number): number {
     if (dt <= 0 || state.base.energy <= 0 || state.base.o2Reserve <= 0) {
       return 0;
@@ -89,10 +76,6 @@ export class BaseSystem {
     return addedO2;
   }
 
-  /**
-   * Calienta el traje a 21 °C y recarga la batería del calefactor a 20 puntos/s (sección 7.3).
-   * Devuelve cuántos puntos de batería se recargaron.
-   */
   static rechargeHeater(state: GameState, dt: number): number {
     state.astronaut.suitTempC = balance.heater.suitC;
     if (dt <= 0 || state.base.energy <= 0) {
@@ -109,10 +92,6 @@ export class BaseSystem {
     return added;
   }
 
-  /**
-   * Entrega los tubos recolectados en la mesa de muestras de la base (sección 7.6).
-   * Devuelve el número de tubos entregados.
-   */
   static deliverTubes(state: GameState, multiplier = 1): number {
     let deliveredCount = 0;
     for (let i = 0; i < state.tubes.length; i++) {
@@ -127,16 +106,10 @@ export class BaseSystem {
     return deliveredCount;
   }
 
-  /**
-   * La puerta de la base no permite salir después de las 17:00 (1020 min, sección 7.1).
-   */
   static canExitToWorld(state: GameState): boolean {
     return state.clock.minutes < balance.dayClock.curfewMin;
   }
 
-  /**
-   * Evalúa el cumplimiento de la cuota del día: 'extra', 'normal' o 'menos' (sección 7.6).
-   */
   static evaluateDailyQuota(state: GameState): 'menos' | 'normal' | 'extra' {
     let metAll = true;
     let totalDelivered = 0;
@@ -161,13 +134,6 @@ export class BaseSystem {
     return 'normal';
   }
 
-  /**
-   * Procesa el fin del día al dormir:
-   * - Sube daysSurvived y pasa al día siguiente (day + 1)
-   * - Reinicia doseToday a 0 manteniendo doseTotal intacta
-   * - Aplica el efecto de envío en la reserva de la base
-   * - Reinicia el reloj a las 09:00
-   */
   static sleepToNextDay(
     state: GameState,
     forcedBonus?: 'menos' | 'normal' | 'extra'
@@ -176,7 +142,6 @@ export class BaseSystem {
     state.supplyBonus = bonus;
     state.stats.daysSurvived = state.day;
 
-    // Desbloqueo de personalización al terminar el día 1 (sección 9.6)
     if (state.day >= balance.unlocks.customizationDay) {
       state.unlocks.customization = true;
     }
@@ -185,16 +150,12 @@ export class BaseSystem {
     state.clock.minutes = balance.dayClock.startMin;
     state.clock.paused = false;
 
-    // La dosis del día se reinicia a 0, pero doseTotal nunca baja (sección 7.4)
     Vitals.resetDailyDose(state);
+    Quota.applyDailyQuota(state);
 
-    // Aplicar suministros del nuevo día según cuota (sección 7.6)
     if (bonus === 'extra') {
       state.base.o2Reserve = balance.supplies.extra.reserve;
-      state.astronaut.heaterBattery = Math.min(
-        100,
-        100 + balance.supplies.extra.batteryBonus - 30
-      );
+      state.astronaut.heaterBattery = 100;
     } else if (bonus === 'normal') {
       state.base.o2Reserve = balance.supplies.normal.reserve;
       state.astronaut.heaterBattery = 100;

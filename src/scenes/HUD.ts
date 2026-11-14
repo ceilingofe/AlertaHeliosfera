@@ -4,14 +4,18 @@ import uiText from '../../content/ui_text.json';
 import { bus } from '../state/bus';
 import { gameStore } from '../state/GameState';
 import { Clock } from '../systems/Clock';
+import { Quota } from '../systems/Quota';
 import { TouchControls } from '../ui/Joystick';
 
 /**
  * Escena HUD en paralelo a zoom ×1 sobre el lienzo de 640×360.
- * Dibuja misiones, reloj, signos vitales del traje, barra de herramientas, caja de tubos y joystick.
+ * Dibuja misiones con casillas dinámicas, reloj, signos vitales, herramientas, tubos y joystick.
  */
 export class HUD extends Phaser.Scene {
   private missionsContainer!: Phaser.GameObjects.Container;
+  private missionCheckBoxes: Phaser.GameObjects.Rectangle[] = [];
+  private missionLabels: Phaser.GameObjects.Text[] = [];
+
   private dayText!: Phaser.GameObjects.Text;
   private timeText!: Phaser.GameObjects.Text;
   private dayBarFill!: Phaser.GameObjects.Rectangle;
@@ -46,9 +50,11 @@ export class HUD extends Phaser.Scene {
 
   create(): void {
     this.tubeSprites = [];
+    this.missionCheckBoxes = [];
+    this.missionLabels = [];
     this.unsubscribers = [];
 
-    // 1. Arriba izquierda: MISIONES DEL DÍA (visible en Mundo; en Base deja lugar al Panel de la Base)
+    // 1. Arriba izquierda: MISIONES DEL DÍA
     const mBg = this.createPanel(8, 6, 198, 68, 0xc0cbdc);
     const mTitle = this.add.text(16, 11, uiText.hud.missionsTitle, {
       fontFamily: 'PixelifySans, monospace',
@@ -57,24 +63,21 @@ export class HUD extends Phaser.Scene {
     });
 
     const missionChildren: Phaser.GameObjects.GameObject[] = [mBg, mTitle];
-    const missions = [
-      uiText.hud.defaultMissionRock,
-      uiText.hud.defaultMissionExplore,
-      uiText.hud.defaultMissionReturn,
-    ];
-    missions.forEach((m, idx) => {
+    for (let idx = 0; idx < 3; idx++) {
       const y = 28 + idx * 14;
       const box = this.add
         .rectangle(20, y + 5, 9, 9, 0xffffff)
         .setOrigin(0.5)
         .setStrokeStyle(1, 0x181425);
-      const txt = this.add.text(30, y, m, {
+      const txt = this.add.text(30, y, '', {
         fontFamily: 'PixelifySans, monospace',
         fontSize: '11px',
         color: '#181425',
       });
+      this.missionCheckBoxes.push(box);
+      this.missionLabels.push(txt);
       missionChildren.push(box, txt);
-    });
+    }
     this.missionsContainer = this.add.container(0, 0, missionChildren);
 
     // 2. Arriba centro: cartel de zona actual
@@ -113,11 +116,10 @@ export class HUD extends Phaser.Scene {
       .rectangle(567, 42, 0, 6, 0xfee761)
       .setOrigin(0, 0.5);
 
-    // 4. Panel del astronauta (en y=198 para dejar libre el joystick abajo a la izquierda)
+    // 4. Panel del astronauta
     const panelY = 198;
     this.createPanel(8, panelY, 236, 78, 0xc0cbdc);
 
-    // Retrato pequeño a la izquierda
     this.add
       .rectangle(31, panelY + 33, 36, 46, 0x262b44)
       .setOrigin(0.5)
@@ -131,7 +133,6 @@ export class HUD extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    // Barra 1: Oxígeno (#2ce8f5)
     const row1Y = panelY + 8;
     this.add.image(60, row1Y + 6, 'icon_o2').setScale(1.5);
     this.add.text(70, row1Y, uiText.hud.o2Label, {
@@ -154,7 +155,6 @@ export class HUD extends Phaser.Scene {
       .rectangle(71, row1Y + 16, 164, 5, 0x2ce8f5)
       .setOrigin(0, 0.5);
 
-    // Barra 2: Temperatura del traje y calefactor (con zona cómoda 18–24 °C marcada en verde)
     const row2Y = panelY + 31;
     this.add.image(60, row2Y + 6, 'icon_temp').setScale(1.5);
     this.add.text(70, row2Y, uiText.hud.tempLabel, {
@@ -179,7 +179,6 @@ export class HUD extends Phaser.Scene {
     this.add.rectangle(168, row2Y + 16, 2, 9, 0x63c74d).setOrigin(0.5);
     this.add.rectangle(202, row2Y + 16, 2, 9, 0x63c74d).setOrigin(0.5);
 
-    // Barra 3: Radiación hoy y total (#feae34)
     const row3Y = panelY + 54;
     this.add.image(60, row3Y + 6, 'icon_rad').setScale(1.5);
     this.add.text(70, row3Y, uiText.hud.radLabel, {
@@ -250,10 +249,10 @@ export class HUD extends Phaser.Scene {
       this.tubeSprites.push(tubeImg);
     }
 
-    // 7. Controles táctiles: joystick abajo a la izquierda y botón de acción abajo a la derecha
+    // 7. Controles táctiles
     this.touchControls = new TouchControls(this, 44, 316, 598, 316);
 
-    // 8. Banner de radio de Corvi (avisos 40 %, 20 %, 16:00, 17:00 y mensajes de base)
+    // 8. Banner de radio de Corvi
     const radioBg = this.add
       .rectangle(320, 176, 396, 28, 0xead4aa, 0.98)
       .setOrigin(0.5)
@@ -269,7 +268,7 @@ export class HUD extends Phaser.Scene {
       .setVisible(false)
       .setDepth(50);
 
-    // 9. Cartel de pausa (Esc o toque para continuar)
+    // 9. Cartel de pausa
     const pauseDim = this.add
       .rectangle(320, 180, 640, 360, 0x181425, 0.65)
       .setInteractive();
@@ -298,10 +297,9 @@ export class HUD extends Phaser.Scene {
 
     this.pauseContainer = this.add
       .container(0, 0, [pauseDim, pauseBox, pauseTitle, pauseHint])
-      .setVisible(gameStore.state.clock.paused)
+      .setVisible(false)
       .setDepth(100);
 
-    // 10. Suscripción a eventos del bus
     this.unsubscribers.push(
       bus.on('zone:changed', ({ name }) => {
         this.zoneText.setText(`↑ ${name}`);
@@ -341,8 +339,34 @@ export class HUD extends Phaser.Scene {
   update(time: number): void {
     const state = gameStore.state;
 
-    // Mostrar MISIONES DEL DÍA en Mundo; en Base se muestra el Panel de la Base en esa esquina
+    // Ocultar el HUD cuando corre un minijuego encima
+    const inMinigame = this.scene.isActive('MinijuegoRoca');
+    this.cameras.main.setVisible(!inMinigame);
+    if (inMinigame) return;
+
     this.missionsContainer.setVisible(state.location === 'mundo');
+
+    // Actualizar texto y casillas de MISIONES DEL DÍA según la cuota
+    const rockReq = state.quotaToday.roca || 1;
+    const rockCarryOrDelivered =
+      state.deliveredToday.roca +
+      state.tubes.filter((t) => t === 'roca').length;
+    const m0Done = Quota.isTypeMet(state, 'roca');
+    const m1Done = rockCarryOrDelivered >= rockReq;
+    const m2Done =
+      state.location !== 'mundo' && state.clock.minutes < balance.dayClock.curfewMin;
+
+    this.missionLabels[0].setText(
+      `${uiText.hud.missionRockPrefix} ${rockReq} ${uiText.hud.missionRockUnit}`
+    );
+    this.missionLabels[1].setText(uiText.hud.defaultMissionExplore);
+    this.missionLabels[2].setText(uiText.hud.defaultMissionReturn);
+
+    const states = [m0Done, m1Done, m2Done];
+    this.missionCheckBoxes.forEach((box, idx) => {
+      box.setFillStyle(states[idx] ? 0x2ce8f5 : 0xffffff);
+      this.missionLabels[idx].setColor(states[idx] ? '#5a6988' : '#181425');
+    });
 
     // Actualizar día y reloj
     this.dayText.setText(`${uiText.hud.dayPrefix} ${state.day}`);
@@ -350,7 +374,7 @@ export class HUD extends Phaser.Scene {
     this.dayBarFill.width = Math.round(56 * Clock.getProgress(state.clock.minutes));
     this.skyIcon.setTexture(Clock.isNight(state.clock.minutes) ? 'icon_moon' : 'icon_sun');
 
-    // Actualizar barra de oxígeno (amarilla <= 40 %, roja parpadeando <= 20 %)
+    // Actualizar barra de oxígeno
     const o2 = Math.max(0, Math.min(100, state.astronaut.o2));
     this.o2ValueText.setText(`${Math.ceil(o2)} %`);
     this.o2BarFill.width = Math.round((164 * o2) / 100);

@@ -1,4 +1,4 @@
-import type { RescueCause, SampleType } from '../types';
+import type { DialogMessage, MinigameResult, RescueCause, SampleType } from '../types';
 
 export interface GameEvents {
   'clock:warn16': undefined;
@@ -12,6 +12,9 @@ export interface GameEvents {
   'zone:changed': { name: string };
   'interact:prompt': { text: string | null };
   'input:action': undefined;
+  'dialog:open': DialogMessage;
+  'dialog:closed': undefined;
+  'minigame:finished': MinigameResult;
 }
 
 type Handler<T> = (payload: T) => void;

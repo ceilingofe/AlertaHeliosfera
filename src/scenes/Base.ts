@@ -401,7 +401,7 @@ export class Base extends Phaser.Scene {
     }
 
     // 3. Reloj, signos vitales en base y sistemas de la base (paneles + MOXIE)
-    const durationSec = Clock.getDayDurationSec(state.day, false);
+    const durationSec = Clock.getDayDurationSec(state.day, true);
     const clockRes = Clock.tick(state, dt, durationSec);
     if (clockRes.warned16) bus.emit('clock:warn16');
     if (clockRes.curfew17) bus.emit('clock:curfew17');
@@ -571,6 +571,13 @@ export class Base extends Phaser.Scene {
         break;
       case 'corvi':
         bus.emit('interact:prompt', { text: uiText.base.corviGreeting });
+        if (!this.scene.isActive('Dialogo')) {
+          this.scene.launch('Dialogo', {
+            lines: [uiText.base.corviGreeting],
+            mode: 'big',
+            pose: 'happy',
+          });
+        }
         break;
     }
   }

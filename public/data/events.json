@@ -1,0 +1,31 @@
+{
+  "generatedAt": "2026-11-14",
+  "curated": [
+    {
+      "id": "cme_mayo_2024",
+      "type": "cme_hit",
+      "donkiActivityID": "TODO_DATO copiar de DONKI (formato 2024-05-..T..:..:00-CME-001)",
+      "startTime": "TODO_DATO",
+      "speedKmS": "TODO_DATO",
+      "halfAngleDeg": "TODO_DATO",
+      "arrivalMars": "2024-05-20",
+      "measured": {
+        "instrument": "Curiosity RAD",
+        "doseMicroGray": 8100,
+        "note": "como 30 radiografías de tórax según la NASA"
+      },
+      "label": "ARCHIVO REAL",
+      "source": "DONKI, NASA Curiosity RAD, NASA MAVEN",
+      "sourceUrl": "https://kauai.ccmc.gsfc.nasa.gov/DONKI/"
+    },
+    {
+      "id": "cme_falsa_alarma",
+      "type": "cme_miss",
+      "donkiActivityID": "TODO_DATO elegir en DONKI una CME cuyo modelo WSA-Enlil prediga roce o paso de lado de Marte",
+      "label": "ARCHIVO REAL",
+      "source": "DONKI WSA-Enlil",
+      "sourceUrl": "https://kauai.ccmc.gsfc.nasa.gov/DONKI/"
+    }
+  ],
+  "recent": []
+}
