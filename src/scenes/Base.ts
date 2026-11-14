@@ -248,10 +248,10 @@ export class Base extends Phaser.Scene {
       .setStrokeStyle(2, 0x181425)
       .setInteractive({ useHandCursor: true });
     this.add
-      .text(334, 294, 'E', {
+      .text(334, 294, 'SALIR', {
         fontFamily: 'PixelifySans, monospace',
         resolution: 2,
-        fontSize: '12px',
+        fontSize: '10px',
         color: '#fee761',
       })
       .setOrigin(0.5);
