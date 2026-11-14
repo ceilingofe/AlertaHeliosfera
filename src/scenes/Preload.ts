@@ -2,6 +2,8 @@ import Phaser from 'phaser';
 import uiText from '../../content/ui_text.json';
 import { gameStore } from '../state/GameState';
 import { Save } from '../state/Save';
+import { Data } from '../systems/Data';
+import { Quota } from '../systems/Quota';
 
 const SPRITE_KEYS = [
   'acc_antena',
@@ -56,8 +58,8 @@ const UI_ICON_KEYS = [
 ] as const;
 
 /**
- * Escena de precarga: carga todos los sprites e íconos con sus nombres nativos.
- * Si existe una partida guardada en localStorage, la restaura y retoma el día guardado.
+ * Escena de precarga: carga todos los sprites, íconos y JSON de datos NASA.
+ * Si no hay guardado va a Despegue (Día 1); si hay guardado retoma el día guardado.
  */
 export class Preload extends Phaser.Scene {
   constructor() {
@@ -99,18 +101,33 @@ export class Preload extends Phaser.Scene {
     for (const key of UI_ICON_KEYS) {
       this.load.image(key, `assets/ui/${key}.png`);
     }
+
+    // Cargar archivos de datos NASA desde public/data/
+    this.load.json('nasa_events', 'data/events.json');
+    this.load.json('nasa_meda', 'data/meda_jezero.json');
+    this.load.json('nasa_horizons', 'data/horizons_delay.json');
   }
 
   create(): void {
+    Data.setNasaDataCache({
+      events: this.cache.json.get('nasa_events'),
+      meda: this.cache.json.get('nasa_meda'),
+      horizons: this.cache.json.get('nasa_horizons'),
+    });
+
     const saved = Save.load();
     if (saved) {
       gameStore.reset(saved);
+      Quota.applyDailyQuota(gameStore.state);
       if (saved.location === 'base' || saved.location === 'refugio') {
         this.scene.start('Base');
         return;
       }
+      this.scene.start('Transmision');
+      return;
     }
 
-    this.scene.start('Mundo');
+    Quota.applyDailyQuota(gameStore.state);
+    this.scene.start('Despegue');
   }
 }

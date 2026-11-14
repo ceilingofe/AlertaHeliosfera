@@ -331,6 +331,9 @@ export class Base extends Phaser.Scene {
     if (!this.scene.isActive('HUD')) {
       this.scene.launch('HUD');
     }
+    if (!this.scene.isActive('Dialogo')) {
+      this.scene.launch('Dialogo');
+    }
 
     bus.emit('zone:changed', {
       name:
@@ -409,7 +412,7 @@ export class Base extends Phaser.Scene {
     }
 
     // 3. Reloj, signos vitales en base y sistemas de la base (paneles + MOXIE)
-    const durationSec = Clock.getDayDurationSec(state.day, false);
+    const durationSec = Clock.getDayDurationSec(state.day, true);
     const clockRes = Clock.tick(state, dt, durationSec);
     if (clockRes.warned16) bus.emit('clock:warn16');
     if (clockRes.curfew17) bus.emit('clock:curfew17');
@@ -579,7 +582,13 @@ export class Base extends Phaser.Scene {
         this.tryExitToWorld();
         break;
       case 'corvi':
-        bus.emit('interact:prompt', { text: uiText.base.corviGreeting });
+        bus.emit('dialog:open', {
+          mode: 'big',
+          mood: 'happy',
+          text: uiText.base.corviGreeting,
+          source: 'Perseverance MOXIE',
+          label: 'ARCHIVO REAL',
+        });
         break;
     }
   }

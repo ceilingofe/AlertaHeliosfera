@@ -1,11 +1,15 @@
 import Phaser from 'phaser';
 import { Base } from './scenes/Base';
 import { Boot } from './scenes/Boot';
+import { Despegue } from './scenes/Despegue';
+import { Dialogo } from './scenes/Dialogo';
 import { HUD } from './scenes/HUD';
 import { Mundo } from './scenes/Mundo';
 import { Noche } from './scenes/Noche';
 import { Preload } from './scenes/Preload';
 import { Rescate } from './scenes/Rescate';
+import { Transmision } from './scenes/Transmision';
+import { MinijuegoRoca } from './minigames/MinijuegoRoca';
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -23,7 +27,19 @@ const config: Phaser.Types.Core.GameConfig = {
     zoom: Phaser.Scale.MAX_ZOOM,
   },
   input: { activePointers: 3 },
-  scene: [Boot, Preload, Mundo, Base, HUD, Noche, Rescate],
+  scene: [
+    Boot,
+    Preload,
+    Despegue,
+    Transmision,
+    Mundo,
+    Base,
+    HUD,
+    Dialogo,
+    MinijuegoRoca,
+    Noche,
+    Rescate,
+  ],
 };
 
 export default new Phaser.Game(config);

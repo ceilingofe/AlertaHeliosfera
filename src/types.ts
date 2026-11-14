@@ -5,6 +5,27 @@ export type SuitColor = 'blanco' | 'naranja' | 'azul' | 'verde' | 'rosa';
 export type Accessory = 'diadema' | 'mono' | 'antena' | 'gorrito' | 'audifonos';
 export type RescueCause = 'oxigeno' | 'radiacion';
 
+export interface MinigameInput {
+  type: string;
+  day: number;
+  difficulty: 1 | 2 | 3;
+  zone?: string;
+}
+
+export interface MinigameResult {
+  ok: boolean;
+  quality: 0 | 1 | 2 | 3;
+  factId?: string;
+}
+
+export interface DialogMessage {
+  mode: 'big' | 'small';
+  mood: Mood;
+  text: string;
+  source?: string;
+  label?: Label;
+}
+
 export interface GameState {
   version: 1;
   day: number;

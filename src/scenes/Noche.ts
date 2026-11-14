@@ -1,9 +1,9 @@
 import Phaser from 'phaser';
-import facts from '../../content/facts.json';
 import uiText from '../../content/ui_text.json';
 import { gameStore } from '../state/GameState';
 import { Save } from '../state/Save';
 import { BaseSystem } from '../systems/BaseSystem';
+import { Data } from '../systems/Data';
 
 interface ShootingStar {
   x: number;
@@ -15,8 +15,9 @@ interface ShootingStar {
 
 /**
  * Escena Noche (fiel al storyboard s11_estrellas.png):
- * Lluvia de estrellas fugaces (blanco -> amarillo -> gris), tarjeta "Lo que aprendiste hoy",
- * reinicio de dosis diaria conservando la dosis total y guardado en localStorage.
+ * Lluvia de estrellas fugaces, tarjeta "Lo que aprendiste hoy" con los 3 datos del día,
+ * desbloqueo de la personalización al terminar el Día 1, aviso de tormenta para el Día 3
+ * y guardado en localStorage antes de pasar a Transmision del día siguiente.
  */
 export class Noche extends Phaser.Scene {
   private shootingStars: ShootingStar[] = [];
@@ -29,8 +30,8 @@ export class Noche extends Phaser.Scene {
   create(): void {
     const state = gameStore.state;
     const completedDay = state.day;
+    const dayFacts = Data.getFactsForDay(completedDay);
 
-    // Procesar transición de sueño al nuevo día y guardar inmediatamente en localStorage
     BaseSystem.deliverTubes(state, 1);
     BaseSystem.sleepToNextDay(state);
     Save.save(state);
@@ -48,14 +49,13 @@ export class Noche extends Phaser.Scene {
       staticStars.fillRect(sx, sy, i % 3 === 0 ? 2 : 1, i % 3 === 0 ? 2 : 1);
     }
 
-    // Horizonte marciano oscuro y silueta de la base y antena (s11_estrellas.png)
     const horizon = this.add.graphics();
     horizon.fillStyle(0x3e2731, 1);
     horizon.fillRect(0, 246, 640, 114);
     this.add.image(208, 224, 'base_exterior').setScale(2);
     this.add.image(294, 192, 'antenna').setScale(2);
 
-    // 2. 10 estrellas fugaces con estela blanco -> amarillo -> gris (sección 9.7)
+    // 2. 10 estrellas fugaces con estela blanco -> amarillo -> gris
     this.starGraphics = this.add.graphics();
     this.shootingStars = [];
     for (let i = 0; i < 10; i++) {
@@ -91,42 +91,41 @@ export class Noche extends Phaser.Scene {
       }
     );
 
-    // Seleccionar 3 datos reales de content/facts.json
-    const startIdx = ((completedDay - 1) * 3) % facts.length;
-    const todayFacts = [
-      facts[startIdx % facts.length],
-      facts[(startIdx + 1) % facts.length],
-      facts[(startIdx + 2) % facts.length],
-    ];
-
-    todayFacts.forEach((fact, idx) => {
+    dayFacts.slice(0, 3).forEach((fact, idx) => {
       const fy = 66 + idx * 54;
       this.add.rectangle(350, fy, 264, 46, 0xffffff).setOrigin(0, 0);
       this.add.image(364, fy + 16, `icon_${fact.icon}`).setScale(1.8);
-      this.add.text(378, fy + 7, fact.text, {
+      this.add.text(378, fy + 6, fact.text, {
         fontFamily: 'PixelifySans, monospace',
         resolution: 2,
         fontSize: '11px',
         color: '#181425',
         wordWrap: { width: 230 },
       });
-      this.add.text(378, fy + 33, `${fact.label} · ${fact.source}`, {
+      this.add.text(378, fy + 33, `★ ${fact.label} · ${fact.source}`, {
         fontFamily: 'PixelifySans, monospace',
         resolution: 2,
         fontSize: '10px',
         color: '#5a6988',
+        fontSize: '9px',
+        color: '#be4a2f',
       });
     });
 
-    // Recuadro amarillo de progreso/desbloqueo
+    // Recuadro amarillo de desbloqueo de la personalización (Día 1)
+    const unlockTitle =
+      completedDay === 1 ? uiText.night.unlocksDay1Title : uiText.night.unlocksTitle;
+    const unlockSub =
+      completedDay === 1 ? uiText.night.unlocksDay1Sub : uiText.night.unlocksSub;
+
     this.add.rectangle(350, 230, 264, 38, 0xfee761).setOrigin(0, 0);
-    this.add.text(360, 234, uiText.night.unlocksTitle, {
+    this.add.text(360, 234, unlockTitle, {
       fontFamily: 'PixelifySans, monospace',
       resolution: 2,
       fontSize: '11px',
       color: '#181425',
     });
-    this.add.text(360, 250, uiText.night.unlocksSub, {
+    this.add.text(360, 250, unlockSub, {
       fontFamily: 'PixelifySans, monospace',
       resolution: 2,
       fontSize: '10px',
@@ -149,7 +148,7 @@ export class Noche extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    // 4. Cuadro de diálogo inferior izquierdo con Corvi grande a ×3 (s11_estrellas.png)
+    // 4. Cuadro de diálogo inferior izquierdo con Corvi grande y aviso real de tormenta para el día 3 (s11_estrellas.png)
     const dialogBox = this.add.rectangle(94, 282, 232, 70, 0xead4aa).setOrigin(0, 0);
     dialogBox.setStrokeStyle(2, 0x181425);
 
@@ -170,9 +169,16 @@ export class Noche extends Phaser.Scene {
 
     const circle = this.add.circle(56, 292, 54, 0x8b9bb4);
     circle.setStrokeStyle(3, 0x181425);
-    this.add.image(56, 294, 'corvi_happy').setScale(2.5);
+    this.add
+      .image(56, 294, completedDay === 1 ? 'corvi_alert' : 'corvi_happy')
+      .setScale(2.5);
 
-    this.add.text(124, 290, uiText.night.corviNightText, {
+    const hookText =
+      completedDay === 1 ? uiText.night.corviStormHook : uiText.night.corviNightText;
+    const sealLabel =
+      completedDay === 1 ? uiText.night.nasaSealDonki : uiText.night.nasaSeal;
+
+    this.add.text(124, 290, hookText, {
       fontFamily: 'PixelifySans, monospace',
       resolution: 2,
       fontSize: '11px',
@@ -180,10 +186,9 @@ export class Noche extends Phaser.Scene {
       lineSpacing: 2,
     });
 
-    // Sello amarillo "DATO REAL NASA · ARCHIVO REAL"
-    const seal = this.add.rectangle(124, 330, 192, 16, 0xfee761).setOrigin(0, 0);
+    const seal = this.add.rectangle(124, 330, 194, 16, 0xfee761).setOrigin(0, 0);
     seal.setStrokeStyle(1, 0x181425);
-    this.add.text(130, 332, `★ ${uiText.night.nasaSeal}`, {
+    this.add.text(130, 332, `★ ${sealLabel}`, {
       fontFamily: 'PixelifySans, monospace',
       resolution: 2,
       fontSize: '10px',
@@ -193,7 +198,7 @@ export class Noche extends Phaser.Scene {
     const startNextDay = (): void => {
       state.location = 'base';
       Save.save(state);
-      this.scene.start('Base');
+      this.scene.start('Transmision');
     };
 
     sleepBtn.on('pointerdown', startNextDay);
@@ -215,9 +220,13 @@ export class Noche extends Phaser.Scene {
         s.y = 10 + Math.random() * 80;
       }
 
-      // Estela gris -> amarilla -> cabeza blanca
       this.starGraphics.lineStyle(2, 0x8b9bb4, 0.7);
-      this.starGraphics.lineBetween(s.x + 12, s.y - 6, s.x + s.length, s.y - s.length * 0.48);
+      this.starGraphics.lineBetween(
+        s.x + 12,
+        s.y - 6,
+        s.x + s.length,
+        s.y - s.length * 0.48
+      );
 
       this.starGraphics.lineStyle(2, 0xfee761, 0.95);
       this.starGraphics.lineBetween(s.x, s.y, s.x + 12, s.y - 6);

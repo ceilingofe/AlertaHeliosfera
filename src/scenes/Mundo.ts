@@ -27,7 +27,7 @@ interface ZoneRect {
 
 /**
  * Escena exterior en el cráter Jezero (1280×960 px, zoom ×2 sobre 640×360).
- * Conecta movimiento, entrada a la base o refugio, recolección de muestras, noche y signos vitales.
+ * Conecta movimiento, entrada a la base o refugio, minijuego de roca, noche y signos vitales.
  */
 export class Mundo extends Phaser.Scene {
   private player!: Phaser.Physics.Arcade.Sprite;
@@ -45,6 +45,7 @@ export class Mundo extends Phaser.Scene {
   private promptBg!: Phaser.GameObjects.Rectangle;
   private promptLabel!: Phaser.GameObjects.Text;
   private interactPoints: InteractPoint[] = [];
+  private activeSamplePoint: InteractPoint | null = null;
   private zones: ZoneRect[] = [];
   private currentZoneName = '';
   private rescueTriggered = false;
@@ -59,6 +60,7 @@ export class Mundo extends Phaser.Scene {
     state.location = 'mundo';
     this.rescueTriggered = false;
     this.interactPoints = [];
+    this.activeSamplePoint = null;
     this.unsubscribers = [];
 
     const mapWidth = 1280;
@@ -67,7 +69,7 @@ export class Mundo extends Phaser.Scene {
     // 1. Suelo provisional repetido (sin marca de agua MARU)
     this.add.tileSprite(0, 0, mapWidth, mapHeight, 'ground_placeholder').setOrigin(0, 0);
 
-    // 2. Decoración del terreno (sendero hacia el norte y cráteres estilo storyboard s03_mapa)
+    // 2. Decoración del terreno (sendero hacia Bright Angel y cráteres estilo s03_mapa)
     const deco = this.add.graphics();
     deco.fillStyle(0xe4a672, 0.55);
     for (let y = 160; y < 450; y += 10) {
@@ -78,7 +80,7 @@ export class Mundo extends Phaser.Scene {
     this.drawCrater(deco, 420, 610, 60, 38);
     this.drawCrater(deco, 880, 340, 48, 30);
 
-    // Cables y tuberías exteriores de la base (como en s03_mapa.png)
+    // Cables y tuberías exteriores de la base
     deco.fillStyle(0x181425, 1);
     deco.fillRect(606, 482, 20, 5);
     deco.fillStyle(0xfee761, 1);
@@ -98,7 +100,6 @@ export class Mundo extends Phaser.Scene {
       obstacles.add(rect);
     };
 
-    // Paneles solares (3 paneles de 54×32 px)
     const panelPositions = [
       { id: 'p1', x: 526, y: 486 },
       { id: 'p2', x: 584, y: 486 },
@@ -118,7 +119,6 @@ export class Mundo extends Phaser.Scene {
       });
     }
 
-    // Base exterior (44×40 px) con clic directo o tecla E en la puerta
     const baseImg = this.add
       .image(640, 472, 'base_exterior')
       .setInteractive({ useHandCursor: true });
@@ -131,7 +131,6 @@ export class Mundo extends Phaser.Scene {
       prompt: uiText.hud.interactDoor,
     });
 
-    // Antena (34×54 px)
     this.add.image(692, 434, state.base.antennaOk ? 'antenna' : 'antenna_broken');
     addColliderBox(692, 444, 28, 28);
     this.interactPoints.push({
@@ -141,7 +140,6 @@ export class Mundo extends Phaser.Scene {
       prompt: uiText.hud.interactAntenna,
     });
 
-    // MOXIE (20×18 px)
     this.add.image(696, 486, 'moxie');
     addColliderBox(696, 486, 20, 16);
     this.interactPoints.push({
@@ -151,7 +149,6 @@ export class Mundo extends Phaser.Scene {
       prompt: uiText.hud.interactMoxie,
     });
 
-    // Refugio blindado (44×24 px)
     const refugeImg = this.add
       .image(748, 512, 'refuge')
       .setInteractive({ useHandCursor: true });
@@ -164,13 +161,12 @@ export class Mundo extends Phaser.Scene {
       prompt: uiText.hud.interactRefuge,
     });
 
-    // Puntos de muestra en el mapa
-    this.spawnSampleRock(692, 524, 'rock_leopard', 'roca');
+    // Rocas de manchas de leopardo (cerca de la base para gancho rápido < 60 s y en Bright Angel al norte)
+    this.spawnSampleRock(684, 520, 'rock_leopard', 'roca');
     this.spawnSampleRock(640, 250, 'rock_leopard', 'roca');
     this.spawnSampleRock(460, 680, 'rock_volcanic', 'suelo');
     this.spawnSampleRock(860, 480, 'rock_sandstone', 'minerales');
 
-    // Rocas decorativas
     const decoRocks = [
       { x: 498, y: 518, key: 'rock_sandstone' },
       { x: 668, y: 506, key: 'rock_volcanic' },
@@ -182,7 +178,6 @@ export class Mundo extends Phaser.Scene {
       this.add.image(r.x, r.y, r.key);
     }
 
-    // Zonas reales de Jezero (sección 8)
     this.zones = [
       { name: 'Bright Angel', bounds: new Phaser.Geom.Rectangle(360, 60, 560, 280) },
       { name: 'Séítah', bounds: new Phaser.Geom.Rectangle(80, 560, 440, 340) },
@@ -205,7 +200,7 @@ export class Mundo extends Phaser.Scene {
 
     this.physics.add.collider(this.player, obstacles);
 
-    // 5. Etiqueta flotante de interacción en coordenadas del mundo
+    // 5. Etiqueta flotante de interacción
     this.promptBg = this.add
       .rectangle(0, 0, 86, 14, 0x262b44, 0.95)
       .setStrokeStyle(1, 0x181425);
@@ -228,13 +223,13 @@ export class Mundo extends Phaser.Scene {
       .setOrigin(0, 0)
       .setDepth(30);
 
-    // 7. Cámara con zoom ×2 (el jugador ve 320×180 px del mundo sobre el lienzo de 640×360)
+    // 7. Cámara con zoom ×2
     this.cameras.main.setZoom(2);
     this.cameras.main.setBounds(0, 0, mapWidth, mapHeight);
     this.cameras.main.startFollow(this.player, true);
     this.physics.world.setBounds(0, 0, mapWidth, mapHeight);
 
-    // 8. Controles de teclado: WASD, flechas, E/Espacio para interactuar y Esc para pausa
+    // 8. Controles de teclado
     const keyboard = this.input.keyboard;
     if (keyboard) {
       this.cursors = keyboard.createCursorKeys();
@@ -249,6 +244,7 @@ export class Mundo extends Phaser.Scene {
       this.keyE.on('down', () => this.handleInteraction());
       this.keySpace.on('down', () => this.handleInteraction());
       this.keyEsc.on('down', () => {
+        if (this.scene.isActive('MinijuegoRoca')) return;
         const paused = Clock.togglePause(gameStore.state);
         bus.emit('clock:pauseChanged', { paused });
       });
@@ -257,12 +253,29 @@ export class Mundo extends Phaser.Scene {
     this.unsubscribers.push(
       bus.on('input:action', () => {
         this.handleInteraction();
+      }),
+      bus.on('minigame:finished', (res) => {
+        if (res.ok && this.activeSamplePoint) {
+          const emptyIdx = state.tubes.findIndex((t) => t === null);
+          if (emptyIdx !== -1) {
+            state.tubes[emptyIdx] = this.activeSamplePoint.sampleType ?? 'roca';
+          }
+          if (res.factId && !state.learnedToday.includes(res.factId)) {
+            state.learnedToday.push(res.factId);
+          }
+          this.activeSamplePoint.collected = true;
+          this.activeSamplePoint.marker?.setVisible(false);
+          bus.emit('interact:prompt', { text: uiText.hud.radioSamplePicked });
+        }
+        this.activeSamplePoint = null;
       })
     );
 
-    // 9. Lanzar escena HUD en paralelo
     if (!this.scene.isActive('HUD')) {
       this.scene.launch('HUD');
+    }
+    if (!this.scene.isActive('Dialogo')) {
+      this.scene.launch('Dialogo');
     }
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
@@ -279,7 +292,7 @@ export class Mundo extends Phaser.Scene {
       return;
     }
 
-    if (state.clock.paused) {
+    if (state.clock.paused || this.scene.isActive('MinijuegoRoca')) {
       this.player.setVelocity(0, 0);
       return;
     }
@@ -319,14 +332,11 @@ export class Mundo extends Phaser.Scene {
     state.astronaut.pos.x = Math.round(this.player.x);
     state.astronaut.pos.y = Math.round(this.player.y);
 
-    // 2. Actualizar etiqueta de interacción a menos de 20 px
     this.updateInteractionPrompt();
-
-    // 3. Actualizar zona actual del cráter Jezero
     this.updateCurrentZone();
 
-    // 4. Avanzar reloj, signos vitales y sistema de la base
-    const durationSec = Clock.getDayDurationSec(state.day, false);
+    // El Día 1 dura 150 s de reloj corriendo; días 2+ duran 300 s (sección 7.1 y Fase 3)
+    const durationSec = Clock.getDayDurationSec(state.day, true);
     const clockRes = Clock.tick(state, dt, durationSec);
     if (clockRes.warned16) {
       bus.emit('clock:warn16');
@@ -335,7 +345,6 @@ export class Mundo extends Phaser.Scene {
       bus.emit('clock:curfew17');
     }
     if (clockRes.ended20) {
-      // Sección 7.1: a las 20:00 si sigue afuera, Corvi lo guía a la base con fundido a negro y envío 'menos'
       state.supplyBonus = 'menos';
       bus.emit('interact:prompt', { text: uiText.hud.radioCurfewReturn });
       this.cameras.main.fadeOut(350, 24, 20, 37);
@@ -345,7 +354,6 @@ export class Mundo extends Phaser.Scene {
       return;
     }
 
-    // Cielo azul nocturno después de las 17:00 (#124e89, alpha 0.35)
     this.nightOverlay.setAlpha(Clock.isNight(state.clock.minutes) ? 0.35 : 0);
 
     BaseSystem.tick(state, dt, durationSec);
@@ -363,6 +371,7 @@ export class Mundo extends Phaser.Scene {
       this.player.setVelocity(0, 0);
       bus.emit('rescue', { cause: vitalsRes.rescueCause });
       this.scene.stop('HUD');
+      this.scene.stop('Dialogo');
       this.scene.start('Rescate', { cause: vitalsRes.rescueCause });
     }
   }
@@ -373,8 +382,13 @@ export class Mundo extends Phaser.Scene {
     spriteKey: string,
     sampleType: SampleType
   ): void {
-    this.add.image(x, y, spriteKey);
-    const marker = this.add.image(x, y - 14, 'marker_sample');
+    const rockImg = this.add
+      .image(x, y, spriteKey)
+      .setInteractive({ useHandCursor: true });
+    const marker = this.add
+      .image(x, y - 14, 'marker_sample')
+      .setInteractive({ useHandCursor: true });
+
     this.tweens.add({
       targets: marker,
       y: y - 16,
@@ -383,7 +397,8 @@ export class Mundo extends Phaser.Scene {
       repeat: -1,
       ease: 'Sine.easeInOut',
     });
-    this.interactPoints.push({
+
+    const pt: InteractPoint = {
       kind: 'sample',
       x,
       y,
@@ -391,7 +406,17 @@ export class Mundo extends Phaser.Scene {
       sampleType,
       marker,
       collected: false,
-    });
+    };
+
+    const onDirectClick = (): void => {
+      if (pt.collected || this.scene.isActive('MinijuegoRoca')) return;
+      this.startSampleCollection(pt);
+    };
+
+    rockImg.on('pointerdown', onDirectClick);
+    marker.on('pointerdown', onDirectClick);
+
+    this.interactPoints.push(pt);
   }
 
   private drawCrater(
@@ -441,7 +466,13 @@ export class Mundo extends Phaser.Scene {
 
   private handleInteraction(): void {
     const state = gameStore.state;
-    if (state.clock.paused || this.rescueTriggered) return;
+    if (
+      state.clock.paused ||
+      this.rescueTriggered ||
+      this.scene.isActive('MinijuegoRoca')
+    ) {
+      return;
+    }
 
     const nearest = this.getNearestInteractPoint();
     if (!nearest) return;
@@ -453,20 +484,39 @@ export class Mundo extends Phaser.Scene {
       case 'refuge':
         this.enterBase('refugio');
         break;
-      case 'sample': {
-        const emptyIdx = state.tubes.findIndex((t) => t === null);
-        if (emptyIdx === -1) {
-          bus.emit('interact:prompt', { text: uiText.hud.radioBoxFull });
-          return;
-        }
-        state.tubes[emptyIdx] = nearest.sampleType ?? 'roca';
-        nearest.collected = true;
-        nearest.marker?.setVisible(false);
-        bus.emit('interact:prompt', { text: uiText.hud.radioSamplePicked });
+      case 'sample':
+        this.startSampleCollection(nearest);
         break;
-      }
       default:
         break;
+    }
+  }
+
+  private startSampleCollection(pt: InteractPoint): void {
+    const state = gameStore.state;
+    const emptyIdx = state.tubes.findIndex((t) => t === null);
+    if (emptyIdx === -1) {
+      bus.emit('interact:prompt', { text: uiText.hud.radioBoxFull });
+      return;
+    }
+
+    this.activeSamplePoint = pt;
+    this.player.setVelocity(0, 0);
+    this.promptContainer.setVisible(false);
+
+    if (pt.sampleType === 'roca' || !pt.sampleType) {
+      this.scene.launch('MinijuegoRoca', {
+        type: 'roca',
+        day: state.day,
+        difficulty: state.day <= 3 ? 1 : state.day <= 9 ? 2 : 3,
+        zone: this.currentZoneName,
+      });
+    } else {
+      state.tubes[emptyIdx] = pt.sampleType;
+      pt.collected = true;
+      pt.marker?.setVisible(false);
+      this.activeSamplePoint = null;
+      bus.emit('interact:prompt', { text: uiText.hud.radioSamplePicked });
     }
   }
 
