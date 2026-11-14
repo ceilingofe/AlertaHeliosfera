@@ -3,6 +3,7 @@ export type Mood = 'neutral' | 'happy' | 'alert' | 'think' | 'worried' | 'proud'
 export type Label = 'ARCHIVO REAL' | 'SIMULADO' | 'EN VIVO';
 export type SuitColor = 'blanco' | 'naranja' | 'azul' | 'verde' | 'rosa';
 export type Accessory = 'diadema' | 'mono' | 'antena' | 'gorrito' | 'audifonos';
+export type RescueCause = 'oxigeno' | 'radiacion';
 
 export interface GameState {
   version: 1;
