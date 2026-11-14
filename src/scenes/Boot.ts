@@ -15,6 +15,10 @@ export class Boot extends Phaser.Scene {
     if (typeof document !== 'undefined' && 'fonts' in document) {
       try {
         await document.fonts.ready;
+        await Promise.all([
+          document.fonts.load('400 16px PixelifySans'),
+          document.fonts.load('700 16px PixelifySans'),
+        ]);
       } catch {
         // Si el navegador falla al reportar fuentes, continuamos con la fuente de respaldo.
       }

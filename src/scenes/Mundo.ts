@@ -279,7 +279,8 @@ export class Mundo extends Phaser.Scene {
     this.promptLabel = this.add
       .text(0, 0, '', {
         fontFamily: 'PixelifySans, monospace',
-        fontSize: '8px',
+        resolution: 2,
+        fontSize: '10px',
         color: '#ffffff',
       })
       .setOrigin(0.5);
