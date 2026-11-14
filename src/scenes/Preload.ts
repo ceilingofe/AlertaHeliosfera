@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 import uiText from '../../content/ui_text.json';
+import { gameStore } from '../state/GameState';
+import { Save } from '../state/Save';
 
 const SPRITE_KEYS = [
   'acc_antena',
@@ -54,8 +56,8 @@ const UI_ICON_KEYS = [
 ] as const;
 
 /**
- * Escena de precarga: carga todos los sprites e íconos con sus nombres nativos
- * y al terminar inicia la escena Mundo.
+ * Escena de precarga: carga todos los sprites e íconos con sus nombres nativos.
+ * Si existe una partida guardada en localStorage, la restaura y retoma el día guardado.
  */
 export class Preload extends Phaser.Scene {
   constructor() {
@@ -99,6 +101,15 @@ export class Preload extends Phaser.Scene {
   }
 
   create(): void {
+    const saved = Save.load();
+    if (saved) {
+      gameStore.reset(saved);
+      if (saved.location === 'base' || saved.location === 'refugio') {
+        this.scene.start('Base');
+        return;
+      }
+    }
+
     this.scene.start('Mundo');
   }
 }

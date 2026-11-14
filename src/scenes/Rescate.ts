@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import uiText from '../../content/ui_text.json';
 import { gameStore } from '../state/GameState';
+import { Save } from '../state/Save';
 import type { RescueCause } from '../types';
 
 interface RescateData {
@@ -93,7 +94,6 @@ export class Rescate extends Phaser.Scene {
       .setOrigin(0, 0)
       .setStrokeStyle(1, 0xe4a672);
 
-    // Placa de nombre de Corvi
     const namePlate = this.add.rectangle(180, 266, 118, 32, 0x262b44).setOrigin(0, 0);
     namePlate.setStrokeStyle(2, 0x181425);
     this.add.text(190, 269, uiText.rescue.corviName, {
@@ -107,7 +107,6 @@ export class Rescate extends Phaser.Scene {
       color: '#c0cbdc',
     });
 
-    // Círculo y retrato grande de Corvi a ×3 (132×132 px)
     const portraitCircle = this.add.circle(88, 272, 74, 0x8b9bb4);
     portraitCircle.setStrokeStyle(3, 0x181425);
     this.add.image(88, 274, 'corvi_worried').setScale(3);
@@ -128,6 +127,7 @@ export class Rescate extends Phaser.Scene {
       .setOrigin(1, 1);
 
     const restartMission = (): void => {
+      Save.clear();
       gameStore.reset();
       this.scene.start('Mundo');
     };
@@ -138,7 +138,6 @@ export class Rescate extends Phaser.Scene {
   }
 
   update(time: number): void {
-    // Llama del cohete animada en 3 cuadros con triángulos rojo, naranja y amarillo (TODO_ARTE pendiente de Karmin)
     const frame = Math.floor(time / 90) % 3;
     const stretch = frame * 6;
     const rx = this.rocket.x;

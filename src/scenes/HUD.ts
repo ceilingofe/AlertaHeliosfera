@@ -11,6 +11,7 @@ import { TouchControls } from '../ui/Joystick';
  * Dibuja misiones, reloj, signos vitales del traje, barra de herramientas, caja de tubos y joystick.
  */
 export class HUD extends Phaser.Scene {
+  private missionsContainer!: Phaser.GameObjects.Container;
   private dayText!: Phaser.GameObjects.Text;
   private timeText!: Phaser.GameObjects.Text;
   private dayBarFill!: Phaser.GameObjects.Rectangle;
@@ -47,14 +48,15 @@ export class HUD extends Phaser.Scene {
     this.tubeSprites = [];
     this.unsubscribers = [];
 
-    // 1. Arriba izquierda: MISIONES DEL DÍA
-    this.createPanel(8, 6, 198, 68, 0xc0cbdc);
-    this.add.text(16, 11, uiText.hud.missionsTitle, {
+    // 1. Arriba izquierda: MISIONES DEL DÍA (visible en Mundo; en Base deja lugar al Panel de la Base)
+    const mBg = this.createPanel(8, 6, 198, 68, 0xc0cbdc);
+    const mTitle = this.add.text(16, 11, uiText.hud.missionsTitle, {
       fontFamily: 'PixelifySans, monospace',
       fontSize: '12px',
       color: '#5a6988',
     });
 
+    const missionChildren: Phaser.GameObjects.GameObject[] = [mBg, mTitle];
     const missions = [
       uiText.hud.defaultMissionRock,
       uiText.hud.defaultMissionExplore,
@@ -62,24 +64,26 @@ export class HUD extends Phaser.Scene {
     ];
     missions.forEach((m, idx) => {
       const y = 28 + idx * 14;
-      this.add
+      const box = this.add
         .rectangle(20, y + 5, 9, 9, 0xffffff)
         .setOrigin(0.5)
         .setStrokeStyle(1, 0x181425);
-      this.add.text(30, y, m, {
+      const txt = this.add.text(30, y, m, {
         fontFamily: 'PixelifySans, monospace',
         fontSize: '11px',
         color: '#181425',
       });
+      missionChildren.push(box, txt);
     });
+    this.missionsContainer = this.add.container(0, 0, missionChildren);
 
     // 2. Arriba centro: cartel de zona actual
     const zoneBg = this.add
-      .rectangle(320, 18, 174, 22, 0x262b44, 0.95)
+      .rectangle(316, 18, 178, 22, 0x262b44, 0.95)
       .setOrigin(0.5)
       .setStrokeStyle(2, 0x181425);
     this.zoneText = this.add
-      .text(320, zoneBg.y, `↑ ${uiText.hud.zoneDefault}`, {
+      .text(316, zoneBg.y, `↑ ${uiText.hud.zoneDefault}`, {
         fontFamily: 'PixelifySans, monospace',
         fontSize: '12px',
         color: '#ead4aa',
@@ -109,7 +113,7 @@ export class HUD extends Phaser.Scene {
       .rectangle(567, 42, 0, 6, 0xfee761)
       .setOrigin(0, 0.5);
 
-    // 4. Panel del astronauta (sube a y=198 para dejar libre el joystick abajo a la izquierda)
+    // 4. Panel del astronauta (en y=198 para dejar libre el joystick abajo a la izquierda)
     const panelY = 198;
     this.createPanel(8, panelY, 236, 78, 0xc0cbdc);
 
@@ -172,7 +176,6 @@ export class HUD extends Phaser.Scene {
     this.tempBarFill = this.add
       .rectangle(71, row2Y + 16, 164, 5, 0xe43b44)
       .setOrigin(0, 0.5);
-    // Marcas verdes de la zona cómoda (18 a 24 °C)
     this.add.rectangle(168, row2Y + 16, 2, 9, 0x63c74d).setOrigin(0.5);
     this.add.rectangle(202, row2Y + 16, 2, 9, 0x63c74d).setOrigin(0.5);
 
@@ -192,7 +195,6 @@ export class HUD extends Phaser.Scene {
       })
       .setOrigin(1, 0);
 
-    // Sub-barra izquierda: dosis hoy
     this.add
       .rectangle(70, row3Y + 16, 78, 7, 0x3a4466)
       .setOrigin(0, 0.5)
@@ -201,7 +203,6 @@ export class HUD extends Phaser.Scene {
       .rectangle(71, row3Y + 16, 0, 5, 0xfeae34)
       .setOrigin(0, 0.5);
 
-    // Sub-barra derecha: dosis total (nunca baja)
     this.add
       .rectangle(156, row3Y + 16, 80, 7, 0x3a4466)
       .setOrigin(0, 0.5)
@@ -252,18 +253,17 @@ export class HUD extends Phaser.Scene {
     // 7. Controles táctiles: joystick abajo a la izquierda y botón de acción abajo a la derecha
     this.touchControls = new TouchControls(this, 44, 316, 598, 316);
 
-    // 8. Banner de radio de Corvi (avisos 40 %, 20 %, 16:00, 17:00)
+    // 8. Banner de radio de Corvi (avisos 40 %, 20 %, 16:00, 17:00 y mensajes de base)
     const radioBg = this.add
-      .rectangle(320, 56, 360, 28, 0xead4aa, 0.98)
+      .rectangle(320, 176, 396, 28, 0xead4aa, 0.98)
       .setOrigin(0.5)
       .setStrokeStyle(2, 0x181425);
-    const radioIcon = this.add.image(158, 56, 'corvi_alert').setScale(0.55);
-    this.radioText = this.add
-      .text(176, 48, '', {
-        fontFamily: 'PixelifySans, monospace',
-        fontSize: '12px',
-        color: '#181425',
-      });
+    const radioIcon = this.add.image(138, 176, 'corvi_alert').setScale(0.55);
+    this.radioText = this.add.text(154, 169, '', {
+      fontFamily: 'PixelifySans, monospace',
+      fontSize: '12px',
+      color: '#181425',
+    });
     this.radioContainer = this.add
       .container(0, 0, [radioBg, radioIcon, this.radioText])
       .setVisible(false)
@@ -318,6 +318,11 @@ export class HUD extends Phaser.Scene {
       bus.on('vitals:o2Danger20', () => {
         this.showRadioMessage(uiText.hud.radioO2Danger20);
       }),
+      bus.on('interact:prompt', ({ text }) => {
+        if (text) {
+          this.showRadioMessage(text);
+        }
+      }),
       bus.on('clock:pauseChanged', ({ paused }) => {
         this.pauseContainer.setVisible(paused);
       })
@@ -335,6 +340,9 @@ export class HUD extends Phaser.Scene {
 
   update(time: number): void {
     const state = gameStore.state;
+
+    // Mostrar MISIONES DEL DÍA en Mundo; en Base se muestra el Panel de la Base en esa esquina
+    this.missionsContainer.setVisible(state.location === 'mundo');
 
     // Actualizar día y reloj
     this.dayText.setText(`${uiText.hud.dayPrefix} ${state.day}`);

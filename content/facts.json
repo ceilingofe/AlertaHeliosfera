@@ -1,0 +1,11 @@
+[
+  { "id": "luz", "icon": "sun", "text": "Los mensajes de la Tierra tardan minutos en llegar a Marte.", "label": "ARCHIVO REAL", "source": "JPL Horizons" },
+  { "id": "radiacion", "icon": "rad", "text": "La radiación no baja: se acumula día con día.", "label": "ARCHIVO REAL", "source": "Curiosity RAD" },
+  { "id": "cheyava", "icon": "drill", "text": "Perseverance halló manchas de leopardo en la roca Cheyava Falls.", "label": "ARCHIVO REAL", "source": "Perseverance (2024)" },
+  { "id": "polvo", "icon": "brush", "text": "El polvo de Marte tapó los paneles de InSight y la apagó en 2022.", "label": "ARCHIVO REAL", "source": "Misión InSight" },
+  { "id": "moxie", "icon": "o2", "text": "MOXIE hizo oxígeno con el aire de Marte: hasta 12 gramos por hora.", "label": "ARCHIVO REAL", "source": "MOXIE (Perseverance)" },
+  { "id": "aire", "icon": "valve", "text": "El aire de Marte es 95 % dióxido de carbono.", "label": "ARCHIVO REAL", "source": "Curiosity" },
+  { "id": "agua_rocas", "icon": "scanner", "text": "En Jezero no hay hielo expuesto, pero algunas rocas guardan agua.", "label": "ARCHIVO REAL", "source": "Perseverance" },
+  { "id": "percloratos", "icon": "shovel", "text": "El suelo de Marte tiene percloratos, sales dañinas.", "label": "ARCHIVO REAL", "source": "Phoenix y Curiosity" },
+  { "id": "frio", "icon": "moon", "text": "De noche, Jezero llega a cerca de −80 °C.", "label": "ARCHIVO REAL", "source": "MEDA" }
+]

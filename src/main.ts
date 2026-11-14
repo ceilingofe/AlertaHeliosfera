@@ -1,7 +1,9 @@
 import Phaser from 'phaser';
+import { Base } from './scenes/Base';
 import { Boot } from './scenes/Boot';
 import { HUD } from './scenes/HUD';
 import { Mundo } from './scenes/Mundo';
+import { Noche } from './scenes/Noche';
 import { Preload } from './scenes/Preload';
 import { Rescate } from './scenes/Rescate';
 
@@ -16,7 +18,7 @@ const config: Phaser.Types.Core.GameConfig = {
   physics: { default: 'arcade', arcade: { debug: false } },
   scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
   input: { activePointers: 3 },
-  scene: [Boot, Preload, Mundo, HUD, Rescate],
+  scene: [Boot, Preload, Mundo, Base, HUD, Noche, Rescate],
 };
 
 export default new Phaser.Game(config);
