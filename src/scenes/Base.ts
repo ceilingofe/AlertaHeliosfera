@@ -31,6 +31,8 @@ export class Base extends Phaser.Scene {
   private keyE!: Phaser.Input.Keyboard.Key;
   private keySpace!: Phaser.Input.Keyboard.Key;
   private keyEsc!: Phaser.Input.Keyboard.Key;
+  private playerOriginY = 0;
+  private walkBobTime = 0;
 
   private energyText!: Phaser.GameObjects.Text;
   private energyBarFill!: Phaser.GameObjects.Rectangle;
@@ -239,10 +241,10 @@ export class Base extends Phaser.Scene {
       .setStrokeStyle(2, 0x181425)
       .setInteractive({ useHandCursor: true });
     this.add
-      .text(334, 294, uiText.base.interactExitDoor, {
+      .text(334, 294, 'E', {
         fontFamily: 'PixelifySans, monospace',
         resolution: 2,
-        fontSize: '10px',
+        fontSize: '12px',
         color: '#fee761',
       })
       .setOrigin(0.5);
@@ -281,6 +283,7 @@ export class Base extends Phaser.Scene {
       .sprite(300, 168, hairKey)
       .setScale(2)
       .setCollideWorldBounds(true);
+    this.playerOriginY = this.player.displayOriginY;
 
     this.physics.world.setBounds(16, 92, 608, 214);
     this.physics.add.collider(this.player, obstacles);
@@ -363,6 +366,8 @@ export class Base extends Phaser.Scene {
 
     if (state.clock.paused) {
       this.player.setVelocity(0, 0);
+      this.walkBobTime = 0;
+      this.player.setDisplayOrigin(this.player.displayOriginX, this.playerOriginY);
       return;
     }
 
@@ -384,7 +389,8 @@ export class Base extends Phaser.Scene {
       vy = joy.y;
     }
 
-    if (vx !== 0 || vy !== 0) {
+    const moving = vx !== 0 || vy !== 0;
+    if (moving) {
       const len = Math.hypot(vx, vy);
       const speed = balance.player.speed * 1.6;
       this.player.setVelocity((vx / len) * speed, (vy / len) * speed);
@@ -392,6 +398,15 @@ export class Base extends Phaser.Scene {
       else if (vx > 0) this.player.setFlipX(false);
     } else {
       this.player.setVelocity(0, 0);
+    }
+
+    if (moving) {
+      this.walkBobTime += delta;
+      const bob = Math.sin(this.walkBobTime * 0.018) * 0.8;
+      this.player.setDisplayOrigin(this.player.displayOriginX, this.playerOriginY + bob);
+    } else {
+      this.walkBobTime = 0;
+      this.player.setDisplayOrigin(this.player.displayOriginX, this.playerOriginY);
     }
 
     // 2. Recarga continua de oxígeno y calefactor cuando están activas

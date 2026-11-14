@@ -107,8 +107,6 @@ export class Noche extends Phaser.Scene {
         resolution: 2,
         fontSize: '10px',
         color: '#5a6988',
-        fontSize: '9px',
-        color: '#be4a2f',
       });
     });
 

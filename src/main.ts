@@ -10,6 +10,7 @@ import { Preload } from './scenes/Preload';
 import { Rescate } from './scenes/Rescate';
 import { Transmision } from './scenes/Transmision';
 import { MinijuegoRoca } from './minigames/MinijuegoRoca';
+import './ui/installTextDefaults';
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -24,7 +25,6 @@ const config: Phaser.Types.Core.GameConfig = {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
     autoRound: true,
-    zoom: Phaser.Scale.MAX_ZOOM,
   },
   input: { activePointers: 3 },
   scene: [
