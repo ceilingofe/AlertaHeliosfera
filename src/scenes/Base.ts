@@ -92,6 +92,7 @@ export class Base extends Phaser.Scene {
 
     this.add.text(18, 12, uiText.base.panelTitle, {
       fontFamily: 'PixelifySans, monospace',
+      resolution: 2,
       fontSize: '12px',
       color: '#5a6988',
     });
@@ -99,12 +100,14 @@ export class Base extends Phaser.Scene {
     this.add.image(22, 34, 'icon_bolt').setScale(1.8);
     this.add.text(34, 27, uiText.base.energyLabel, {
       fontFamily: 'PixelifySans, monospace',
+      resolution: 2,
       fontSize: '12px',
       color: '#181425',
     });
     this.energyText = this.add
       .text(198, 27, '100 %', {
         fontFamily: 'PixelifySans, monospace',
+        resolution: 2,
         fontSize: '12px',
         color: '#181425',
       })
@@ -121,12 +124,14 @@ export class Base extends Phaser.Scene {
     this.add.image(22, 61, 'icon_o2').setScale(1.8);
     this.add.text(34, 54, uiText.base.moxieLabel, {
       fontFamily: 'PixelifySans, monospace',
+      resolution: 2,
       fontSize: '12px',
       color: '#181425',
     });
     this.moxieText = this.add
       .text(198, 54, '80 %', {
         fontFamily: 'PixelifySans, monospace',
+        resolution: 2,
         fontSize: '12px',
         color: '#181425',
       })
@@ -236,6 +241,7 @@ export class Base extends Phaser.Scene {
     this.add
       .text(334, 294, uiText.base.interactExitDoor, {
         fontFamily: 'PixelifySans, monospace',
+        resolution: 2,
         fontSize: '10px',
         color: '#fee761',
       })
@@ -249,6 +255,7 @@ export class Base extends Phaser.Scene {
     const refTxt = this.add
       .text(320, 240, uiText.base.refugeEnteredMsg, {
         fontFamily: 'PixelifySans, monospace',
+        resolution: 2,
         fontSize: '11px',
         color: '#ffffff',
       })
@@ -285,6 +292,7 @@ export class Base extends Phaser.Scene {
     this.promptLabel = this.add
       .text(0, 0, '', {
         fontFamily: 'PixelifySans, monospace',
+        resolution: 2,
         fontSize: '12px',
         color: '#fee761',
       })
@@ -431,6 +439,7 @@ export class Base extends Phaser.Scene {
     this.add
       .text(x + w / 2, y + h / 2, label, {
         fontFamily: 'PixelifySans, monospace',
+        resolution: 2,
         fontSize: '12px',
         color: textColor,
       })

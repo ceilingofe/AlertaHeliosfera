@@ -76,6 +76,7 @@ export class Preload extends Phaser.Scene {
     const loadingLabel = this.add
       .text(width / 2, height / 2 - 6, uiText.loading, {
         fontFamily: 'PixelifySans, monospace',
+        resolution: 2,
         fontSize: '16px',
         color: '#ead4aa',
       })

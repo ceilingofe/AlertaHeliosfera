@@ -52,6 +52,7 @@ export class HUD extends Phaser.Scene {
     const mBg = this.createPanel(8, 6, 198, 68, 0xc0cbdc);
     const mTitle = this.add.text(16, 11, uiText.hud.missionsTitle, {
       fontFamily: 'PixelifySans, monospace',
+      resolution: 2,
       fontSize: '12px',
       color: '#5a6988',
     });
@@ -70,6 +71,7 @@ export class HUD extends Phaser.Scene {
         .setStrokeStyle(1, 0x181425);
       const txt = this.add.text(30, y, m, {
         fontFamily: 'PixelifySans, monospace',
+        resolution: 2,
         fontSize: '11px',
         color: '#181425',
       });
@@ -85,6 +87,7 @@ export class HUD extends Phaser.Scene {
     this.zoneText = this.add
       .text(316, zoneBg.y, `↑ ${uiText.hud.zoneDefault}`, {
         fontFamily: 'PixelifySans, monospace',
+        resolution: 2,
         fontSize: '12px',
         color: '#ead4aa',
       })
@@ -94,6 +97,7 @@ export class HUD extends Phaser.Scene {
     this.createPanel(510, 6, 122, 52, 0xc0cbdc);
     this.dayText = this.add.text(518, 11, `${uiText.hud.dayPrefix} 1`, {
       fontFamily: 'PixelifySans, monospace',
+      resolution: 2,
       fontSize: '16px',
       color: '#181425',
     });
@@ -101,6 +105,7 @@ export class HUD extends Phaser.Scene {
 
     this.timeText = this.add.text(518, 34, '09:00', {
       fontFamily: 'PixelifySans, monospace',
+      resolution: 2,
       fontSize: '14px',
       color: '#181425',
     });
@@ -126,6 +131,7 @@ export class HUD extends Phaser.Scene {
     this.add
       .text(31, panelY + 64, uiText.hud.youLabel, {
         fontFamily: 'PixelifySans, monospace',
+        resolution: 2,
         fontSize: '11px',
         color: '#3a4466',
       })
@@ -136,12 +142,14 @@ export class HUD extends Phaser.Scene {
     this.add.image(60, row1Y + 6, 'icon_o2').setScale(1.5);
     this.add.text(70, row1Y, uiText.hud.o2Label, {
       fontFamily: 'PixelifySans, monospace',
+      resolution: 2,
       fontSize: '11px',
       color: '#181425',
     });
     this.o2ValueText = this.add
       .text(236, row1Y, '100 %', {
         fontFamily: 'PixelifySans, monospace',
+        resolution: 2,
         fontSize: '11px',
         color: '#181425',
       })
@@ -159,12 +167,14 @@ export class HUD extends Phaser.Scene {
     this.add.image(60, row2Y + 6, 'icon_temp').setScale(1.5);
     this.add.text(70, row2Y, uiText.hud.tempLabel, {
       fontFamily: 'PixelifySans, monospace',
+      resolution: 2,
       fontSize: '11px',
       color: '#181425',
     });
     this.tempValueText = this.add
       .text(236, row2Y, '21 °C · 100 %', {
         fontFamily: 'PixelifySans, monospace',
+        resolution: 2,
         fontSize: '11px',
         color: '#181425',
       })
@@ -184,12 +194,14 @@ export class HUD extends Phaser.Scene {
     this.add.image(60, row3Y + 6, 'icon_rad').setScale(1.5);
     this.add.text(70, row3Y, uiText.hud.radLabel, {
       fontFamily: 'PixelifySans, monospace',
+      resolution: 2,
       fontSize: '11px',
       color: '#181425',
     });
     this.radValueText = this.add
       .text(236, row3Y, '0.00 / 0.00 DR', {
         fontFamily: 'PixelifySans, monospace',
+        resolution: 2,
         fontSize: '10px',
         color: '#3a4466',
       })
@@ -235,11 +247,13 @@ export class HUD extends Phaser.Scene {
     this.createPanel(424, 322, 138, 32, 0x733e39);
     this.add.text(431, 325, uiText.hud.boxLabel, {
       fontFamily: 'PixelifySans, monospace',
+      resolution: 2,
       fontSize: '10px',
       color: '#ead4aa',
     });
     this.boxCountText = this.add.text(431, 338, '0/6', {
       fontFamily: 'PixelifySans, monospace',
+      resolution: 2,
       fontSize: '12px',
       color: '#ffffff',
     });
@@ -261,6 +275,7 @@ export class HUD extends Phaser.Scene {
     const radioIcon = this.add.image(138, 176, 'corvi_alert').setScale(0.55);
     this.radioText = this.add.text(154, 169, '', {
       fontFamily: 'PixelifySans, monospace',
+      resolution: 2,
       fontSize: '12px',
       color: '#181425',
     });
@@ -279,6 +294,7 @@ export class HUD extends Phaser.Scene {
     const pauseTitle = this.add
       .text(320, 164, uiText.hud.pausedTitle, {
         fontFamily: 'PixelifySans, monospace',
+        resolution: 2,
         fontSize: '20px',
         color: '#fee761',
       })
@@ -286,6 +302,7 @@ export class HUD extends Phaser.Scene {
     const pauseHint = this.add
       .text(320, 194, uiText.hud.pausedHint, {
         fontFamily: 'PixelifySans, monospace',
+        resolution: 2,
         fontSize: '13px',
         color: '#ead4aa',
       })

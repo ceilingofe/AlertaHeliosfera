@@ -51,6 +51,7 @@ export class TouchControls {
     this.actionText = scene.add
       .text(actionX, actionY, uiText.hud.actionButton, {
         fontFamily: 'PixelifySans, monospace',
+        resolution: 2,
         fontSize: '16px',
         color: '#ffffff',
       })
