@@ -15,8 +15,8 @@ interface ShootingStar {
 
 /**
  * Escena Noche (fiel al storyboard s11_estrellas.png):
- * Lluvia de estrellas fugaces, tarjeta "Lo que aprendiste hoy" con los 3 datos del día,
- * desbloqueo de la personalización al terminar el Día 1, aviso de tormenta para el Día 3
+ * Lluvia de estrellas fugaces (y auroras marcianas en el día 5 tras cme_miss),
+ * tarjeta "Lo que aprendiste hoy" con los 3 datos del día, desbloqueos nuevos
  * y guardado en localStorage antes de pasar a Transmision del día siguiente.
  */
 export class Noche extends Phaser.Scene {
@@ -30,6 +30,7 @@ export class Noche extends Phaser.Scene {
   create(): void {
     const state = gameStore.state;
     const completedDay = state.day;
+    const hadAurora = state.activeEvents.includes('aurora_tonight') || completedDay === 5;
     const dayFacts = Data.getFactsForDay(completedDay);
 
     BaseSystem.deliverTubes(state, 1);
@@ -40,6 +41,17 @@ export class Noche extends Phaser.Scene {
 
     // 1. Cielo nocturno (#181425) con estrellas fijas y horizonte marciano
     this.add.rectangle(320, 180, 640, 360, 0x181425);
+
+    // Si hubo roce de CME (día 5), dibujamos auroras marcianas verdes y violetas en el cielo
+    if (hadAurora) {
+      const aurora = this.add.graphics();
+      aurora.fillStyle(0x63c74d, 0.22);
+      aurora.fillEllipse(160, 92, 290, 66);
+      aurora.fillStyle(0x2ce8f5, 0.18);
+      aurora.fillEllipse(175, 114, 260, 50);
+      aurora.fillStyle(0xb55088, 0.2);
+      aurora.fillEllipse(145, 72, 240, 44);
+    }
 
     const staticStars = this.add.graphics();
     staticStars.fillStyle(0xffffff, 0.85);
@@ -106,11 +118,19 @@ export class Noche extends Phaser.Scene {
       });
     });
 
-    // Recuadro amarillo de desbloqueo de la personalización (Día 1)
+    // Recuadro amarillo de desbloqueos por día
     const unlockTitle =
-      completedDay === 1 ? uiText.night.unlocksDay1Title : uiText.night.unlocksTitle;
+      completedDay === 1
+        ? uiText.night.unlocksDay1Title
+        : completedDay === 4
+          ? uiText.night.unlocksDay5Title
+          : uiText.night.unlocksTitle;
     const unlockSub =
-      completedDay === 1 ? uiText.night.unlocksDay1Sub : uiText.night.unlocksSub;
+      completedDay === 1
+        ? uiText.night.unlocksDay1Sub
+        : completedDay === 4
+          ? uiText.night.unlocksDay5Sub
+          : uiText.night.unlocksSub;
 
     this.add.rectangle(350, 230, 264, 38, 0xfee761).setOrigin(0, 0);
     this.add.text(360, 234, unlockTitle, {
@@ -139,7 +159,7 @@ export class Noche extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    // 4. Cuadro de diálogo inferior izquierdo con Corvi grande y aviso real de tormenta para el día 3 (s11_estrellas.png)
+    // 4. Cuadro de diálogo inferior izquierdo con Corvi grande (s11_estrellas.png)
     const dialogBox = this.add.rectangle(94, 282, 232, 70, 0xead4aa).setOrigin(0, 0);
     dialogBox.setStrokeStyle(2, 0x181425);
 
@@ -163,9 +183,15 @@ export class Noche extends Phaser.Scene {
       .setScale(2.5);
 
     const hookText =
-      completedDay === 1 ? uiText.night.corviStormHook : uiText.night.corviNightText;
+      completedDay === 1
+        ? uiText.night.corviStormHook
+        : hadAurora
+          ? uiText.night.corviAuroraText
+          : uiText.night.corviNightText;
     const sealLabel =
-      completedDay === 1 ? uiText.night.nasaSealDonki : uiText.night.nasaSeal;
+      completedDay === 1 || hadAurora
+        ? uiText.night.nasaSealDonki
+        : uiText.night.nasaSeal;
 
     this.add.text(124, 290, hookText, {
       fontFamily: 'PixelifySans, monospace',

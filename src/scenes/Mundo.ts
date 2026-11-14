@@ -6,17 +6,20 @@ import { gameStore } from '../state/GameState';
 import { Save } from '../state/Save';
 import { BaseSystem } from '../systems/BaseSystem';
 import { Clock } from '../systems/Clock';
+import { Events } from '../systems/Events';
 import { Vitals } from '../systems/Vitals';
 import type { SampleType } from '../types';
 import { getSharedJoystickVector } from '../ui/Joystick';
 
 interface InteractPoint {
-  kind: 'door' | 'panel' | 'antenna' | 'moxie' | 'refuge' | 'sample';
+  kind: 'door' | 'panel' | 'antenna' | 'moxie' | 'refuge' | 'sample' | 'threeForks';
   x: number;
   y: number;
   prompt: string;
+  panelId?: string;
   sampleType?: SampleType;
   marker?: Phaser.GameObjects.Image;
+  sprite?: Phaser.GameObjects.Image;
   collected?: boolean;
 }
 
@@ -25,9 +28,18 @@ interface ZoneRect {
   bounds: Phaser.Geom.Rectangle;
 }
 
+const MINIGAME_KEYS = [
+  'MinijuegoRoca',
+  'MinijuegoSuelo',
+  'MinijuegoMinerales',
+  'MinijuegoAire',
+  'MinijuegoPaneles',
+  'MinijuegoTuberias',
+] as const;
+
 /**
  * Escena exterior en el cráter Jezero (1280×960 px, zoom ×2 sobre 640×360).
- * Conecta movimiento, entrada a la base o refugio, minijuego de roca, noche y signos vitales.
+ * Conecta movimiento, zonas reales, los 6 minijuegos, eventos diarios, tormenta solar y signos vitales.
  */
 export class Mundo extends Phaser.Scene {
   private player!: Phaser.Physics.Arcade.Sprite;
@@ -48,6 +60,7 @@ export class Mundo extends Phaser.Scene {
   private activeSamplePoint: InteractPoint | null = null;
   private zones: ZoneRect[] = [];
   private currentZoneName = '';
+  private lastToolIndex = 0;
   private rescueTriggered = false;
   private unsubscribers: (() => void)[] = [];
 
@@ -69,11 +82,14 @@ export class Mundo extends Phaser.Scene {
     // 1. Suelo provisional repetido (sin marca de agua MARU)
     this.add.tileSprite(0, 0, mapWidth, mapHeight, 'ground_placeholder').setOrigin(0, 0);
 
-    // 2. Decoración del terreno (sendero hacia Bright Angel y cráteres estilo s03_mapa)
+    // 2. Decoración del terreno (sendero hacia Bright Angel, Séítah y Three Forks)
     const deco = this.add.graphics();
     deco.fillStyle(0xe4a672, 0.55);
     for (let y = 160; y < 450; y += 10) {
       deco.fillRect(637, y, 6, 5);
+    }
+    for (let x = 700; x < 960; x += 12) {
+      deco.fillRect(x, 490, 6, 4);
     }
     this.drawCrater(deco, 718, 396, 36, 22);
     this.drawCrater(deco, 760, 548, 52, 34);
@@ -109,14 +125,25 @@ export class Mundo extends Phaser.Scene {
     for (const p of panelPositions) {
       const panelData = state.base.panels.find((item) => item.id === p.id);
       const isDusty = (panelData?.dust ?? 0) > 0.2;
-      this.add.image(p.x, p.y, isDusty ? 'solar_panel_dusty' : 'solar_panel');
+      const panelImg = this.add
+        .image(p.x, p.y, isDusty ? 'solar_panel_dusty' : 'solar_panel')
+        .setInteractive({ useHandCursor: true });
+      const evMarker = this.add
+        .image(p.x, p.y - 18, 'marker_event')
+        .setVisible(isDusty);
       addColliderBox(p.x, p.y, 50, 26);
-      this.interactPoints.push({
+
+      const pt: InteractPoint = {
         kind: 'panel',
+        panelId: p.id,
         x: p.x,
         y: p.y + 18,
-        prompt: uiText.hud.interactPanel,
-      });
+        prompt: isDusty ? uiText.hud.interactPanel : uiText.hud.interactPanelClean,
+        sprite: panelImg,
+        marker: evMarker,
+      };
+      panelImg.on('pointerdown', () => this.activatePoint(pt));
+      this.interactPoints.push(pt);
     }
 
     const baseImg = this.add
@@ -131,23 +158,43 @@ export class Mundo extends Phaser.Scene {
       prompt: uiText.hud.interactDoor,
     });
 
-    this.add.image(692, 434, state.base.antennaOk ? 'antenna' : 'antenna_broken');
+    const antImg = this.add
+      .image(692, 434, state.base.antennaOk ? 'antenna' : 'antenna_broken')
+      .setInteractive({ useHandCursor: true });
+    const antMarker = this.add
+      .image(692, 404, 'marker_event')
+      .setVisible(!state.base.antennaOk);
     addColliderBox(692, 444, 28, 28);
-    this.interactPoints.push({
+    const antPt: InteractPoint = {
       kind: 'antenna',
       x: 692,
       y: 462,
-      prompt: uiText.hud.interactAntenna,
-    });
+      prompt: state.base.antennaOk
+        ? uiText.hud.interactAntennaOk
+        : uiText.hud.interactAntenna,
+      sprite: antImg,
+      marker: antMarker,
+    };
+    antImg.on('pointerdown', () => this.activatePoint(antPt));
+    this.interactPoints.push(antPt);
 
-    this.add.image(696, 486, 'moxie');
+    const moxieImg = this.add
+      .image(696, 486, 'moxie')
+      .setInteractive({ useHandCursor: true });
+    const moxieMarker = this.add
+      .image(696, 468, 'marker_event')
+      .setVisible(!state.base.moxieOk);
     addColliderBox(696, 486, 20, 16);
-    this.interactPoints.push({
+    const moxiePt: InteractPoint = {
       kind: 'moxie',
       x: 696,
       y: 500,
-      prompt: uiText.hud.interactMoxie,
-    });
+      prompt: state.base.moxieOk ? uiText.hud.interactMoxieOk : uiText.hud.interactMoxie,
+      sprite: moxieImg,
+      marker: moxieMarker,
+    };
+    moxieImg.on('pointerdown', () => this.activatePoint(moxiePt));
+    this.interactPoints.push(moxiePt);
 
     const refugeImg = this.add
       .image(748, 512, 'refuge')
@@ -161,11 +208,36 @@ export class Mundo extends Phaser.Scene {
       prompt: uiText.hud.interactRefuge,
     });
 
-    // Rocas de manchas de leopardo (cerca de la base para gancho rápido < 60 s y en Bright Angel al norte)
+    // Depósito de tubos en Three Forks al este (sección 8: lo entregado aquí cuenta doble)
+    const depotBase = this.add
+      .rectangle(940, 490, 32, 22, 0xc0cbdc)
+      .setStrokeStyle(2, 0x181425)
+      .setInteractive({ useHandCursor: true });
+    this.add.image(934, 488, 'tube_full');
+    this.add.image(946, 488, 'tube_empty');
+    const depotPt: InteractPoint = {
+      kind: 'threeForks',
+      x: 940,
+      y: 504,
+      prompt: uiText.hud.interactThreeForks,
+    };
+    depotBase.on('pointerdown', () => this.activatePoint(depotPt));
+    this.interactPoints.push(depotPt);
+
+    // Puntos de muestra por zona (sección 8):
+    // - Cerca de la base y Bright Angel (norte): roca (Cheyava Falls) y minerales hidratados
     this.spawnSampleRock(684, 520, 'rock_leopard', 'roca');
     this.spawnSampleRock(640, 250, 'rock_leopard', 'roca');
-    this.spawnSampleRock(460, 680, 'rock_volcanic', 'suelo');
-    this.spawnSampleRock(860, 480, 'rock_sandstone', 'minerales');
+    this.spawnSampleRock(580, 230, 'rock_sparkle', 'minerales');
+    // - Octavia E. Butler Landing (centro): suelo (regolito)
+    this.spawnSampleRock(612, 544, 'rock_sandstone', 'suelo');
+    this.spawnSampleRock(720, 558, 'rock_sandstone', 'suelo');
+    // - Séítah (suroeste): roca volcánica y aire
+    this.spawnSampleRock(430, 650, 'rock_volcanic', 'roca');
+    this.spawnSampleRock(510, 580, 'rock_volcanic', 'aire');
+    // - Three Forks (este): minerales y aire
+    this.spawnSampleRock(860, 480, 'rock_sparkle', 'minerales');
+    this.spawnSampleRock(830, 535, 'rock_sandstone', 'aire');
 
     const decoRocks = [
       { x: 498, y: 518, key: 'rock_sandstone' },
@@ -180,9 +252,9 @@ export class Mundo extends Phaser.Scene {
 
     this.zones = [
       { name: 'Bright Angel', bounds: new Phaser.Geom.Rectangle(360, 60, 560, 280) },
-      { name: 'Séítah', bounds: new Phaser.Geom.Rectangle(80, 560, 440, 340) },
-      { name: 'Three Forks', bounds: new Phaser.Geom.Rectangle(820, 340, 380, 340) },
-      { name: 'Octavia E. Butler Landing', bounds: new Phaser.Geom.Rectangle(440, 340, 380, 300) },
+      { name: 'Séítah', bounds: new Phaser.Geom.Rectangle(80, 540, 460, 360) },
+      { name: 'Three Forks', bounds: new Phaser.Geom.Rectangle(800, 340, 400, 340) },
+      { name: 'Octavia E. Butler Landing', bounds: new Phaser.Geom.Rectangle(440, 340, 360, 300) },
     ];
 
     // 4. Astronauta mini (14×23 px)
@@ -243,7 +315,7 @@ export class Mundo extends Phaser.Scene {
       this.keyE.on('down', () => this.handleInteraction());
       this.keySpace.on('down', () => this.handleInteraction());
       this.keyEsc.on('down', () => {
-        if (this.scene.isActive('MinijuegoRoca')) return;
+        if (this.isAnyMinigameActive()) return;
         const paused = Clock.togglePause(gameStore.state);
         bus.emit('clock:pauseChanged', { paused });
       });
@@ -255,18 +327,21 @@ export class Mundo extends Phaser.Scene {
       }),
       bus.on('minigame:finished', (res) => {
         if (res.ok && this.activeSamplePoint) {
-          const emptyIdx = state.tubes.findIndex((t) => t === null);
-          if (emptyIdx !== -1) {
-            state.tubes[emptyIdx] = this.activeSamplePoint.sampleType ?? 'roca';
+          if (this.activeSamplePoint.kind === 'sample') {
+            const emptyIdx = state.tubes.findIndex((t) => t === null);
+            if (emptyIdx !== -1) {
+              state.tubes[emptyIdx] = this.activeSamplePoint.sampleType ?? 'roca';
+            }
+            this.activeSamplePoint.collected = true;
+            this.activeSamplePoint.marker?.setVisible(false);
+            bus.emit('interact:prompt', { text: uiText.hud.radioSamplePicked });
           }
           if (res.factId && !state.learnedToday.includes(res.factId)) {
             state.learnedToday.push(res.factId);
           }
-          this.activeSamplePoint.collected = true;
-          this.activeSamplePoint.marker?.setVisible(false);
-          bus.emit('interact:prompt', { text: uiText.hud.radioSamplePicked });
         }
         this.activeSamplePoint = null;
+        this.refreshEquipmentVisuals();
       })
     );
 
@@ -275,6 +350,9 @@ export class Mundo extends Phaser.Scene {
     }
     if (!this.scene.isActive('Dialogo')) {
       this.scene.launch('Dialogo');
+    }
+    if (!this.scene.isActive('Tormenta')) {
+      this.scene.launch('Tormenta');
     }
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
@@ -285,13 +363,45 @@ export class Mundo extends Phaser.Scene {
     });
   }
 
+  private isAnyMinigameActive(): boolean {
+    return MINIGAME_KEYS.some((k) => this.scene.isActive(k));
+  }
+
+  private refreshEquipmentVisuals(): void {
+    const state = gameStore.state;
+    for (const pt of this.interactPoints) {
+      if (pt.kind === 'panel' && pt.panelId) {
+        const pData = state.base.panels.find((p) => p.id === pt.panelId);
+        const isDusty = (pData?.dust ?? 0) > 0.2;
+        pt.sprite?.setTexture(isDusty ? 'solar_panel_dusty' : 'solar_panel');
+        pt.marker?.setVisible(isDusty);
+        pt.prompt = isDusty
+          ? uiText.hud.interactPanel
+          : uiText.hud.interactPanelClean;
+      } else if (pt.kind === 'moxie') {
+        pt.marker?.setVisible(!state.base.moxieOk);
+        pt.prompt = state.base.moxieOk
+          ? uiText.hud.interactMoxieOk
+          : uiText.hud.interactMoxie;
+      } else if (pt.kind === 'antenna') {
+        pt.sprite?.setTexture(
+          state.base.antennaOk ? 'antenna' : 'antenna_broken'
+        );
+        pt.marker?.setVisible(!state.base.antennaOk);
+        pt.prompt = state.base.antennaOk
+          ? uiText.hud.interactAntennaOk
+          : uiText.hud.interactAntenna;
+      }
+    }
+  }
+
   update(_time: number, delta: number): void {
     const state = gameStore.state;
     if (this.rescueTriggered) {
       return;
     }
 
-    if (state.clock.paused || this.scene.isActive('MinijuegoRoca')) {
+    if (state.clock.paused || this.isAnyMinigameActive()) {
       this.player.setVelocity(0, 0);
       return;
     }
@@ -334,7 +444,7 @@ export class Mundo extends Phaser.Scene {
     this.updateInteractionPrompt();
     this.updateCurrentZone();
 
-    // El Día 1 dura 150 s de reloj corriendo; días 2+ duran 300 s (sección 7.1 y Fase 3)
+    // 2. Reloj del día (Día 1 = 150 s, Día 2+ = 300 s)
     const durationSec = Clock.getDayDurationSec(state.day, true);
     const clockRes = Clock.tick(state, dt, durationSec);
     if (clockRes.warned16) {
@@ -355,6 +465,31 @@ export class Mundo extends Phaser.Scene {
 
     this.nightOverlay.setAlpha(Clock.isNight(state.clock.minutes) ? 0.35 : 0);
 
+    // 3. Eventos diarios y tormenta solar
+    const evRes = Events.tick(state, dt);
+    if (evRes.triggeredEvents.length > 0) {
+      this.refreshEquipmentVisuals();
+      for (const ev of evRes.triggeredEvents) {
+        if (ev.type === 'dust') {
+          bus.emit('interact:prompt', { text: uiText.hud.radioDustEvent });
+        } else if (ev.type === 'moxie_pipes') {
+          bus.emit('interact:prompt', { text: uiText.hud.radioMoxieEvent });
+        } else if (ev.type === 'cold_night') {
+          bus.emit('interact:prompt', { text: uiText.hud.radioColdNightEvent });
+        }
+      }
+    }
+
+    if (evRes.stormFalseAlarmResolved) {
+      bus.emit('dialog:open', {
+        mode: 'big',
+        mood: 'happy',
+        text: uiText.storm.corviAlertMiss,
+        source: uiText.storm.sealSourceMiss,
+        label: 'ARCHIVO REAL',
+      });
+    }
+
     BaseSystem.tick(state, dt, durationSec);
 
     const vitalsRes = Vitals.tick(state, dt);
@@ -365,13 +500,15 @@ export class Mundo extends Phaser.Scene {
       bus.emit('vitals:o2Danger20');
     }
 
-    if (vitalsRes.rescueCause) {
+    const rescueCause = vitalsRes.rescueCause ?? evRes.rescueCause;
+    if (rescueCause) {
       this.rescueTriggered = true;
       this.player.setVelocity(0, 0);
-      bus.emit('rescue', { cause: vitalsRes.rescueCause });
+      bus.emit('rescue', { cause: rescueCause });
       this.scene.stop('HUD');
       this.scene.stop('Dialogo');
-      this.scene.start('Rescate', { cause: vitalsRes.rescueCause });
+      this.scene.stop('Tormenta');
+      this.scene.start('Rescate', { cause: rescueCause });
     }
   }
 
@@ -397,19 +534,27 @@ export class Mundo extends Phaser.Scene {
       ease: 'Sine.easeInOut',
     });
 
+    const promptMap: Record<SampleType, string> = {
+      roca: uiText.hud.interactRock,
+      suelo: uiText.hud.interactSoil,
+      minerales: uiText.hud.interactMinerals,
+      aire: uiText.hud.interactAir,
+    };
+
     const pt: InteractPoint = {
       kind: 'sample',
       x,
       y,
-      prompt: uiText.hud.interactRock,
+      prompt: promptMap[sampleType],
       sampleType,
       marker,
+      sprite: rockImg,
       collected: false,
     };
 
     const onDirectClick = (): void => {
-      if (pt.collected || this.scene.isActive('MinijuegoRoca')) return;
-      this.startSampleCollection(pt);
+      if (pt.collected || this.isAnyMinigameActive()) return;
+      this.activatePoint(pt);
     };
 
     rockImg.on('pointerdown', onDirectClick);
@@ -432,7 +577,7 @@ export class Mundo extends Phaser.Scene {
   }
 
   private getNearestInteractPoint(): InteractPoint | null {
-    const radius = balance.player.interactRadius;
+    const radius = balance.player.interactRadius + 6;
     let nearest: InteractPoint | null = null;
     let bestDist = Infinity;
 
@@ -447,8 +592,27 @@ export class Mundo extends Phaser.Scene {
     return nearest;
   }
 
+  private getToolIndexForPoint(pt: InteractPoint | null): number {
+    if (!pt) return 0;
+    if (pt.kind === 'sample') {
+      if (pt.sampleType === 'roca') return 0; // icon_drill
+      if (pt.sampleType === 'suelo') return 1; // icon_shovel
+      if (pt.sampleType === 'minerales') return 2; // icon_scanner
+      if (pt.sampleType === 'aire') return 3; // icon_valve
+    }
+    if (pt.kind === 'panel') return 4; // icon_brush
+    if (pt.kind === 'moxie' || pt.kind === 'antenna') return 5; // icon_wrench
+    return 0;
+  }
+
   private updateInteractionPrompt(): void {
     const nearest = this.getNearestInteractPoint();
+    const toolIdx = this.getToolIndexForPoint(nearest);
+    if (toolIdx !== this.lastToolIndex) {
+      this.lastToolIndex = toolIdx;
+      bus.emit('tool:changed', { index: toolIdx });
+    }
+
     if (nearest) {
       this.promptLabel.setText(nearest.prompt);
       const boxWidth = Math.max(76, Math.round(this.promptLabel.width + 12));
@@ -468,7 +632,7 @@ export class Mundo extends Phaser.Scene {
     if (
       state.clock.paused ||
       this.rescueTriggered ||
-      this.scene.isActive('MinijuegoRoca')
+      this.isAnyMinigameActive()
     ) {
       return;
     }
@@ -476,17 +640,66 @@ export class Mundo extends Phaser.Scene {
     const nearest = this.getNearestInteractPoint();
     if (!nearest) return;
 
-    switch (nearest.kind) {
+    this.activatePoint(nearest);
+  }
+
+  private activatePoint(pt: InteractPoint): void {
+    const state = gameStore.state;
+    if (this.isAnyMinigameActive()) return;
+
+    switch (pt.kind) {
       case 'door':
         this.enterBase('base');
         break;
       case 'refuge':
         this.enterBase('refugio');
         break;
-      case 'sample':
-        this.startSampleCollection(nearest);
+      case 'threeForks': {
+        const count = BaseSystem.deliverTubes(state, 2);
+        if (count > 0) {
+          Save.save(state);
+          bus.emit('interact:prompt', { text: uiText.hud.radioThreeForks });
+        } else {
+          bus.emit('interact:prompt', { text: uiText.base.noTubesMsg });
+        }
         break;
-      default:
+      }
+      case 'panel': {
+        this.activeSamplePoint = pt;
+        this.player.setVelocity(0, 0);
+        this.scene.launch('MinijuegoPaneles', {
+          type: 'panel',
+          day: state.day,
+          difficulty: state.day <= 3 ? 1 : state.day <= 9 ? 2 : 3,
+        });
+        break;
+      }
+      case 'moxie': {
+        this.activeSamplePoint = pt;
+        this.player.setVelocity(0, 0);
+        this.scene.launch('MinijuegoTuberias', {
+          type: 'moxie_pipes',
+          day: state.day,
+          difficulty: state.day <= 3 ? 1 : state.day <= 9 ? 2 : 3,
+        });
+        break;
+      }
+      case 'antenna': {
+        if (!state.base.antennaOk) {
+          this.activeSamplePoint = pt;
+          this.player.setVelocity(0, 0);
+          this.scene.launch('MinijuegoTuberias', {
+            type: 'antenna',
+            day: state.day,
+            difficulty: state.day <= 3 ? 1 : state.day <= 9 ? 2 : 3,
+          });
+        } else {
+          bus.emit('interact:prompt', { text: uiText.hud.interactAntennaOk });
+        }
+        break;
+      }
+      case 'sample':
+        this.startSampleCollection(pt);
         break;
     }
   }
@@ -503,20 +716,21 @@ export class Mundo extends Phaser.Scene {
     this.player.setVelocity(0, 0);
     this.promptContainer.setVisible(false);
 
-    if (pt.sampleType === 'roca' || !pt.sampleType) {
-      this.scene.launch('MinijuegoRoca', {
-        type: 'roca',
-        day: state.day,
-        difficulty: state.day <= 3 ? 1 : state.day <= 9 ? 2 : 3,
-        zone: this.currentZoneName,
-      });
-    } else {
-      state.tubes[emptyIdx] = pt.sampleType;
-      pt.collected = true;
-      pt.marker?.setVisible(false);
-      this.activeSamplePoint = null;
-      bus.emit('interact:prompt', { text: uiText.hud.radioSamplePicked });
-    }
+    const difficulty: 1 | 2 | 3 = state.day <= 3 ? 1 : state.day <= 9 ? 2 : 3;
+    const sceneMap: Record<SampleType, string> = {
+      roca: 'MinijuegoRoca',
+      suelo: 'MinijuegoSuelo',
+      minerales: 'MinijuegoMinerales',
+      aire: 'MinijuegoAire',
+    };
+
+    const targetScene = sceneMap[pt.sampleType ?? 'roca'];
+    this.scene.launch(targetScene, {
+      type: pt.sampleType ?? 'roca',
+      day: state.day,
+      difficulty,
+      zone: this.currentZoneName,
+    });
   }
 
   private enterBase(targetLocation: 'base' | 'refugio'): void {

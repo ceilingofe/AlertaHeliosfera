@@ -1,4 +1,10 @@
 import Phaser from 'phaser';
+import { MinijuegoAire } from './minigames/MinijuegoAire';
+import { MinijuegoMinerales } from './minigames/MinijuegoMinerales';
+import { MinijuegoPaneles } from './minigames/MinijuegoPaneles';
+import { MinijuegoRoca } from './minigames/MinijuegoRoca';
+import { MinijuegoSuelo } from './minigames/MinijuegoSuelo';
+import { MinijuegoTuberias } from './minigames/MinijuegoTuberias';
 import { Base } from './scenes/Base';
 import { Boot } from './scenes/Boot';
 import { Despegue } from './scenes/Despegue';
@@ -8,8 +14,8 @@ import { Mundo } from './scenes/Mundo';
 import { Noche } from './scenes/Noche';
 import { Preload } from './scenes/Preload';
 import { Rescate } from './scenes/Rescate';
+import { Tormenta } from './scenes/Tormenta';
 import { Transmision } from './scenes/Transmision';
-import { MinijuegoRoca } from './minigames/MinijuegoRoca';
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -31,7 +37,13 @@ const config: Phaser.Types.Core.GameConfig = {
     Base,
     HUD,
     Dialogo,
+    Tormenta,
     MinijuegoRoca,
+    MinijuegoSuelo,
+    MinijuegoMinerales,
+    MinijuegoAire,
+    MinijuegoPaneles,
+    MinijuegoTuberias,
     Noche,
     Rescate,
   ],

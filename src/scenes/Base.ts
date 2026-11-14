@@ -6,7 +6,10 @@ import { gameStore } from '../state/GameState';
 import { Save } from '../state/Save';
 import { BaseSystem } from '../systems/BaseSystem';
 import { Clock } from '../systems/Clock';
+import { Data, type CorviQAEntry } from '../systems/Data';
+import { Events } from '../systems/Events';
 import { Vitals } from '../systems/Vitals';
+import { DialogBox } from '../ui/DialogBox';
 import { getSharedJoystickVector } from '../ui/Joystick';
 
 interface BaseStation {
@@ -19,7 +22,7 @@ interface BaseStation {
 /**
  * Escena interior de la base marciana (fiel al storyboard s04_base.png).
  * Permite recargar oxígeno con reserva de MOXIE, calentarse, entregar muestras,
- * entrar al refugio, salir al exterior (antes de las 17:00) y dormir en la cama.
+ * entrar al refugio, preguntar a Corvi (menú corvi_qa.json), salir al exterior y dormir.
  */
 export class Base extends Phaser.Scene {
   private player!: Phaser.Physics.Arcade.Sprite;
@@ -44,6 +47,9 @@ export class Base extends Phaser.Scene {
   private promptBg!: Phaser.GameObjects.Rectangle;
   private promptLabel!: Phaser.GameObjects.Text;
 
+  private faqContainer: Phaser.GameObjects.Container | null = null;
+  private activeQaDialog: DialogBox | null = null;
+
   private stations: BaseStation[] = [];
   private activeRefill = false;
   private activeHeat = false;
@@ -66,6 +72,8 @@ export class Base extends Phaser.Scene {
     this.activeRefill = false;
     this.activeHeat = false;
     this.tableTubeSprites = [];
+    this.faqContainer = null;
+    this.activeQaDialog = null;
     this.unsubscribers = [];
 
     // 1. Piso embaldosado y pared superior estilo s04_base.png (TODO_ARTE pendiente de Karmin)
@@ -177,7 +185,6 @@ export class Base extends Phaser.Scene {
       obstacles.add(r);
     };
 
-    // Pared superior
     addBlock(320, 44, 640, 88);
 
     // Cama a la izquierda (s04_base.png: cabecera blanca, sábana gris, cobija magenta #b55088)
@@ -191,7 +198,7 @@ export class Base extends Phaser.Scene {
     addBlock(74, 148, 86, 86);
     bedFrame.on('pointerdown', () => this.goToSleep());
 
-    // Corvi en su percha
+    // Corvi en su percha (abre el menú de preguntas corvi_qa.json)
     this.add.rectangle(198, 182, 52, 8, 0x8b9bb4).setStrokeStyle(2, 0x181425);
     this.add.rectangle(198, 196, 10, 20, 0x262b44).setStrokeStyle(2, 0x181425);
     const corviSprite = this.add
@@ -200,7 +207,7 @@ export class Base extends Phaser.Scene {
       .setInteractive({ useHandCursor: true });
     addBlock(198, 160, 44, 48);
     corviSprite.on('pointerdown', () => {
-      bus.emit('clock:warn16');
+      this.openCorviFaqMenu();
     });
 
     // Mesa de muestras a la derecha (s04_base.png)
@@ -267,7 +274,7 @@ export class Base extends Phaser.Scene {
       { id: 'exitDoor', x: 334, y: 274, prompt: uiText.base.interactExitDoor },
     ];
 
-    // 6. Astronauta en el interior (escala ×2 para coincidir con el interior de s04_base.png)
+    // 6. Astronauta en el interior (escala ×2)
     const hairKey =
       state.customization.hair === 2 ? 'astronaut_mini_hair2' : 'astronaut_mini_hair1';
     this.player = this.physics.add
@@ -307,8 +314,18 @@ export class Base extends Phaser.Scene {
       this.keyEsc = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
 
       this.keyE.on('down', () => this.handleStationInteraction());
-      this.keySpace.on('down', () => this.handleStationInteraction());
+      this.keySpace.on('down', () => {
+        if (this.activeQaDialog) {
+          this.activeQaDialog.advanceOrFinish();
+          return;
+        }
+        this.handleStationInteraction();
+      });
       this.keyEsc.on('down', () => {
+        if (this.faqContainer) {
+          this.closeCorviFaqMenu();
+          return;
+        }
         const paused = Clock.togglePause(gameStore.state);
         bus.emit('clock:pauseChanged', { paused });
       });
@@ -316,6 +333,10 @@ export class Base extends Phaser.Scene {
 
     this.unsubscribers.push(
       bus.on('input:action', () => {
+        if (this.activeQaDialog) {
+          this.activeQaDialog.advanceOrFinish();
+          return;
+        }
         this.handleStationInteraction();
       })
     );
@@ -325,6 +346,9 @@ export class Base extends Phaser.Scene {
     }
     if (!this.scene.isActive('Dialogo')) {
       this.scene.launch('Dialogo');
+    }
+    if (!this.scene.isActive('Tormenta')) {
+      this.scene.launch('Tormenta');
     }
 
     bus.emit('zone:changed', {
@@ -339,6 +363,7 @@ export class Base extends Phaser.Scene {
         unsub();
       }
       this.unsubscribers = [];
+      this.closeCorviFaqMenu();
     });
   }
 
@@ -403,16 +428,169 @@ export class Base extends Phaser.Scene {
       }
     }
 
-    // 3. Reloj, signos vitales en base y sistemas de la base (paneles + MOXIE)
+    // 3. Reloj, eventos (incluyendo impacto de tormenta en base/refugio), signos vitales y base
     const durationSec = Clock.getDayDurationSec(state.day, true);
     const clockRes = Clock.tick(state, dt, durationSec);
     if (clockRes.warned16) bus.emit('clock:warn16');
     if (clockRes.curfew17) bus.emit('clock:curfew17');
 
-    Vitals.tick(state, dt);
+    const evRes = Events.tick(state, dt);
+    if (evRes.stormFalseAlarmResolved) {
+      bus.emit('dialog:open', {
+        mode: 'big',
+        mood: 'happy',
+        text: uiText.storm.corviAlertMiss,
+        source: uiText.storm.sealSourceMiss,
+        label: 'ARCHIVO REAL',
+      });
+    }
+
+    const vitalsRes = Vitals.tick(state, dt);
     BaseSystem.tick(state, dt, durationSec);
 
+    const rescueCause = vitalsRes.rescueCause ?? evRes.rescueCause;
+    if (rescueCause) {
+      this.player.setVelocity(0, 0);
+      this.scene.stop('HUD');
+      this.scene.stop('Dialogo');
+      this.scene.stop('Tormenta');
+      this.scene.start('Rescate', { cause: rescueCause });
+      return;
+    }
+
     this.updateNearestPrompt();
+  }
+
+  /**
+   * Abre el menú de preguntas científicas de Corvi (sección 9.5 y 10.6).
+   */
+  private openCorviFaqMenu(): void {
+    this.closeCorviFaqMenu();
+    const state = gameStore.state;
+    Clock.setPaused(state, true);
+
+    const questions = Data.getUnlockedCorviQA(state);
+    const dim = this.add
+      .rectangle(320, 180, 640, 360, 0x181425, 0.72)
+      .setInteractive();
+
+    const panel = this.add
+      .rectangle(320, 166, 460, 250, 0x262b44)
+      .setStrokeStyle(3, 0xfee761);
+
+    const title = this.add
+      .text(320, 56, uiText.corviFaq.menuTitle, {
+        fontFamily: 'PixelifySans, monospace',
+        fontSize: '16px',
+        color: '#fee761',
+      })
+      .setOrigin(0.5);
+
+    const closeBtn = this.add
+      .rectangle(504, 56, 82, 22, 0x181425)
+      .setStrokeStyle(1, 0xc0cbdc)
+      .setInteractive({ useHandCursor: true });
+    const closeTxt = this.add
+      .text(504, 56, uiText.corviFaq.closeButton, {
+        fontFamily: 'PixelifySans, monospace',
+        fontSize: '10px',
+        color: '#c0cbdc',
+      })
+      .setOrigin(0.5);
+
+    closeBtn.on('pointerdown', () => this.closeCorviFaqMenu());
+
+    const items: Phaser.GameObjects.GameObject[] = [
+      dim,
+      panel,
+      title,
+      closeBtn,
+      closeTxt,
+    ];
+
+    questions.slice(0, 8).forEach((qa, idx) => {
+      const qy = 82 + idx * 24;
+      const isNew = !state.corviSeen.includes(qa.id);
+
+      const rowBg = this.add
+        .rectangle(320, qy, 432, 20, 0x3a4466)
+        .setStrokeStyle(1, 0x181425)
+        .setInteractive({ useHandCursor: true });
+
+      const qText = this.add.text(114, qy - 6, `▶ ${qa.q}`, {
+        fontFamily: 'PixelifySans, monospace',
+        fontSize: '11px',
+        color: '#ffffff',
+      });
+
+      items.push(rowBg, qText);
+
+      if (isNew) {
+        const badgeBg = this.add
+          .rectangle(508, qy, 44, 14, 0xfee761)
+          .setStrokeStyle(1, 0x181425);
+        const badgeTxt = this.add
+          .text(508, qy, uiText.corviFaq.newBadge, {
+            fontFamily: 'PixelifySans, monospace',
+            fontSize: '9px',
+            color: '#181425',
+          })
+          .setOrigin(0.5);
+        items.push(badgeBg, badgeTxt);
+      }
+
+      rowBg.on('pointerdown', () => {
+        this.playCorviAnswerSequence(qa);
+      });
+    });
+
+    this.faqContainer = this.add.container(0, 0, items).setDepth(85);
+  }
+
+  private playCorviAnswerSequence(qa: CorviQAEntry): void {
+    const state = gameStore.state;
+    if (!state.corviSeen.includes(qa.id)) {
+      state.corviSeen.push(qa.id);
+      Save.save(state);
+    }
+
+    this.faqContainer?.destroy(true);
+    this.faqContainer = null;
+
+    let pageIdx = 0;
+    const showNextPage = (): void => {
+      this.activeQaDialog?.destroy();
+      this.activeQaDialog = null;
+
+      if (pageIdx >= qa.a.length) {
+        Clock.setPaused(state, false);
+        return;
+      }
+
+      const page = qa.a[pageIdx];
+      pageIdx += 1;
+
+      this.activeQaDialog = new DialogBox(this, {
+        mode: 'big',
+        mood: page.mood,
+        text: page.text,
+        source: page.source,
+        label: page.source ? 'ARCHIVO REAL' : undefined,
+        onComplete: () => {
+          showNextPage();
+        },
+      });
+    };
+
+    showNextPage();
+  }
+
+  private closeCorviFaqMenu(): void {
+    this.faqContainer?.destroy(true);
+    this.faqContainer = null;
+    this.activeQaDialog?.destroy();
+    this.activeQaDialog = null;
+    Clock.setPaused(gameStore.state, false);
   }
 
   private createActionButton(
@@ -448,7 +626,6 @@ export class Base extends Phaser.Scene {
       bus.emit('interact:prompt', { text: uiText.base.noReserveMsg });
       return;
     }
-    // Aplica un pulso inmediato de 1 s (+25 O2, -12.5 reserva) y continúa hasta llenar
     BaseSystem.refillO2(state, 1);
     this.activeRefill = true;
     Save.save(state);
@@ -518,6 +695,8 @@ export class Base extends Phaser.Scene {
 
   private goToSleep(): void {
     this.scene.stop('HUD');
+    this.scene.stop('Dialogo');
+    this.scene.stop('Tormenta');
     this.scene.start('Noche');
   }
 
@@ -551,7 +730,7 @@ export class Base extends Phaser.Scene {
   }
 
   private handleStationInteraction(): void {
-    if (gameStore.state.clock.paused) return;
+    if (gameStore.state.clock.paused || this.faqContainer) return;
     const st = this.getNearestStation();
     if (!st) return;
 
@@ -573,13 +752,7 @@ export class Base extends Phaser.Scene {
         this.tryExitToWorld();
         break;
       case 'corvi':
-        bus.emit('dialog:open', {
-          mode: 'big',
-          mood: 'happy',
-          text: uiText.base.corviGreeting,
-          source: 'Perseverance MOXIE',
-          label: 'ARCHIVO REAL',
-        });
+        this.openCorviFaqMenu();
         break;
     }
   }

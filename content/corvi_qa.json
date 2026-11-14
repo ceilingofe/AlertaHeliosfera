@@ -1,0 +1,158 @@
+[
+  {
+    "id": "oxigeno",
+    "q": "¿De dónde sale mi oxígeno?",
+    "unlock": "start",
+    "a": [
+      {
+        "mood": "think",
+        "text": "De MOXIE: un árbol de metal que se come el aire de Marte."
+      },
+      {
+        "mood": "happy",
+        "text": "Hace oxígeno con dióxido de carbono, a 800 °C.",
+        "source": "MOXIE (Perseverance)"
+      }
+    ]
+  },
+  {
+    "id": "noche",
+    "q": "¿Por qué no puedo salir de noche?",
+    "unlock": "start",
+    "a": [
+      {
+        "mood": "think",
+        "text": "Marte perdió su cobija: su aire es muy delgado."
+      },
+      {
+        "mood": "neutral",
+        "text": "De noche la temperatura baja a cerca de −80 °C.",
+        "source": "MEDA"
+      }
+    ]
+  },
+  {
+    "id": "roca",
+    "q": "¿Qué roca debo buscar?",
+    "unlock": "start",
+    "a": [
+      {
+        "mood": "happy",
+        "text": "Una con capas y manchas, como Cheyava Falls.",
+        "source": "Perseverance"
+      }
+    ]
+  },
+  {
+    "id": "retraso",
+    "q": "¿Por qué tardan los mensajes de la Tierra?",
+    "unlock": "start",
+    "a": [
+      {
+        "mood": "neutral",
+        "text": "La radio viaja a la velocidad de la luz, pero Marte está muy lejos."
+      },
+      {
+        "mood": "happy",
+        "text": "Por eso cada transmisión tarda entre 3 y 22 minutos en llegar.",
+        "source": "JPL Horizons"
+      }
+    ]
+  },
+  {
+    "id": "polvo",
+    "q": "¿Por qué debo limpiar los paneles?",
+    "unlock": "day2",
+    "a": [
+      {
+        "mood": "alert",
+        "text": "El polvo fino de Marte tapa la luz del Sol y baja la energía."
+      },
+      {
+        "mood": "think",
+        "text": "En 2022 el polvo cubrió los paneles de la sonda InSight y la apagó.",
+        "source": "Misión InSight"
+      }
+    ]
+  },
+  {
+    "id": "suelo",
+    "q": "¿Por qué usamos guantes con el suelo?",
+    "unlock": "day2",
+    "a": [
+      {
+        "mood": "alert",
+        "text": "El regolito marciano tiene percloratos, unas sales dañinas."
+      },
+      {
+        "mood": "happy",
+        "text": "Con el traje sellado y el tamiz podemos estudiarlo seguros.",
+        "source": "Phoenix y Curiosity"
+      }
+    ]
+  },
+  {
+    "id": "tormenta",
+    "q": "¿Qué es una tormenta solar?",
+    "unlock": "day3",
+    "a": [
+      {
+        "mood": "alert",
+        "text": "El Sol lanza una nube de partículas muy rápidas llamada CME."
+      },
+      {
+        "mood": "neutral",
+        "text": "Los muros de regolito del refugio son tu escudo de castillo.",
+        "source": "DONKI y Curiosity RAD"
+      }
+    ]
+  },
+  {
+    "id": "aire",
+    "q": "¿Qué hay en el aire de Marte?",
+    "unlock": "day3",
+    "a": [
+      {
+        "mood": "think",
+        "text": "El 95 % es dióxido de carbono y la presión es de apenas 6 milibares."
+      },
+      {
+        "mood": "happy",
+        "text": "Es menos del 1 % del aire que tienes en la Tierra.",
+        "source": "Curiosity"
+      }
+    ]
+  },
+  {
+    "id": "minerales",
+    "q": "¿Dónde se esconde el agua en Jezero?",
+    "unlock": "day4",
+    "a": [
+      {
+        "mood": "think",
+        "text": "En Jezero no hay hielo expuesto en la superficie."
+      },
+      {
+        "mood": "proud",
+        "text": "El agua quedó atrapada dentro de arcillas y minerales hidratados.",
+        "source": "Perseverance (SHERLOC y PIXL)"
+      }
+    ]
+  },
+  {
+    "id": "clima",
+    "q": "¿Todas las tormentas solares pegan en Marte?",
+    "unlock": "day5",
+    "a": [
+      {
+        "mood": "neutral",
+        "text": "No todas: el espacio es enorme y muchas pasan de lado."
+      },
+      {
+        "mood": "happy",
+        "text": "El modelo WSA-Enlil de la NASA ayuda a calcular su camino.",
+        "source": "DONKI WSA-Enlil"
+      }
+    ]
+  }
+]
