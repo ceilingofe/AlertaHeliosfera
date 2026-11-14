@@ -118,7 +118,7 @@ export class Noche extends Phaser.Scene {
         fontFamily: 'PixelifySans, monospace',
         resolution: 2,
         fontSize: '10px',
-        color: '#be4a2f',
+        color: '#5a6988',
       });
     });
 

@@ -315,7 +315,7 @@ export class Transmision extends Phaser.Scene {
   private drawHonestyTag(x: number, y: number, label: Label, source: string): void {
     const textObj = this.add.text(x + 6, y + 2, `▪ ${label} · ${source}`, {
       fontFamily: 'PixelifySans, monospace',
-      fontSize: '9px',
+      fontSize: '10px',
       color: '#262b44',
     });
     const w = Math.round(textObj.width + 12);
@@ -338,7 +338,7 @@ export class Transmision extends Phaser.Scene {
       `${uiText.transmision.nasaSealPrefix} · ${source}`,
       {
         fontFamily: 'PixelifySans, monospace',
-        fontSize: '9px',
+        fontSize: '10px',
         color: '#181425',
       }
     );
@@ -349,7 +349,7 @@ export class Transmision extends Phaser.Scene {
       .setStrokeStyle(1, 0x181425);
     const star = this.add.text(x + 3, y + 1, '★', {
       fontFamily: 'PixelifySans, monospace',
-      fontSize: '9px',
+      fontSize: '10px',
       color: '#f77622',
     });
     sealTxt.setDepth(sealBg.depth + 1);

@@ -52,6 +52,8 @@ export class Mundo extends Phaser.Scene {
   private keyE!: Phaser.Input.Keyboard.Key;
   private keySpace!: Phaser.Input.Keyboard.Key;
   private keyEsc!: Phaser.Input.Keyboard.Key;
+  private playerOriginY = 0;
+  private walkBobTime = 0;
 
   private nightOverlay!: Phaser.GameObjects.Rectangle;
   private promptContainer!: Phaser.GameObjects.Container;
@@ -270,6 +272,7 @@ export class Mundo extends Phaser.Scene {
       hairKey
     );
     this.player.setCollideWorldBounds(true);
+    this.playerOriginY = this.player.displayOriginY;
     const body = this.player.body as Phaser.Physics.Arcade.Body;
     body.setSize(10, 10);
     body.setOffset(2, 13);
@@ -408,6 +411,8 @@ export class Mundo extends Phaser.Scene {
 
     if (state.clock.paused || this.isAnyMinigameActive()) {
       this.player.setVelocity(0, 0);
+      this.walkBobTime = 0;
+      this.player.setDisplayOrigin(this.player.displayOriginX, this.playerOriginY);
       return;
     }
 
@@ -430,7 +435,8 @@ export class Mundo extends Phaser.Scene {
       vy = joy.y;
     }
 
-    if (vx !== 0 || vy !== 0) {
+    const moving = vx !== 0 || vy !== 0;
+    if (moving) {
       const len = Math.hypot(vx, vy);
       const speed = balance.player.speed;
       this.player.setVelocity((vx / len) * speed, (vy / len) * speed);
@@ -441,6 +447,15 @@ export class Mundo extends Phaser.Scene {
       }
     } else {
       this.player.setVelocity(0, 0);
+    }
+
+    if (moving) {
+      this.walkBobTime += delta;
+      const bob = Math.sin(this.walkBobTime * 0.018) * 0.8;
+      this.player.setDisplayOrigin(this.player.displayOriginX, this.playerOriginY + bob);
+    } else {
+      this.walkBobTime = 0;
+      this.player.setDisplayOrigin(this.player.displayOriginX, this.playerOriginY);
     }
 
     state.astronaut.pos.x = Math.round(this.player.x);
