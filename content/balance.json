@@ -1,12 +1,16 @@
 {
-  "dayClock": { "startMin": 540, "curfewMin": 1020, "warnMin": 960, "endMin": 1200, "day1Sec": 150, "daySec": 300 },
-  "o2": { "drainPerSec": 0.8333, "coldMultiplier": 3, "refillPerSec": 25, "reserveCostPerPoint": 0.5, "warnAt": 40, "dangerAt": 20 },
-  "heater": { "drainPerSec": 0.4, "nightMultiplier": 3, "coldNightMultiplier": 4, "rechargePerSec": 20, "comfortMinC": 18, "comfortMaxC": 24, "suitC": 21, "coolPerSec": 1, "minC": 5 },
-  "radiation": { "outsidePerSec": 0.004587, "stormHitSeconds": 30, "stormOutside": 38, "stormBase": 10, "stormRefuge": 2, "doseLimit": 150, "shelterCountdownSec": 120 },
-  "base": { "panelRecoverPerSec": 5, "nightEnergyLossPerGameMin": 0.0333, "moxieFillPerGameHour": 4, "moxieMinEnergy": 20, "moxieGramsPerGameHour": 12 },
-  "supplies": { "extra": { "reserve": 100, "batteryBonus": 30 }, "normal": { "reserve": 80 }, "menos": { "reserve": 50 } },
-  "quotaByDay": [ { "fromDay": 6, "total": 4, "types": 3 }, { "fromDay": 10, "total": 5, "types": 4 } ],
-  "eventsPerDay": [ { "fromDay": 6, "count": 1 }, { "fromDay": 10, "count": 2 } ],
-  "player": { "speed": 70, "interactRadius": 20 },
-  "unlocks": { "customizationDay": 1, "accessories": { "1": ["diadema", "mono"], "5": ["antena"], "10": ["gorrito"], "15": ["audifonos"] } }
+  "dayClock": {"startMin": 540, "curfewMin": 1020, "warnMin": 960, "endMin": 1200, "day1Sec": 150, "daySec": 300},
+  "o2": {"drainPerSec": 0.8333, "coldMultiplier": 3, "refillPerSec": 25, "reserveCostPerPoint": 0.5, "warnAt": 40, "dangerAt": 20},
+  "heater": {"drainPerSec": 0.4, "nightMultiplier": 3, "coldNightMultiplier": 4, "rechargePerSec": 20, "comfortMinC": 18, "comfortMaxC": 24, "suitC": 21, "coolPerSec": 1, "minC": 5},
+  "radiation": {"outsidePerSec": 0.004587, "stormHitSeconds": 30, "stormOutside": 38, "stormBase": 10, "stormRefuge": 2, "doseLimit": 150, "shelterCountdownSec": 120},
+  "base": {"panelRecoverPerSec": 5, "nightEnergyLossPerGameMin": 0.0333, "moxieFillPerGameHour": 4, "moxieMinEnergy": 20, "moxieGramsPerGameHour": 12},
+  "supplies": {"extra": {"reserve": 100, "batteryBonus": 30}, "normal": {"reserve": 80}, "menos": {"reserve": 50}},
+  "quotaByDay": [{"fromDay": 6, "total": 4, "types": 3}, {"fromDay": 10, "total": 5, "types": 4}],
+  "eventsPerDay": [{"fromDay": 6, "count": 1}, {"fromDay": 10, "count": 2}],
+  "player": {"speed": 70, "interactRadius": 20},
+  "unlocks": {"customizationDay": 1, "accessories": {"1": ["diadema", "mono"], "5": ["antena"], "10": ["gorrito"], "15": ["audifonos"]}},
+  "mission": {"maxTrust": 3, "quotaMissTrustLoss": 1, "extraTrustGain": 1, "triviaPerfectTrustGain": 1},
+  "dust": {"dailyAccumulation": 0.12, "dirtyThreshold": 0.2},
+  "science": {"sampleBase": 10, "perQualityStar": 5, "triviaCorrect": 10},
+  "minigame": {"o2DrainMultiplier": 1.0}
 }

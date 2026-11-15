@@ -1,15 +1,16 @@
 export type SampleType = 'roca' | 'suelo' | 'minerales' | 'aire';
 export type Mood = 'neutral' | 'happy' | 'alert' | 'think' | 'worried' | 'proud' | 'blink' | 'sad';
-export type Label = 'ARCHIVO REAL' | 'SIMULADO' | 'EN VIVO';
+export type Label = 'ARCHIVO REAL' | 'SIMULADO' | 'EN VIVO' | 'CALCULADO';
 export type SuitColor = 'blanco' | 'naranja' | 'azul' | 'verde' | 'rosa';
 export type Accessory = 'diadema' | 'mono' | 'antena' | 'gorrito' | 'audifonos';
-export type RescueCause = 'oxigeno' | 'radiacion';
+export type RescueCause = 'oxigeno' | 'radiacion' | 'mision';
 
 export interface MinigameInput {
   type: string;
   day: number;
   difficulty: 1 | 2 | 3;
   zone?: string;
+  panelId?: string;
 }
 
 export interface MinigameResult {
@@ -27,7 +28,7 @@ export interface DialogMessage {
 }
 
 export interface GameState {
-  version: 1;
+  version: 2;
   day: number;
   clock: { minutes: number; paused: boolean };
   location: 'mundo' | 'base' | 'refugio';
@@ -68,5 +69,18 @@ export interface GameState {
     moxieGrams: number;
     stormsSheltered: number;
     daysSurvived: number;
+    minigamesFailed: number;
+    triviaCorrect: number;
+    triviaAsked: number;
   };
+  /** Confianza de Control de Misión (0 a 3). Si llega a 0, la misión se cancela. */
+  missionTrust: number;
+  /** Puntos de ciencia: suben con muestras de calidad y respuestas correctas. */
+  sciencePoints: number;
+  /** Sitios de muestra ya usados o arruinados hoy (no reaparecen hasta mañana). */
+  sitesUsedToday: string[];
+  /** Bitácora: todos los datos científicos aprendidos en la misión. */
+  journal: string[];
+  /** Último día en que se presentó el examen de Control de Misión. */
+  triviaDoneDay: number;
 }

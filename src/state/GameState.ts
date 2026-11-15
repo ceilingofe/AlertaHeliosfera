@@ -6,7 +6,7 @@ import type { GameState } from '../types';
  */
 export function createInitialGameState(): GameState {
   return {
-    version: 1,
+    version: 2,
     day: 1,
     clock: {
       minutes: balance.dayClock.startMin,
@@ -69,7 +69,15 @@ export function createInitialGameState(): GameState {
       moxieGrams: 0,
       stormsSheltered: 0,
       daysSurvived: 0,
+      minigamesFailed: 0,
+      triviaCorrect: 0,
+      triviaAsked: 0,
     },
+    missionTrust: 3,
+    sciencePoints: 0,
+    sitesUsedToday: [],
+    journal: [],
+    triviaDoneDay: 0,
   };
 }
 

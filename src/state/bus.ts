@@ -16,6 +16,13 @@ export interface GameEvents {
   'dialog:closed': undefined;
   'minigame:finished': MinigameResult;
   'tool:changed': { index: number };
+  /** Texto de la acción disponible junto al astronauta (null = nada cerca). */
+  'prompt:near': { text: string | null };
+  /** Abre o cierra el mapa completo del cráter. */
+  'map:toggle': undefined;
+  /** Aviso flotante breve (puntos de ciencia, confianza, etc.). */
+  'toast': { text: string; color?: string };
+  'trivia:finished': { correct: number };
 }
 
 type Handler<T> = (payload: T) => void;
