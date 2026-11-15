@@ -1,11 +1,12 @@
 import Phaser from 'phaser';
 import MG from '../../content/minigames.json';
+import { gameStore } from '../state/GameState';
 import { AudioSystem } from '../systems/Audio';
 import { MinigameBase } from './MinigameBase';
 import { TimingBar, button, panel, shuffle, txt } from './widgets';
 
 type RockKind = 'leopard' | 'sandstone' | 'volcanic' | 'sparkle';
-type Phase = 'scan' | 'drill' | 'seal' | 'done';
+type Phase = 'scan' | 'trivia' | 'drill' | 'seal' | 'done';
 
 interface RockSlot {
   kind: RockKind;
@@ -27,8 +28,9 @@ const TEX: Record<RockKind, string> = {
  * Núcleo de roca.
  * 1) Escanear: las rocas están cubiertas de polvo; hay que pasar el escáner para leerlas.
  *    Sólo la sedimentaria con capas responde la pregunta científica. Elegir mal = error.
- * 2) Perforar: hay capas duras al azar que calientan la broca. Pasarse = error y retroceso.
- * 3) Sellar: barra de tiempo con zona angosta que cambia de lugar (2 sellos en dificultad 3).
+ * 2) Ciencia (trivia NASA verificada): pregunta rápida sobre Cheyava Falls / Jezero / tubos.
+ * 3) Perforar: hay capas duras al azar que calientan la broca. Pasarse = error y retroceso.
+ * 4) Sellar: barra de tiempo con zona angosta que cambia de lugar (2 sellos en dificultad 3).
  */
 export class MinijuegoRoca extends MinigameBase {
   private phase: Phase = 'scan';
@@ -36,6 +38,9 @@ export class MinijuegoRoca extends MinigameBase {
   private rocks: RockSlot[] = [];
   private selected: RockSlot | null = null;
   private scanner!: Phaser.GameObjects.Container;
+
+  private triviaAnswered = false;
+  private triviaOrder: number[] = [];
 
   private drilling = false;
   private depth = 0;
@@ -60,6 +65,7 @@ export class MinijuegoRoca extends MinigameBase {
     this.phase = 'scan';
     this.rocks = [];
     this.selected = null;
+    this.triviaAnswered = false;
     this.drawHeader(T.title, T.steps, T.instScan);
     this.stage = this.add.container(0, 0);
     this.buildScan();
@@ -129,11 +135,10 @@ export class MinijuegoRoca extends MinigameBase {
       this.addStrike(T.wrongRock, T.wrongRockFail);
       return;
     }
-    this.buildDrill();
+    this.buildTrivia();
   }
 
   private updateScan(dt: number): void {
-    // Teclado: las flechas mueven el escáner
     let vx = 0;
     let vy = 0;
     if (this.keyDown('left') || this.keyDown('a')) vx -= 1;
@@ -176,13 +181,85 @@ export class MinijuegoRoca extends MinigameBase {
     else AudioSystem.stopLoop('minigame');
   }
 
-  // ------------------------------------------------------------------ 2. perforar
+  // ------------------------------------------------------------------ 2. trivia NASA
+
+  private buildTrivia(): void {
+    this.phase = 'trivia';
+    this.triviaAnswered = false;
+    AudioSystem.stopLoop('minigame');
+    this.setActiveStep(1);
+    this.setInstruction(T.instTrivia);
+    this.stage.removeAll(true);
+
+    const item = T.trivia[Math.floor(Math.random() * T.trivia.length)];
+    this.triviaOrder = shuffle([0, 1, 2]);
+
+    // Tarjeta izquierda con la muestra y equipo de laboratorio
+    this.stage.add(panel(this, 16, 76, 148, 226));
+    this.stage.add(this.add.image(90, 134, 'rock_leopard').setScale(7));
+    if (this.textures.exists('flask_conical')) {
+      this.stage.add(this.add.image(62, 224, 'flask_conical').setScale(2.5).setTint(0x2ce8f5));
+    }
+    if (this.textures.exists('tube_sample')) {
+      this.stage.add(this.add.image(118, 222, 'tube_sample').setScale(2.4).setTint(0xb86f50));
+    }
+    this.stage.add(txt(this, 90, 272, 'Cheyava Falls\nCráter Jezero', 10, '#ead4aa').setOrigin(0.5).setAlign('center'));
+
+    // Pregunta NASA verificada a la derecha
+    this.stage.add(panel(this, 174, 76, 450, 226));
+    this.stage.add(txt(this, 188, 84, `★ ${T.triviaBadge}`, 9, '#2ce8f5'));
+    this.stage.add(txt(this, 188, 102, item.q, 12, '#fee761', 422));
+
+    const optButtons: { bg: Phaser.GameObjects.Rectangle; origIdx: number }[] = [];
+    const feedback = txt(this, 188, 266, '', 10, '#ffffff', 422);
+    this.stage.add(feedback);
+
+    const answerChoice = (optIdx: number, bg: Phaser.GameObjects.Rectangle): void => {
+      if (this.triviaAnswered || this.finished) return;
+      this.triviaAnswered = true;
+      const isRight = optIdx === item.correct;
+      for (const ob of optButtons) {
+        if (ob.origIdx === item.correct) ob.bg.setFillStyle(0x3e8948);
+        else if (ob.bg === bg) ob.bg.setFillStyle(0xa22633);
+      }
+      if (isRight) {
+        AudioSystem.play('success', { volume: 0.7 });
+        gameStore.state.sciencePoints += 5;
+        feedback.setText(`${T.triviaCorrect} ${item.fact}`).setColor('#63c74d');
+      } else {
+        feedback.setText(`${T.triviaWrong} ${item.fact}`).setColor('#feae34');
+        if (!this.addStrike(T.triviaWrong, T.wrongRockFail)) return;
+      }
+      const next = button(this, 496, 332, 220, 28, T.triviaContinue, () => this.buildDrill(), 0x63c74d, '#181425');
+      this.stage.add([next.bg, next.label]);
+    };
+
+    this.triviaOrder.forEach((origIdx, rowIdx) => {
+      const y = 162 + rowIdx * 34;
+      const b = button(this, 399, y, 418, 28, `[${rowIdx + 1}] ${item.options[origIdx]}`, () =>
+        answerChoice(origIdx, b.bg), 0x3a4466
+      );
+      optButtons.push({ bg: b.bg, origIdx });
+      this.stage.add([b.bg, b.label]);
+    });
+
+    this.triviaPick = (slotIdx: number): void => {
+      const origIdx = this.triviaOrder[slotIdx];
+      const match = optButtons[slotIdx];
+      if (origIdx !== undefined && match) answerChoice(origIdx, match.bg);
+    };
+  }
+
+  private triviaPick: ((slotIdx: number) => void) | null = null;
+
+  // ------------------------------------------------------------------ 3. perforar
 
   private buildDrill(): void {
     this.phase = 'drill';
+    this.triviaPick = null;
     AudioSystem.stopLoop('minigame');
     this.clearCursorTargets();
-    this.setActiveStep(1);
+    this.setActiveStep(2);
     this.setInstruction(T.instDrill);
     this.stage.removeAll(true);
     this.depth = 0;
@@ -259,7 +336,6 @@ export class MinijuegoRoca extends MinigameBase {
       this.drilling = false;
       AudioSystem.stopLoop('minigame');
       AudioSystem.play('overheat');
-      // Retrocede a la última capa segura antes de la capa dura
       const layer = this.hardLayers.find((l) => this.depth >= l.from - 0.01);
       this.depth = Math.min(this.safeDepth, layer ? layer.from - 1 : this.safeDepth);
       this.heat = 0;
@@ -269,19 +345,23 @@ export class MinijuegoRoca extends MinigameBase {
     if (this.depth >= 100) this.buildSeal();
   }
 
-  // ------------------------------------------------------------------ 3. sellar
+  // ------------------------------------------------------------------ 4. sellar
 
   private buildSeal(): void {
     this.phase = 'seal';
     this.drilling = false;
     AudioSystem.stopLoop('minigame');
-    this.setActiveStep(2);
+    this.setActiveStep(3);
     const d = this.inputData.difficulty;
     this.sealsNeeded = d >= 3 ? 2 : 1;
     this.sealsDone = 0;
     this.setInstruction(d >= 3 ? `${T.instSeal} ${T.sealTwice}` : T.instSeal);
     this.stage.removeAll(true);
-    this.stage.add(this.add.image(130, 180, 'tube_full').setScale(8));
+    const tubeKey = this.textures.exists('tube_sample') ? 'tube_sample' : 'tube_full';
+    this.stage.add(this.add.image(112, 180, tubeKey).setScale(tubeKey === 'tube_sample' ? 4 : 8).setTint(0xb86f50));
+    if (this.textures.exists('flask_conical')) {
+      this.stage.add(this.add.image(174, 194, 'flask_conical').setScale(3.5).setTint(0x2ce8f5));
+    }
     this.stage.add(panel(this, 236, 110, 380, 130));
     this.bar = new TimingBar(this, 256, 176, 340, d === 1 ? 0.26 : d === 2 ? 0.19 : 0.14, 0.75 + d * 0.15, T.sealTitle);
     this.stage.add(this.bar.objects);
@@ -317,7 +397,12 @@ export class MinijuegoRoca extends MinigameBase {
       return;
     }
     if (this.phase === 'scan') this.updateScan(dt);
-    else if (this.phase === 'drill') this.updateDrill(dt);
+    else if (this.phase === 'trivia') {
+      for (let i = 0; i < 3; i++) {
+        if (this.numberJustDown(i + 1) && !this.triviaAnswered) this.triviaPick?.(i);
+      }
+      if (this.actionJustDown() && this.triviaAnswered) this.buildDrill();
+    } else if (this.phase === 'drill') this.updateDrill(dt);
     else if (this.phase === 'seal') {
       this.bar?.update(dt);
       if (this.actionJustDown()) this.trySeal();

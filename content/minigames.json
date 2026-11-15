@@ -3,15 +3,17 @@
     "failPrefix": "Muestra perdida.",
     "qualityLabel": "Calidad de la muestra:",
     "keysHint": "Teclado: flechas mueven la mira · Espacio/E elige",
-    "o2Out": "Te quedaste sin oxígeno en pleno trabajo."
+    "o2Out": "Te quedaste sin oxígeno en pleno trabajo.",
+    "abortButton": "✕ Abortar",
+    "abortHint": "Abandonas este sitio"
   },
   "roca": {
     "title": "Núcleo de roca",
-    "steps": ["1 Escanear", "2 Perforar", "3 Sellar"],
+    "steps": ["1 Escanear", "2 Ciencia", "3 Perforar", "4 Sellar"],
     "objective": "Objetivo: una roca SEDIMENTARIA con capas. Se formó en el agua del antiguo lago de Jezero.",
     "instScan": "Arrastra el escáner (o flechas) sobre cada roca para quitarle el polvo y leerla. Luego elige una.",
     "scanning": "Escaneando…",
-    "chooseButton": "Perforar la roca elegida",
+    "chooseButton": "Analizar la roca elegida",
     "pickFirst": "Primero toca una roca escaneada para elegirla.",
     "rocks": {
       "leopard": { "name": "Sedimentaria · capas y manchas", "read": "Capas: SÍ · Origen: lago · Manchas: SÍ" },
@@ -21,7 +23,32 @@
     },
     "wrongRock": "Esa roca no se formó en agua: no guarda la historia del lago.",
     "wrongRockFail": "Perforaste rocas que no contestan la pregunta científica. En una misión real cada tubo cuenta: Perseverance sólo lleva 43.",
-    "notScanned": "¡Elegiste a ciegas! Escanea antes de perforar.",
+    "notScanned": "¡Elegiste a ciegas! Escanea antes de analizar.",
+    "instTrivia": "Pregunta NASA (1, 2 o 3): responde bien para ganar +5 pts de ciencia antes de perforar.",
+    "triviaBadge": "ARCHIVO REAL · NASA Perseverance (JPL, 2024–2025)",
+    "triviaCorrect": "¡Correcto! +5 pts de ciencia.",
+    "triviaWrong": "No era esa: revisa el dato real abajo.",
+    "triviaContinue": "Continuar a perforar →",
+    "trivia": [
+      {
+        "q": "En julio de 2024 Perseverance halló 'manchas de leopardo' en Cheyava Falls. ¿En qué cráter estaba?",
+        "options": ["Cráter Jezero (antiguo lago y delta)", "Cráter Gale (monte Sharp)", "Región volcánica de Tharsis"],
+        "correct": 0,
+        "fact": "Jezero mide 45 km y alojó un río y un lago hace unos 3 500 millones de años. Fuente: NASA JPL (2024)."
+      },
+      {
+        "q": "Según el estudio de NASA (Nature, 2025), ¿qué minerales forman los bordes de esas manchas?",
+        "options": ["Fosfato y sulfuro de hierro (vivianita y greigita)", "Hielo sólido de nitrógeno", "Cristales puros de cuarzo volcánico"],
+        "correct": 0,
+        "fact": "Vivianita y greigita suelen surgir en reacciones químicas con materia orgánica en presencia de agua. Fuente: NASA JPL (2025)."
+      },
+      {
+        "q": "¿Cuántos tubos de titanio lleva el rover Perseverance para guardar muestras de Marte?",
+        "options": ["43 tubos de titanio sellables", "10 frascos de vidrio", "120 cápsulas de aluminio"],
+        "correct": 0,
+        "fact": "Perseverance lleva 43 tubos; Sapphire Canyon (en Cheyava Falls) fue su núcleo de roca número 22. Fuente: NASA Mars 2020 (JPL)."
+      }
+    ],
     "instDrill": "Mantén presionado (o Espacio/E) para perforar. Las capas DURAS calientan más. Suelta para enfriar.",
     "depth": "Profundidad del núcleo",
     "heat": "Temperatura de la broca",
@@ -128,6 +155,7 @@
     "titleMoxie": "Reparar tuberías de MOXIE",
     "titleAntenna": "Reparar circuito de la antena",
     "steps": ["1 Conectar", "2 Probar"],
+    "stepsMoxie": ["1 Conectar", "2 Electrólisis 800 °C"],
     "instRotate": "Gira los tramos (clic, o flechas + Espacio/E) para unir ENTRADA y SALIDA. Luego presiona Probar (P).",
     "instClog": "Los tramos con ✕ están tapados: tócalos 3 veces para destaparlos.",
     "inMoxie": "CO₂",
@@ -137,7 +165,15 @@
     "testButton": "Probar flujo (P)",
     "leak": "¡Fuga! El flujo se detiene donde se rompe la conexión.",
     "clogged": "Tramo tapado: destápalo antes de girarlo.",
-    "failMoxie": "Las fugas dañaron el equipo. Sin MOXIE, el oxígeno de la base baja cada hora.",
+    "soxeInst": "Calienta la celda SOXE (Espacio/E o botón) cerca de 800 °C para romper CO₂ en O₂ sin sobrecalentar.",
+    "soxeTitle": "ELECTRÓLISIS DE ÓXIDO SÓLIDO (SOXE)",
+    "soxeTempLabel": "Temperatura del reactor (meta: 780–820 °C)",
+    "soxeFlowLabel": "Oxígeno sintetizado (2 CO₂ → 2 CO + O₂)",
+    "soxeButton": "Mantener calentador SOXE",
+    "soxeTooHot": "¡Sobrecalentamiento (>860 °C)! Riesgo de coquización de carbono.",
+    "soxeTooCold": "Reactor frío (<760 °C): la electrólisis se detiene.",
+    "soxeOverheatFail": "¡Exceso térmico en el reactor SOXE! Se activó el enfriamiento de emergencia.",
+    "failMoxie": "Las fugas o el exceso térmico dañaron el equipo. Sin MOXIE, el oxígeno de la base baja cada hora.",
     "failAntenna": "La antena sigue sin señal. Sin ella no llegan los avisos de tormenta de la Tierra.",
     "successMoxie": "¡MOXIE funciona! Entre 2021 y 2023 produjo 122 g de oxígeno a partir del CO₂ de Marte, calentándolo a unos 800 °C. Así podrían respirar y despegar futuras tripulaciones.",
     "sourceMoxie": "NASA · MOXIE (Perseverance)",

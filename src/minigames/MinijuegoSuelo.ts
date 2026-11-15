@@ -99,8 +99,14 @@ export class MinijuegoSuelo extends MinigameBase {
     this.sieve = this.add.container(250, 170, children);
     this.stage.add(this.sieve);
 
-    // Tubo que se llena abajo
-    this.stage.add(this.add.image(250, 270, 'tube_empty').setScale(3).setAngle(90));
+    // Tubo de muestra y matraz debajo del tamiz
+    const tubeKey = this.textures.exists('tube_sample') ? 'tube_sample' : 'tube_empty';
+    this.stage.add(
+      this.add.image(250, 270, tubeKey).setScale(tubeKey === 'tube_sample' ? 2.5 : 3).setAngle(90).setTint(0xe4a672)
+    );
+    if (this.textures.exists('flask_conical')) {
+      this.stage.add(this.add.image(348, 266, 'flask_conical').setScale(2).setTint(0xe4a672));
+    }
 
     this.stage.add(panel(this, 420, 84, 206, 186));
     this.stage.add(txt(this, 432, 94, T.sieveProgress, 12, '#ead4aa'));
@@ -207,6 +213,9 @@ export class MinijuegoSuelo extends MinigameBase {
             this.stage.add(this.add.rectangle(x - 45 + xx, 198 - yy, s, s, (xx + yy) % 3 === 0 ? 0xb86f50 : 0xe4a672).setOrigin(0, 0));
           }
         }
+      }
+      if (this.textures.exists('tube_sample')) {
+        this.stage.add(this.add.image(x + 42, 128, 'tube_sample').setScale(1.3).setTint(0xe4a672));
       }
       // Diferencia sutil: la etiqueta sólo dice el tamaño; en dificultad 3 se omite el adjetivo
       const label = this.inputData.difficulty >= 3 ? labels[grain].split('·')[1].trim() : labels[grain];

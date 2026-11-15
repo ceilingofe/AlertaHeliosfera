@@ -92,3 +92,32 @@ export function generateSampleSites(day: number, quota: Record<SampleType, numbe
   }
   return sites;
 }
+
+/**
+ * Genera un sitio de reemplazo del mismo tipo cuando el jugador aborta una misión,
+ * manteniendo distancia segura respecto a la base y a los demás puntos del mapa.
+ */
+export function createReplacementSampleSite(
+  type: SampleType,
+  existing: { x: number; y: number }[],
+  id: string,
+  seed: number = Date.now()
+): SampleSite {
+  const rand = rng(seed);
+  const areas = AREAS[type];
+  for (let guard = 0; guard < 400; guard += 1) {
+    const area = areas[Math.floor(rand() * areas.length)];
+    const x = Math.round(area.x + rand() * area.w);
+    const y = Math.round(area.y + rand() * area.h);
+    if (Math.hypot(x - BASE.x, y - BASE.y) < 110) continue;
+    if (existing.some((s) => Math.hypot(s.x - x, s.y - y) < 48)) continue;
+    return { id, type, x, y };
+  }
+  const fallback = areas[0];
+  return {
+    id,
+    type,
+    x: Math.round(fallback.x + fallback.w * 0.5),
+    y: Math.round(fallback.y + fallback.h * 0.5),
+  };
+}

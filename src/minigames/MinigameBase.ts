@@ -37,6 +37,8 @@ export abstract class MinigameBase extends Phaser.Scene {
   private heartTexts: Phaser.GameObjects.Text[] = [];
   private o2Fill!: Phaser.GameObjects.Rectangle;
   private o2Label!: Phaser.GameObjects.Text;
+  private abortBg: Phaser.GameObjects.Rectangle | null = null;
+  private abortLabel: Phaser.GameObjects.Text | null = null;
 
   private cursorTargets: CursorTarget[] = [];
   private reticle: Phaser.GameObjects.Container | null = null;
@@ -65,6 +67,8 @@ export abstract class MinigameBase extends Phaser.Scene {
     this.cursorTargets = [];
     this.reticle = null;
     this.activeDialog = null;
+    this.abortBg = null;
+    this.abortLabel = null;
   }
 
   protected drawHeader(title: string, steps: string[], initialInstruction: string): void {
@@ -80,13 +84,14 @@ export abstract class MinigameBase extends Phaser.Scene {
     this.add.rectangle(320, 20, 632, 34, 0x262b44).setStrokeStyle(2, 0x181425);
     this.add.text(14, 10, title, { fontFamily: FONT, fontSize: '16px', color: '#ffffff' });
 
-    const stepW = steps.length > 2 ? 78 : 96;
+    const stepW = steps.length >= 4 ? 74 : steps.length > 2 ? 78 : 96;
+    const stepFont = steps.length >= 4 ? '10px' : '11px';
     const startX = 624 - steps.length * (stepW + 4);
     steps.forEach((stepLabel, idx) => {
       const sx = startX + idx * (stepW + 4);
       const bg = this.add.rectangle(sx, 11, stepW, 20, 0x5a6988).setOrigin(0, 0).setStrokeStyle(1, 0x181425);
       const txt = this.add
-        .text(sx + stepW / 2, 21, stepLabel, { fontFamily: FONT, fontSize: '11px', color: '#c0cbdc' })
+        .text(sx + stepW / 2, 21, stepLabel, { fontFamily: FONT, fontSize: stepFont, color: '#c0cbdc' })
         .setOrigin(0.5);
       this.stepBgs.push(bg);
       this.stepTexts.push(txt);
@@ -111,6 +116,20 @@ export abstract class MinigameBase extends Phaser.Scene {
         this.add.text(590 + i * 14, 45, '♥', { fontFamily: FONT, fontSize: '13px', color: '#e43b44' })
       );
     }
+
+    // Botón permanente de abortar en esquina inferior izquierda (por si baja el O₂ o se complica)
+    this.abortBg = this.add
+      .rectangle(62, 338, 98, 24, 0x733e39)
+      .setStrokeStyle(2, 0x181425)
+      .setDepth(55)
+      .setInteractive({ useHandCursor: true });
+    this.abortLabel = this.add
+      .text(62, 338, MG.common.abortButton, { fontFamily: FONT, fontSize: '11px', color: '#ead4aa' })
+      .setOrigin(0.5)
+      .setDepth(56);
+    this.abortBg.on('pointerover', () => this.abortBg?.setStrokeStyle(2, 0xe43b44));
+    this.abortBg.on('pointerout', () => this.abortBg?.setStrokeStyle(2, 0x181425));
+    this.abortBg.on('pointerdown', () => this.abortMinigame());
 
     this.setActiveStep(0);
     this.setupKeyboardCursor();
@@ -169,9 +188,18 @@ export abstract class MinigameBase extends Phaser.Scene {
     return true;
   }
 
+  protected abortMinigame(): void {
+    if (this.finished) return;
+    AudioSystem.stopLoop('minigame');
+    AudioSystem.play('ui_close', { volume: 0.6 });
+    this.completeMinigame({ ok: false, quality: 0, aborted: true });
+  }
+
   protected failWithExplanation(text: string, mood: Mood = 'worried'): void {
     if (this.finished) return;
     this.finished = true;
+    this.abortBg?.setVisible(false);
+    this.abortLabel?.setVisible(false);
     AudioSystem.stopLoop('minigame');
     AudioSystem.play('fail');
     this.clearCursorTargets();
@@ -187,6 +215,8 @@ export abstract class MinigameBase extends Phaser.Scene {
   protected succeed(factId: string, text: string, source: string, label: 'ARCHIVO REAL' | 'SIMULADO' | 'CALCULADO' = 'ARCHIVO REAL'): void {
     if (this.finished) return;
     this.finished = true;
+    this.abortBg?.setVisible(false);
+    this.abortLabel?.setVisible(false);
     AudioSystem.stopLoop('minigame');
     AudioSystem.play('success');
     this.clearCursorTargets();
@@ -207,6 +237,8 @@ export abstract class MinigameBase extends Phaser.Scene {
 
   protected completeMinigame(result: MinigameResult): void {
     this.finished = true;
+    this.abortBg?.setVisible(false);
+    this.abortLabel?.setVisible(false);
     if (result.ok) AudioSystem.play('tube_seal');
     Clock.setPaused(gameStore.state, false);
     bus.emit('minigame:finished', result);

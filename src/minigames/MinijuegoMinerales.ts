@@ -189,7 +189,13 @@ export class MinijuegoMinerales extends MinigameBase {
     this.stage.removeAll(true);
     this.nodes = [];
     const d = this.inputData.difficulty;
-    this.stage.add(this.add.image(130, 180, 'tube_full').setScale(8));
+    const tubeKey = this.textures.exists('tube_sample') ? 'tube_sample' : 'tube_full';
+    this.stage.add(
+      this.add.image(112, 180, tubeKey).setScale(tubeKey === 'tube_sample' ? 4 : 8).setTint(TOOL_COLOR[this.tool])
+    );
+    if (this.textures.exists('flask_blue')) {
+      this.stage.add(this.add.image(174, 194, 'flask_blue').setScale(3.2));
+    }
     this.stage.add(panel(this, 236, 110, 380, 130));
     this.bar = new TimingBar(this, 256, 176, 340, d === 1 ? 0.26 : d === 2 ? 0.19 : 0.14, 0.8 + d * 0.15, T.sealTitle);
     this.stage.add(this.bar.objects);

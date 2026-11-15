@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { createInitialGameState } from '../src/state/GameState';
 import { Save, SAVE_STORAGE_KEY, type StorageLike } from '../src/state/Save';
 import { BaseSystem } from '../src/systems/BaseSystem';
+import { createReplacementSampleSite } from '../src/systems/SampleSites';
+import { Vitals } from '../src/systems/Vitals';
 
 class MemoryStorage implements StorageLike {
   private map = new Map<string, string>();
@@ -47,13 +49,26 @@ describe('Sistemas BaseSystem y Save (Fase 2)', () => {
     expect(state.astronaut.heaterBattery).toBe(90);
   });
 
-  it('no permite salir por la puerta después de las 17:00 (1020 min)', () => {
+  it('permite salir después de las 17:00, pero de noche el oxígeno baja el doble', () => {
     const state = createInitialGameState();
     state.clock.minutes = 1019;
     expect(BaseSystem.canExitToWorld(state)).toBe(true);
+    expect(BaseSystem.isNightExit(state)).toBe(false);
 
     state.clock.minutes = 1020;
-    expect(BaseSystem.canExitToWorld(state)).toBe(false);
+    expect(BaseSystem.canExitToWorld(state)).toBe(true);
+    expect(BaseSystem.isNightExit(state)).toBe(true);
+
+    const day = createInitialGameState();
+    day.location = 'mundo';
+    day.clock.minutes = 700;
+    Vitals.tick(day, 1);
+    const night = createInitialGameState();
+    night.location = 'mundo';
+    night.clock.minutes = 1100;
+    Vitals.tick(night, 1);
+    expect(100 - night.astronaut.o2).toBeCloseTo((100 - day.astronaut.o2) * 2, 4);
+    expect(night.astronaut.heaterBattery).toBeLessThan(day.astronaut.heaterBattery);
   });
 
   it('dormir pasa al día 2 con dosis de hoy en 0 y dosis total intacta', () => {
@@ -94,5 +109,18 @@ describe('Sistemas BaseSystem y Save (Fase 2)', () => {
 
     mem.setItem(SAVE_STORAGE_KEY, '{json_roto');
     expect(Save.load(mem)).toBeNull();
+  });
+
+  it('createReplacementSampleSite genera un sitio nuevo lejos de la base y de sitios existentes', () => {
+    const existing = [
+      { x: 500, y: 150 },
+      { x: 200, y: 700 },
+    ];
+    const site = createReplacementSampleSite('roca', existing, 'd2-roca-re-1', 12345);
+    expect(site.type).toBe('roca');
+    expect(Math.hypot(site.x - 640, site.y - 480)).toBeGreaterThanOrEqual(110);
+    for (const e of existing) {
+      expect(Math.hypot(site.x - e.x, site.y - e.y)).toBeGreaterThanOrEqual(48);
+    }
   });
 });

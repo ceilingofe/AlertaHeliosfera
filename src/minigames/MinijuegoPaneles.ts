@@ -3,6 +3,7 @@ import MG from '../../content/minigames.json';
 import { gameStore } from '../state/GameState';
 import { AudioSystem } from '../systems/Audio';
 import { Events } from '../systems/Events';
+import { AstronautAppearance } from '../ui/AstronautAppearance';
 import { MinigameBase } from './MinigameBase';
 import { panel, txt } from './widgets';
 
@@ -58,8 +59,12 @@ export class MinijuegoPaneles extends MinigameBase {
     this.add.rectangle(PX + 40, PY + ROWS * CELL + 6, 30, 14, 0x5a6988).setOrigin(0, 0).setStrokeStyle(2, 0x181425);
     this.add.rectangle(PX + COLS * CELL - 70, PY + ROWS * CELL + 6, 30, 14, 0x5a6988).setOrigin(0, 0).setStrokeStyle(2, 0x181425);
 
-    const hairKey = gameStore.state.customization.hair === 2 ? 'astronaut_mini_hair2' : 'astronaut_mini_hair1';
-    this.add.image(90, 220, hairKey).setScale(3);
+    const suitKey = AstronautAppearance.getMiniTextureKey(
+      this,
+      gameStore.state.customization.hair,
+      gameStore.state.customization.suit
+    );
+    this.add.image(90, 220, suitKey).setScale(3);
 
     panel(this, 14, 76, 126, 92);
     txt(this, 24, 84, T.time, 11, '#ead4aa');
@@ -69,7 +74,8 @@ export class MinijuegoPaneles extends MinigameBase {
     this.cleanText = txt(this, 24, 138, '0 %', 16, '#ffffff');
     if (this.inputData.difficulty >= 2) txt(this, 150, 286, T.windHint, 10, '#feae34');
 
-    this.brush = this.add.image(PX + 170, PY + 80, 'icon_brush').setScale(3).setDepth(50);
+    const brushKey = this.textures.exists('brush_clean') ? 'brush_clean' : 'icon_brush';
+    this.brush = this.add.image(PX + 170, PY + 80, brushKey).setScale(2.8).setDepth(50);
     this.timeLeft = this.totalTime();
     this.windTimer = 2.5;
 
