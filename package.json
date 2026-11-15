@@ -8,7 +8,7 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "data": "node --experimental-strip-types scripts/fetch-nasa.ts"
+    "data": "node scripts/fetch-nasa.mjs"
   },
   "dependencies": {
     "phaser": "^3.87.0",

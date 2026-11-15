@@ -1,8 +1,6 @@
 {
-  "label": "ARCHIVO REAL",
-  "source": "JPL Horizons (distancia Tierra–Marte)",
-  "sourceUrl": "https://ssd.jpl.nasa.gov/horizons/",
-  "delays": [
-    { "date": "2024-05-17", "minutes": "TODO_DATO" }
-  ]
+  "label": "CALCULADO",
+  "source": "Elementos orbitales aproximados de JPL (Standish), calculados para la fecha de hoy",
+  "sourceUrl": "https://ssd.jpl.nasa.gov/planets/approx_pos.html",
+  "note": "El retraso se calcula en el navegador (src/systems/Ephemeris.ts). Rango real: de ~3 a ~22 minutos según la posición de los planetas."
 }

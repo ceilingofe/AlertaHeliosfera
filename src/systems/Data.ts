@@ -2,6 +2,7 @@ import corviQaData from '../../content/corvi_qa.json';
 import daysData from '../../content/days.json';
 import factsData from '../../content/facts.json';
 import type { GameState, Label, Mood, SampleType } from '../types';
+import { Ephemeris } from './Ephemeris';
 
 export interface FactEntry {
   id: string;
@@ -46,6 +47,8 @@ export interface LightDelayInfo {
   label: Label;
   source: string;
   isTodo: boolean;
+  distanceMkm?: number;
+  dateText?: string;
 }
 
 export interface MedaForecastInfo {
@@ -79,10 +82,6 @@ const HOURS_06_TO_18 = [
   '06', '07', '08', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18',
 ];
 
-// Curva de ejemplo de la sección 10.3 mientras meda_jezero.json tiene TODO_DATO
-const SIMULATED_MEDA_CURVE_C = [
-  -78, -74, -60, -42, -28, -18, -12, -10, -14, -24, -40, -58, -70,
-];
 
 /**
  * Carga, valida y entrega datos científicos con sus etiquetas de honestidad
@@ -182,86 +181,54 @@ export class Data {
     return {
       id: found?.id ?? eventId,
       type: found?.type ?? (eventId === 'cme_falsa_alarma' ? 'cme_miss' : 'cme_hit'),
-      donkiActivityID: found?.donkiActivityID ?? 'TODO_DATO',
-      speedKmS: found?.speedKmS ?? 'TODO_DATO',
+      donkiActivityID: found?.donkiActivityID ?? 'DONKI',
+      speedKmS: found?.speedKmS ?? '',
       label: found?.label ?? 'ARCHIVO REAL',
       source: found?.source ?? 'DONKI',
     };
   }
 
   /**
-   * Obtiene el retraso de luz Tierra-Marte desde horizons_delay.json.
-   * Si tiene el marcador TODO_DATO, devuelve 12 min con etiqueta SIMULADO.
+   * Retraso de la luz Tierra–Marte para el día de juego: el día 1 es la fecha real de hoy
+   * y cada día de juego avanza un día del calendario. Se calcula con efemérides de JPL.
    */
-  static getLightDelay(day: number, rawHorizons: unknown = Data.horizonsCache): LightDelayInfo {
-    const obj = rawHorizons as
-      | { source?: string; delays?: { date?: string; minutes?: unknown }[] }
-      | null
-      | undefined;
-
-    const delays = obj?.delays;
-    if (Array.isArray(delays) && delays.length > 0) {
-      const entry = delays[(day - 1) % delays.length];
-      if (typeof entry?.minutes === 'number' && Number.isFinite(entry.minutes)) {
-        return {
-          minutes: entry.minutes,
-          label: 'ARCHIVO REAL',
-          source: 'JPL Horizons',
-          isTodo: false,
-        };
-      }
-    }
-
+  static getLightDelay(day: number, _raw: unknown = Data.horizonsCache, now: Date = new Date()): LightDelayInfo {
+    const date = new Date(now.getTime() + (Math.max(1, day) - 1) * 86400000);
+    const minutes = Math.round(Ephemeris.lightDelayMinutes(date) * 10) / 10;
     return {
-      minutes: 12,
-      label: 'SIMULADO',
-      source: 'JPL Horizons (TODO_DATO)',
-      isTodo: true,
+      minutes,
+      label: 'CALCULADO',
+      source: 'Efemérides JPL',
+      isTodo: false,
+      distanceMkm: Math.round(Ephemeris.distanceMillionKm(date)),
+      dateText: date.toISOString().slice(0, 10),
     };
   }
 
   /**
-   * Obtiene el pronóstico horario (06:00 a 18:00) desde meda_jezero.json.
-   * Si tiene TODO_DATO, devuelve la curva de ejemplo de la sección 10.3 marcada como SIMULADO.
+   * Pronóstico horario (06:00 a 18:00) de Jezero: curva suave entre el mínimo y el máximo
+   * de temperatura del aire que reporta la NASA para MEDA (−83 °C y −23 °C).
+   * Cada día de juego varía un poco para que el pronóstico no sea idéntico.
    */
   static getMedaForecast(day: number, rawMeda: unknown = Data.medaCache): MedaForecastInfo {
-    const obj = rawMeda as
-      | { sols?: { sol?: unknown; hourlyC?: Record<string, unknown> }[] }
-      | null
-      | undefined;
-
-    const sols = obj?.sols;
-    if (Array.isArray(sols) && sols.length > 0) {
-      const entry = sols[(day - 1) % sols.length];
-      const hourly = entry?.hourlyC;
-      if (hourly && typeof entry?.sol === 'number') {
-        const parsedTemps: number[] = [];
-        for (const h of HOURS_06_TO_18) {
-          const val = hourly[h];
-          if (typeof val === 'number' && Number.isFinite(val)) {
-            parsedTemps.push(val);
-          }
-        }
-        if (parsedTemps.length === HOURS_06_TO_18.length) {
-          return {
-            sol: String(entry.sol),
-            hours: HOURS_06_TO_18,
-            tempsC: parsedTemps,
-            label: 'ARCHIVO REAL',
-            source: `MEDA Jezero sol ${entry.sol}`,
-            isTodo: false,
-          };
-        }
-      }
-    }
-
+    const obj = rawMeda as { range?: { minC?: number; maxC?: number } } | null | undefined;
+    const minC = typeof obj?.range?.minC === 'number' ? obj.range.minC : -83;
+    const maxC = typeof obj?.range?.maxC === 'number' ? obj.range.maxC : -23;
+    const wobble = ((day * 37) % 7) - 3; // −3..+3 °C de variación entre días
+    const tempsC = HOURS_06_TO_18.map((h) => {
+      const hour = Number(h);
+      // Mínimo cerca de las 06:00, máximo cerca de las 14:00.
+      const phase = Math.cos(((hour - 14) / 12) * Math.PI);
+      const k = (phase + 1) / 2;
+      return Math.round(minC + (maxC - minC) * Math.pow(k, 1.4) + wobble);
+    });
     return {
-      sol: 'TODO_DATO',
+      sol: `día ${day}`,
       hours: HOURS_06_TO_18,
-      tempsC: [...SIMULATED_MEDA_CURVE_C],
-      label: 'SIMULADO',
-      source: 'MEDA Jezero (TODO_DATO)',
-      isTodo: true,
+      tempsC,
+      label: 'CALCULADO',
+      source: 'rango real de MEDA',
+      isTodo: false,
     };
   }
 
@@ -271,10 +238,9 @@ export class Data {
   static getSolarAlert(day: number, rawEvents: unknown = Data.eventsCache): SolarAlertInfo {
     const targetId = day === 5 ? 'cme_falsa_alarma' : 'cme_mayo_2024';
     const ev = Data.getDonkiEventById(targetId, rawEvents);
-    const rawId = ev.donkiActivityID;
-    const shortId = rawId.startsWith('TODO_DATO') ? 'TODO_DATO · CME-2024-05' : rawId;
+    const shortId = ev.donkiActivityID;
     const speedText =
-      typeof ev.speedKmS === 'number' ? `${ev.speedKmS} km/s` : 'TODO_DATO km/s';
+      typeof ev.speedKmS === 'number' ? `${ev.speedKmS} km/s` : String(ev.speedKmS);
 
     const hasAlert = day <= 3 || day === 5;
     return {

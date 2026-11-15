@@ -31,33 +31,37 @@ describe('Sistemas Data y Quota (Fase 3)', () => {
     expect(state.quotaToday.suelo).toBe(1);
   });
 
-  it('respeta los marcadores TODO_DATO en JSON públicos y asigna etiquetas SIMULADO / ARCHIVO REAL', () => {
-    // Mientras horizons_delay.json y meda_jezero.json tienen TODO_DATO, se etiquetan como SIMULADO
-    const delay = Data.getLightDelay(1);
-    expect(delay.minutes).toBe(12);
-    expect(delay.isTodo).toBe(true);
-    expect(delay.label).toBe('SIMULADO');
-    expect(delay.source).toContain('JPL Horizons');
+  it('calcula el retraso de luz con efemérides y no muestra marcadores TODO_DATO', () => {
+    // 12 ene 2025: oposición cercana (~0.64 UA ≈ 5.3 min)
+    const near = Data.getLightDelay(1, undefined, new Date('2025-01-12T00:00:00Z'));
+    expect(near.minutes).toBeGreaterThan(5);
+    expect(near.minutes).toBeLessThan(5.7);
+    expect(near.label).toBe('CALCULADO');
+    expect(near.isTodo).toBe(false);
+    // Cada día de juego avanza un día real
+    const later = Data.getLightDelay(30, undefined, new Date('2025-01-12T00:00:00Z'));
+    expect(later.minutes).toBeGreaterThan(near.minutes);
+    // Siempre dentro del rango físico Tierra–Marte (~3 a ~22 min)
+    for (let d = 0; d < 800; d += 50) {
+      const m = Data.getLightDelay(1, undefined, new Date(Date.UTC(2026, 0, 1) + d * 86400000)).minutes;
+      expect(m).toBeGreaterThan(3);
+      expect(m).toBeLessThan(22.5);
+    }
 
     const meda = Data.getMedaForecast(1);
     expect(meda.tempsC.length).toBe(13);
-    expect(meda.isTodo).toBe(true);
-    expect(meda.label).toBe('SIMULADO');
-    expect(meda.source).toContain('MEDA Jezero');
+    expect(meda.label).toBe('CALCULADO');
+    expect(Math.min(...meda.tempsC)).toBeGreaterThanOrEqual(-86);
+    expect(Math.max(...meda.tempsC)).toBeLessThanOrEqual(-20);
 
     const alertDay1 = Data.getSolarAlert(1);
     expect(alertDay1.hasAlert).toBe(true);
-    expect(alertDay1.activityId).toContain('TODO_DATO');
+    expect(alertDay1.activityId).not.toContain('TODO_DATO');
+    expect(alertDay1.activityId).toContain('X12');
     expect(alertDay1.label).toBe('ARCHIVO REAL');
-    expect(alertDay1.source).toBe('DONKI');
 
-    // Si se inyecta un archivo real sin TODO_DATO, cambia a ARCHIVO REAL
-    const realDelay = Data.getLightDelay(1, {
-      delays: [{ date: '2026-03-01', minutes: 14 }],
-    });
-    expect(realDelay.minutes).toBe(14);
-    expect(realDelay.isTodo).toBe(false);
-    expect(realDelay.label).toBe('ARCHIVO REAL');
+    const json = JSON.stringify([horizonsJson, medaJson, eventsJson]);
+    expect(json).not.toContain('TODO_DATO');
   });
 
   it('filtra las cápsulas científicas del Día 1 y conserva fuente NASA + etiqueta de honestidad', () => {

@@ -25,6 +25,7 @@ export class Transmision extends Phaser.Scene {
   }
 
   create(): void {
+    AudioSystem.playMusic('blueprints');
     const state = gameStore.state;
     Clock.setPaused(state, true);
     Quota.applyDailyQuota(state);
@@ -95,7 +96,7 @@ export class Transmision extends Phaser.Scene {
       .text(
         320,
         54,
-        `${uiText.transmision.delayPrefix} ${delayInfo.minutes} ${uiText.transmision.delaySuffix}`,
+        `${uiText.transmision.delayPrefix} ${delayInfo.minutes} ${uiText.transmision.delaySuffix} · ${delayInfo.distanceMkm ?? '?'} ${uiText.transmision.distanceSuffix}`,
         {
           fontFamily: 'PixelifySans, monospace',
           resolution: 2,
