@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { AudioSystem } from '../systems/Audio';
 import uiText from '../../content/ui_text.json';
 import { gameStore } from '../state/GameState';
 import type { RescueCause } from '../types';
@@ -27,6 +28,10 @@ export class Rescate extends Phaser.Scene {
 
   create(): void {
     const state = gameStore.state;
+    AudioSystem.stopAllLoops();
+    AudioSystem.playMusic(null);
+    AudioSystem.play('siren', { volume: 0.6 });
+    this.time.delayedCall(900, () => AudioSystem.play('rocket', { volume: 0.8 }));
 
     // 1. Fondo del terreno marciano a escala ×2 para igualar la vista de Mundo
     const ground = this.add.tileSprite(0, 0, 640, 360, 'ground_placeholder').setOrigin(0, 0);
@@ -35,7 +40,11 @@ export class Rescate extends Phaser.Scene {
     // 2. Barra superior de aviso
     this.add.rectangle(320, 14, 640, 28, 0x262b44).setOrigin(0.5);
     const bannerTitle =
-      this.cause === 'radiacion' ? uiText.rescue.bannerRad : uiText.rescue.bannerO2;
+      this.cause === 'radiacion'
+        ? uiText.rescue.bannerRad
+        : this.cause === 'mision'
+          ? uiText.rescue.bannerMision
+          : uiText.rescue.bannerO2;
     this.add
       .text(320, 14, bannerTitle, {
         fontFamily: 'PixelifySans, monospace',
@@ -57,9 +66,17 @@ export class Rescate extends Phaser.Scene {
     });
 
     const causeText =
-      this.cause === 'radiacion' ? uiText.rescue.causeRad : uiText.rescue.causeO2;
+      this.cause === 'radiacion'
+        ? uiText.rescue.causeRad
+        : this.cause === 'mision'
+          ? uiText.rescue.causeMision
+          : uiText.rescue.causeO2;
     const tipText =
-      this.cause === 'radiacion' ? uiText.rescue.tipRad : uiText.rescue.tipO2;
+      this.cause === 'radiacion'
+        ? uiText.rescue.tipRad
+        : this.cause === 'mision'
+          ? uiText.rescue.tipMision
+          : uiText.rescue.tipO2;
 
     this.add.text(18, 62, causeText, {
       fontFamily: 'PixelifySans, monospace',

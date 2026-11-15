@@ -1,9 +1,9 @@
 import Phaser from 'phaser';
+import { AudioSystem } from '../systems/Audio';
+import { createProceduralTextures } from '../ui/ProceduralTextures';
 import uiText from '../../content/ui_text.json';
-import { gameStore } from '../state/GameState';
-import { Save } from '../state/Save';
 import { Data } from '../systems/Data';
-import { Quota } from '../systems/Quota';
+import { VIEW_H, VIEW_W } from '../ui/installCameraDefaults';
 
 const SPRITE_KEYS = [
   'acc_antena',
@@ -67,8 +67,8 @@ export class Preload extends Phaser.Scene {
   }
 
   preload(): void {
-    const width = this.cameras.main.width;
-    const height = this.cameras.main.height;
+    const width = VIEW_W;
+    const height = VIEW_H;
 
     const barBg = this.add.rectangle(width / 2, height / 2 + 20, 244, 16, 0x262b44).setOrigin(0.5);
     barBg.setStrokeStyle(2, 0x181425);
@@ -115,19 +115,9 @@ export class Preload extends Phaser.Scene {
       horizons: this.cache.json.get('nasa_horizons'),
     });
 
-    const saved = Save.load();
-    if (saved) {
-      gameStore.reset(saved);
-      Quota.applyDailyQuota(gameStore.state);
-      if (saved.location === 'base' || saved.location === 'refugio') {
-        this.scene.start('Base');
-        return;
-      }
-      this.scene.start('Transmision');
-      return;
-    }
-
-    Quota.applyDailyQuota(gameStore.state);
-    this.scene.start('Despegue');
+    createProceduralTextures(this);
+    AudioSystem.installUnlock();
+    AudioSystem.preloadAll();
+    this.scene.start('Titulo');
   }
 }

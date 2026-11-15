@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { AudioSystem } from '../systems/Audio';
 import uiText from '../../content/ui_text.json';
 import { gameStore } from '../state/GameState';
 import { AstronautAppearance } from '../ui/AstronautAppearance';
@@ -17,6 +18,7 @@ export class Despegue extends Phaser.Scene {
   }
 
   create(): void {
+    AudioSystem.playMusic('starboard');
     const state = gameStore.state;
 
     // 1. Cielo estrellado nocturno (#181425) y horizonte curvo de Marte

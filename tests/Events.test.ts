@@ -52,7 +52,7 @@ describe('Fase 4 · Eventos de los días 2 a 5, tormenta solar y preguntas de Co
     stateOutside.clock.minutes = 13 * 60; // 13:00
     const startRes = Events.tick(stateOutside, 0.1);
     expect(startRes.stormStarted).not.toBeNull();
-    expect(startRes.stormStarted?.donkiActivityID).toContain('TODO_DATO');
+    expect(startRes.stormStarted?.donkiActivityID).toContain('X12');
 
     // Consumir los 120 s de cuenta regresiva
     const impactStart = Events.tick(stateOutside, 120);

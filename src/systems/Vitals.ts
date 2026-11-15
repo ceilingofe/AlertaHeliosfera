@@ -89,6 +89,26 @@ export class Vitals {
   }
 
   /**
+   * Trabajo de campo durante un minijuego: el reloj del día está en pausa, pero el traje
+   * sigue gastando oxígeno y recibiendo radiación. Así, tardarse o fallar tiene un costo real.
+   */
+  static tickFieldWork(state: GameState, dt: number): VitalsTickResult {
+    const result: VitalsTickResult = { warnedO2At40: false, dangerO2At20: false, rescueCause: null };
+    if (dt <= 0 || state.location !== 'mundo') return result;
+    const prevO2 = state.astronaut.o2;
+    const isCold = state.astronaut.suitTempC < balance.heater.comfortMinC;
+    const mult = (isCold ? balance.o2.coldMultiplier : 1) * balance.minigame.o2DrainMultiplier;
+    state.astronaut.o2 = Math.max(0, state.astronaut.o2 - balance.o2.drainPerSec * mult * dt);
+    const radDelta = balance.radiation.outsidePerSec * dt;
+    state.astronaut.doseToday += radDelta;
+    state.astronaut.doseTotal += radDelta;
+    result.warnedO2At40 = prevO2 > balance.o2.warnAt && state.astronaut.o2 <= balance.o2.warnAt;
+    result.dangerO2At20 = prevO2 > balance.o2.dangerAt && state.astronaut.o2 <= balance.o2.dangerAt;
+    result.rescueCause = Vitals.checkRescue(state);
+    return result;
+  }
+
+  /**
    * Aplica dosis extra durante los segundos de impacto de una tormenta solar (cme_hit).
    */
   static applyStormImpact(state: GameState, dt: number): RescueCause | null {

@@ -129,6 +129,7 @@ export class Tormenta extends Phaser.Scene {
       this.scene.isActive('MinijuegoTuberias');
 
     if (!storm || storm.phase === 'resolved' || inMinigame) {
+      AudioSystem.stopLoop('storm');
       this.rootContainer.setVisible(false);
       this.staticEffect.setEnabled(false);
       return;
@@ -170,10 +171,9 @@ export class Tormenta extends Phaser.Scene {
       this.ochreOverlay.setAlpha(0.38);
     }
 
-    const shortId = storm.donkiActivityID.startsWith('TODO_DATO')
-      ? 'TODO_DATO (CME mayo 2024)'
-      : storm.donkiActivityID;
-    this.honestyTagText.setText(`★ ARCHIVO REAL · DONKI · ${shortId}`);
+    this.honestyTagText.setText(`★ ARCHIVO REAL · NASA · ${storm.donkiActivityID}`);
+    if (storm.phase === 'impact') AudioSystem.startLoop('storm', 'rumble', 0.6);
+    else AudioSystem.stopLoop('storm');
 
     // Trazos diagonales blancos de partículas solares (s10_tormenta.png)
     this.particlesGraphic.clear();

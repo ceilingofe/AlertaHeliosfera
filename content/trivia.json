@@ -1,0 +1,418 @@
+[
+  {
+    "id": "luz_minutos",
+    "q": "¿Cuánto tarda un mensaje de radio entre la Tierra y Marte?",
+    "options": [
+      "Menos de 1 segundo",
+      "Entre 3 y 22 minutos",
+      "Unas 6 horas",
+      "Dos días"
+    ],
+    "answer": 1,
+    "explain": "La luz viaja a 300 000 km/s, pero Marte está a entre 55 y 400 millones de km. Por eso un rover no se puede manejar con joystick: recibe órdenes por adelantado.",
+    "source": "NASA · Mars Exploration"
+  },
+  {
+    "id": "presion",
+    "q": "¿Qué presión tiene el aire de Marte en la superficie?",
+    "options": [
+      "Igual que la Tierra",
+      "La mitad que la Tierra",
+      "Menos del 1 % de la Tierra",
+      "El doble que la Tierra"
+    ],
+    "answer": 2,
+    "explain": "Son unos 6 milibares contra 1 013 en la Tierra. Con tan poca presión el agua líquida hierve o se congela muy rápido, y se necesita traje presurizado.",
+    "source": "NASA · Mars Facts"
+  },
+  {
+    "id": "co2",
+    "q": "¿De qué está hecha casi toda la atmósfera marciana?",
+    "options": [
+      "Oxígeno",
+      "Dióxido de carbono",
+      "Nitrógeno",
+      "Hidrógeno"
+    ],
+    "answer": 1,
+    "explain": "Alrededor del 95 % es CO₂. Hay casi 3 % de nitrógeno, 2 % de argón y apenas trazas de oxígeno.",
+    "source": "NASA · Curiosity SAM"
+  },
+  {
+    "id": "moxie",
+    "q": "¿Qué hizo el experimento MOXIE del rover Perseverance?",
+    "options": [
+      "Buscó agua con radar",
+      "Fabricó oxígeno con el aire de Marte",
+      "Voló como helicóptero",
+      "Midió terremotos"
+    ],
+    "answer": 1,
+    "explain": "MOXIE separó oxígeno del CO₂ calentándolo a unos 800 °C. Entre 2021 y 2023 produjo 122 gramos: una prueba para que futuros astronautas fabriquen aire y combustible.",
+    "source": "NASA · MOXIE"
+  },
+  {
+    "id": "jezero_lago",
+    "q": "¿Por qué Perseverance aterrizó en el cráter Jezero?",
+    "options": [
+      "Es el lugar más caliente de Marte",
+      "Hace miles de millones de años fue un lago con un delta de río",
+      "Tiene hielo en la superficie",
+      "Es el volcán más alto"
+    ],
+    "answer": 1,
+    "explain": "Jezero tuvo un lago hace unos 3 500 millones de años. Donde hubo agua pudo haber vida, y las rocas del delta podrían guardar sus huellas.",
+    "source": "NASA · Mars 2020"
+  },
+  {
+    "id": "cheyava",
+    "q": "¿Qué encontró Perseverance en la roca Cheyava Falls en 2024?",
+    "options": [
+      "Un fósil de dinosaurio",
+      "Manchas tipo \"leopardo\" que podrían ser una señal de vida antigua",
+      "Un lago subterráneo",
+      "Restos de un meteorito de hierro"
+    ],
+    "answer": 1,
+    "explain": "Las manchas tienen química que en la Tierra suele estar ligada a microbios. En 2025 la NASA dijo que es la posible señal de vida más clara hasta ahora, pero falta estudiarla en laboratorios de la Tierra.",
+    "source": "NASA · Perseverance (2024–2025)"
+  },
+  {
+    "id": "tubos",
+    "q": "¿Para qué guarda Perseverance muestras en tubos sellados?",
+    "options": [
+      "Para usarlas como combustible",
+      "Para que una misión futura las traiga a la Tierra",
+      "Para alimentar a los astronautas",
+      "Para enterrarlas como basura"
+    ],
+    "answer": 1,
+    "explain": "La idea es estudiarlas con instrumentos de laboratorio mucho más potentes que los de un rover. El sello hermético evita que se contaminen.",
+    "source": "NASA · Mars Sample Return"
+  },
+  {
+    "id": "insight_polvo",
+    "q": "¿Qué acabó con la misión InSight en 2022?",
+    "options": [
+      "Un terremoto",
+      "El polvo que cubrió sus paneles solares",
+      "Una tormenta solar",
+      "Se quedó sin combustible"
+    ],
+    "answer": 1,
+    "explain": "El polvo fue tapando sus paneles hasta que ya no tuvo energía. Por eso en el juego limpias los paneles de la base.",
+    "source": "NASA · InSight"
+  },
+  {
+    "id": "insight_sismos",
+    "q": "¿Qué estudiaba principalmente InSight?",
+    "options": [
+      "Los \"marsmotos\" (sismos) y el interior de Marte",
+      "Las nubes",
+      "La vida microbiana",
+      "Los anillos de Marte"
+    ],
+    "answer": 0,
+    "explain": "Su sismómetro registró más de 1 300 marsmotos y ayudó a medir la corteza, el manto y el núcleo de Marte.",
+    "source": "NASA · InSight"
+  },
+  {
+    "id": "spirit_opportunity",
+    "q": "¿Qué ayudó a Spirit y Opportunity a durar años más de lo planeado?",
+    "options": [
+      "Baterías nucleares",
+      "Ráfagas de viento que limpiaban el polvo de sus paneles",
+      "Astronautas que los reparaban",
+      "Tenían paneles de repuesto"
+    ],
+    "answer": 1,
+    "explain": "Los \"eventos de limpieza\" por viento recuperaban su energía. Opportunity funcionó casi 15 años aunque estaba planeado para 90 días.",
+    "source": "NASA · Mars Exploration Rovers"
+  },
+  {
+    "id": "campo_magnetico",
+    "q": "¿Por qué la radiación es más peligrosa en Marte que en la Tierra?",
+    "options": [
+      "Marte está más cerca del Sol",
+      "Marte no tiene un campo magnético global y su atmósfera es muy delgada",
+      "Marte tiene volcanes activos",
+      "Las rocas de Marte son radiactivas"
+    ],
+    "answer": 1,
+    "explain": "La Tierra tiene un escudo magnético y mucho aire encima. En Marte las partículas del Sol y los rayos cósmicos llegan casi directo a la superficie.",
+    "source": "NASA · MAVEN y Curiosity RAD"
+  },
+  {
+    "id": "rad_diaria",
+    "q": "Según Curiosity RAD, ¿cómo es la radiación en la superficie de Marte?",
+    "options": [
+      "Cero",
+      "Un solo día equivale a unos 3 meses de radiación natural en la Tierra",
+      "Igual que en la Tierra",
+      "Mil veces menos que en la Tierra"
+    ],
+    "answer": 1,
+    "explain": "RAD midió unos 0.64 milisieverts por día en el cráter Gale. En la Tierra recibimos en promedio unos 2.4 al año. Por eso en el juego la radiación se acumula día con día.",
+    "source": "NASA · Curiosity RAD (Hassler et al., 2014)"
+  },
+  {
+    "id": "tormenta_2024",
+    "q": "¿Qué midió Curiosity durante la gran tormenta solar de mayo de 2024?",
+    "options": [
+      "Nada, estaba apagado",
+      "La mayor dosis de radiación desde que llegó en 2012",
+      "Un terremoto",
+      "Una lluvia de meteoritos"
+    ],
+    "answer": 1,
+    "explain": "Una llamarada X12 lanzó partículas a Marte. RAD midió 8 100 microgray, como 30 radiografías de tórax. Un astronauta habría necesitado refugio.",
+    "source": "NASA · 2024"
+  },
+  {
+    "id": "auroras",
+    "q": "¿Puede haber auroras en Marte?",
+    "options": [
+      "No, nunca",
+      "Sí; MAVEN las vio en todo el planeta en mayo de 2024",
+      "Sólo en los polos de la Tierra",
+      "Sólo en Júpiter"
+    ],
+    "answer": 1,
+    "explain": "Cuando llegan partículas solares chocan con la atmósfera y brillan. Sin campo magnético global, en Marte las auroras pueden cubrir casi todo el planeta.",
+    "source": "NASA · MAVEN"
+  },
+  {
+    "id": "refugio",
+    "q": "Si llega una tormenta solar, ¿qué protege mejor a un astronauta en Marte?",
+    "options": [
+      "Quedarse al aire libre",
+      "Un refugio cubierto con varios metros de regolito o agua",
+      "Subirse a una colina",
+      "Usar lentes oscuros"
+    ],
+    "answer": 1,
+    "explain": "La materia gruesa (regolito, agua, plástico) frena las partículas. Por eso el refugio del juego tiene muros de regolito.",
+    "source": "NASA · Human Research Program"
+  },
+  {
+    "id": "donki",
+    "q": "¿Qué es DONKI de la NASA?",
+    "options": [
+      "Un rover",
+      "Una base de datos de clima espacial: llamaradas, CME y tormentas",
+      "Un cohete",
+      "Un telescopio en Marte"
+    ],
+    "answer": 1,
+    "explain": "DONKI registra eventos del clima espacial y sus conexiones. Las alertas de este juego usan eventos reales de esa base de datos.",
+    "source": "NASA · CCMC DONKI"
+  },
+  {
+    "id": "cme",
+    "q": "¿Qué es una CME (eyección de masa coronal)?",
+    "options": [
+      "Un cometa",
+      "Una nube enorme de plasma que el Sol lanza al espacio",
+      "Un tipo de roca marciana",
+      "Una nube de polvo de Marte"
+    ],
+    "answer": 1,
+    "explain": "Una CME puede tardar de uno a varios días en llegar a un planeta. Por eso hay tiempo para avisar y correr al refugio.",
+    "source": "NASA · Space Weather"
+  },
+  {
+    "id": "enlil",
+    "q": "¿Para qué sirve el modelo WSA-Enlil?",
+    "options": [
+      "Para predecir hacia dónde viaja una CME y cuándo llega",
+      "Para medir sismos",
+      "Para fabricar oxígeno",
+      "Para manejar rovers"
+    ],
+    "answer": 0,
+    "explain": "Simula el viento solar y las CME. A veces corrige su ruta: una alerta puede terminar en \"falsa alarma\", como en el juego.",
+    "source": "NASA CCMC · WSA-Enlil"
+  },
+  {
+    "id": "percloratos",
+    "q": "¿Qué son los percloratos que hay en el suelo de Marte?",
+    "options": [
+      "Sales tóxicas para las personas",
+      "Bacterias marcianas",
+      "Agua congelada",
+      "Metales preciosos"
+    ],
+    "answer": 0,
+    "explain": "Phoenix los detectó en 2008. Pueden dañar la tiroides, así que el polvo que entre a la base debe limpiarse con cuidado.",
+    "source": "NASA · Phoenix"
+  },
+  {
+    "id": "regolito",
+    "q": "¿Por qué Perseverance tomó muestras de regolito (polvo y arena)?",
+    "options": [
+      "Para hacer ladrillos",
+      "Para entender cómo el polvo afectaría a astronautas y equipos",
+      "Para plantar papas",
+      "Para pintar el rover"
+    ],
+    "answer": 1,
+    "explain": "El polvo fino se mete en trajes, juntas y filtros, y podría dañar los pulmones. Sus primeras muestras de regolito son de diciembre de 2022.",
+    "source": "NASA · Perseverance"
+  },
+  {
+    "id": "sherloc",
+    "q": "¿Qué instrumento de Perseverance usa luz ultravioleta para buscar compuestos orgánicos?",
+    "options": [
+      "PIXL",
+      "SHERLOC",
+      "MOXIE",
+      "MEDA"
+    ],
+    "answer": 1,
+    "explain": "SHERLOC ilumina la roca con un láser ultravioleta: los compuestos orgánicos y algunos minerales responden con una \"huella\" de luz.",
+    "source": "NASA · SHERLOC"
+  },
+  {
+    "id": "pixl",
+    "q": "¿Qué mide PIXL?",
+    "options": [
+      "La temperatura del aire",
+      "Los elementos químicos de una roca usando rayos X",
+      "La velocidad del viento",
+      "Los sismos"
+    ],
+    "answer": 1,
+    "explain": "PIXL lanza rayos X a puntos diminutos de la roca y mapea su química, grano por grano.",
+    "source": "NASA · PIXL"
+  },
+  {
+    "id": "supercam",
+    "q": "¿Qué hace el láser de SuperCam?",
+    "options": [
+      "Corta rocas por la mitad",
+      "Vaporiza un punto de roca a varios metros para analizar la luz que emite",
+      "Ilumina de noche",
+      "Se comunica con la Tierra"
+    ],
+    "answer": 1,
+    "explain": "Con la luz de ese pequeño destello, y con su espectrómetro infrarrojo, SuperCam identifica minerales, incluso los que tienen agua.",
+    "source": "NASA · SuperCam"
+  },
+  {
+    "id": "meda",
+    "q": "¿Qué estación mide el clima en Jezero?",
+    "options": [
+      "MEDA",
+      "RAD",
+      "DONKI",
+      "HiRISE"
+    ],
+    "answer": 0,
+    "explain": "MEDA mide temperatura, viento, presión, humedad, polvo y radiación ultravioleta. En Jezero el aire pasa de unos −20 °C de día a cerca de −80 °C de noche.",
+    "source": "NASA · MEDA"
+  },
+  {
+    "id": "sol",
+    "q": "¿Cuánto dura un día en Marte (un \"sol\")?",
+    "options": [
+      "12 horas",
+      "24 horas y 40 minutos aprox.",
+      "3 días terrestres",
+      "Una semana"
+    ],
+    "answer": 1,
+    "explain": "Un sol dura unas 24 h 39 min. Los equipos de las misiones a veces viven en \"hora de Marte\" y su horario se recorre cada día.",
+    "source": "NASA · Mars Facts"
+  },
+  {
+    "id": "anio",
+    "q": "¿Cuánto dura un año en Marte?",
+    "options": [
+      "365 días",
+      "Unos 687 días terrestres",
+      "100 días",
+      "10 años terrestres"
+    ],
+    "answer": 1,
+    "explain": "Marte está más lejos del Sol y tarda casi dos años terrestres en darle una vuelta. Por eso sus estaciones duran casi el doble.",
+    "source": "NASA · Mars Facts"
+  },
+  {
+    "id": "gravedad",
+    "q": "Si pesas 50 kg en la Tierra, ¿cuánto marcaría una báscula en Marte?",
+    "options": [
+      "Unos 19 kg",
+      "50 kg",
+      "100 kg",
+      "5 kg"
+    ],
+    "answer": 0,
+    "explain": "La gravedad de Marte es cerca del 38 % de la terrestre. Saltarías casi tres veces más alto.",
+    "source": "NASA · Mars Facts"
+  },
+  {
+    "id": "color",
+    "q": "¿Por qué Marte se ve rojo?",
+    "options": [
+      "Por lava caliente",
+      "Por óxido de hierro (como herrumbre) en su polvo",
+      "Porque está muy caliente",
+      "Por el reflejo del Sol"
+    ],
+    "answer": 1,
+    "explain": "El polvo tiene minerales de hierro oxidados. Ese polvo fino se levanta con el viento y tiñe hasta el cielo.",
+    "source": "NASA · Mars Facts"
+  },
+  {
+    "id": "ingenuity",
+    "q": "¿Qué logró Ingenuity, el helicóptero que llegó con Perseverance?",
+    "options": [
+      "El primer vuelo con motor y control en otro planeta",
+      "Llevar a un astronauta",
+      "Encontrar agua líquida",
+      "Traer muestras a la Tierra"
+    ],
+    "answer": 0,
+    "explain": "Voló por primera vez en abril de 2021. Estaba pensado para 5 vuelos y realizó 72 antes de dañar sus aspas en 2024.",
+    "source": "NASA · Ingenuity"
+  },
+  {
+    "id": "dsn",
+    "q": "¿Cómo escucha la Tierra a las naves en Marte?",
+    "options": [
+      "Con teléfonos celulares",
+      "Con las antenas gigantes de la Red de Espacio Profundo (DSN)",
+      "Con satélites de TV",
+      "Con radios de onda corta"
+    ],
+    "answer": 1,
+    "explain": "La DSN tiene antenas en California, España y Australia, para que siempre haya una mirando a Marte mientras la Tierra gira.",
+    "source": "NASA · Deep Space Network"
+  },
+  {
+    "id": "orbitadores",
+    "q": "¿Cómo envían los rovers la mayoría de sus datos a la Tierra?",
+    "options": [
+      "Directo por cable",
+      "A través de orbitadores como MRO, que los retransmiten",
+      "En cohetes de regreso",
+      "Por luz láser visible"
+    ],
+    "answer": 1,
+    "explain": "Los orbitadores tienen antenas más potentes y pasan por encima varias veces al día. Así llega mucha más información.",
+    "source": "NASA · Mars Relay Network"
+  },
+  {
+    "id": "limite_rad",
+    "q": "¿Por qué la NASA pone un límite de radiación para toda la carrera de un astronauta?",
+    "options": [
+      "Para ahorrar dinero",
+      "Porque la radiación acumulada aumenta el riesgo de cáncer",
+      "Porque desgasta el traje",
+      "Porque baja la señal de radio"
+    ],
+    "answer": 1,
+    "explain": "La NASA limita la dosis de toda la carrera a 600 milisieverts. Por eso en el juego la barra de radiación nunca baja: se acumula.",
+    "source": "NASA-STD-3001"
+  }
+]

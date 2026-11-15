@@ -135,12 +135,44 @@ export class BaseSystem {
     return 'normal';
   }
 
+  /**
+   * Revisión de Control de Misión al terminar el día: si no se cumplió la cuota
+   * se pierde confianza; si se entregó de más, se recupera. Devuelve el cambio.
+   */
+  static applyMissionReview(state: GameState, bonus: 'menos' | 'normal' | 'extra'): number {
+    const max = balance.mission.maxTrust;
+    const before = state.missionTrust;
+    if (bonus === 'menos') {
+      state.missionTrust = Math.max(0, state.missionTrust - balance.mission.quotaMissTrustLoss);
+    } else if (bonus === 'extra') {
+      state.missionTrust = Math.min(max, state.missionTrust + balance.mission.extraTrustGain);
+    }
+    return state.missionTrust - before;
+  }
+
+  /** El polvo marciano se acumula cada sol sobre todos los paneles que no se limpian. */
+  static accumulateDailyDust(state: GameState): void {
+    for (const p of state.base.panels) {
+      p.dust = Math.min(1, p.dust + balance.dust.dailyAccumulation);
+    }
+    if (
+      state.base.panels.some((p) => p.dust > balance.dust.dirtyThreshold) &&
+      !state.activeEvents.includes('dust')
+    ) {
+      state.activeEvents.push('dust');
+    }
+  }
+
   static sleepToNextDay(
     state: GameState,
     forcedBonus?: 'menos' | 'normal' | 'extra'
-  ): void {
+  ): number {
     const bonus = forcedBonus ?? BaseSystem.evaluateDailyQuota(state);
     state.supplyBonus = bonus;
+    const trustDelta = BaseSystem.applyMissionReview(state, bonus);
+    for (const id of state.learnedToday) {
+      if (!state.journal.includes(id)) state.journal.push(id);
+    }
     state.stats.daysSurvived = state.day;
 
     if (state.day >= balance.unlocks.customizationDay) {
@@ -166,6 +198,9 @@ export class BaseSystem {
     Vitals.resetDailyDose(state);
     Quota.applyDailyQuota(state);
     Events.initDay(state);
+    BaseSystem.accumulateDailyDust(state);
+    state.sitesUsedToday = [];
+    state.tubes = state.tubes.map(() => null);
 
     if (bonus === 'extra') {
       state.base.o2Reserve = balance.supplies.extra.reserve;
@@ -185,5 +220,6 @@ export class BaseSystem {
       state.deliveredToday[type] = 0;
     }
     state.learnedToday = [];
+    return trustDelta;
   }
 }

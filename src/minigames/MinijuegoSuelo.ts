@@ -1,363 +1,253 @@
 import Phaser from 'phaser';
-import uiText from '../../content/ui_text.json';
-import { Data } from '../systems/Data';
-import { DialogBox } from '../ui/DialogBox';
+import MG from '../../content/minigames.json';
+import { AudioSystem } from '../systems/Audio';
 import { MinigameBase } from './MinigameBase';
+import { TimingBar, button, panel, shuffle, txt } from './widgets';
 
-type SoilPhase = 'scoop' | 'sieve' | 'save' | 'done';
+type Phase = 'scoop' | 'sieve' | 'choose' | 'done';
+type Grain = 'coarse' | 'medium' | 'fine';
+
+const T = MG.suelo;
 
 /**
- * Minijuego de suelo / regolito (fiel al storyboard s06_suelo.png):
- * Paso 1 (Palear): servir regolito con la pala al tamiz circular.
- * Paso 2 (Tamizar): deslizar a los lados (o usar A/D, flechas o botones) para agitar el tamiz
- *   y llenar la barra "Grano fino". En dificultad >= 2 aparecen piedras que hay que tocar para quitar.
- * Paso 3 (Guardar): guardar el grano fino en el tubo y mostrar cápsula de percloratos.
+ * Muestra de regolito.
+ * 1) Palear: detener la cantidad en la zona verde.
+ * 2) Tamizar: alternar ◄ ► con ritmo; quitar piedras grandes antes de que rompan la malla.
+ * 3) Elegir grano: tres frascos en orden aleatorio; hay que leer la escala y elegir el fino.
  */
 export class MinijuegoSuelo extends MinigameBase {
-  private phase: SoilPhase = 'scoop';
-  private stageContainer!: Phaser.GameObjects.Container;
-  private activeDialog: DialogBox | null = null;
+  private phase: Phase = 'scoop';
+  private stage!: Phaser.GameObjects.Container;
+  private bar: TimingBar | null = null;
 
-  private sieveContainer!: Phaser.GameObjects.Container;
-  private fineGrainProgress = 0;
-  private fineBarFill?: Phaser.GameObjects.Rectangle;
-  private pebblesRemaining = 0;
-  private lastPointerX: number | null = null;
-
-  private keyLeft!: Phaser.Input.Keyboard.Key;
-  private keyRight!: Phaser.Input.Keyboard.Key;
-  private keyA!: Phaser.Input.Keyboard.Key;
-  private keyD!: Phaser.Input.Keyboard.Key;
-  private keySpace!: Phaser.Input.Keyboard.Key;
-  private keyE!: Phaser.Input.Keyboard.Key;
+  private progress = 0;
+  private lastSide: -1 | 0 | 1 = 0;
+  private sieve!: Phaser.GameObjects.Container;
+  private progressFill!: Phaser.GameObjects.Rectangle;
+  private pebbles: { obj: Phaser.GameObjects.Image; ttl: number; ring: Phaser.GameObjects.Arc }[] = [];
+  private pebbleTimer = 0;
+  private grains: Phaser.GameObjects.Rectangle[] = [];
 
   constructor() {
     super('MinijuegoSuelo');
   }
 
   create(): void {
-    this.phase = 'scoop';
-    this.fineGrainProgress = 0;
-    this.pebblesRemaining = 0;
-    this.lastPointerX = null;
-
-    this.drawHeader(
-      uiText.minigameSoil.title,
-      [
-        uiText.minigameSoil.step1,
-        uiText.minigameSoil.step2,
-        uiText.minigameSoil.step3,
-      ],
-      uiText.minigameSoil.instScoop
-    );
-
-    this.stageContainer = this.add.container(0, 0);
-
-    if (this.input.keyboard) {
-      this.keyLeft = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT);
-      this.keyRight = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT);
-      this.keyA = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
-      this.keyD = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
-      this.keySpace = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-      this.keyE = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
-    }
-
-    this.buildScoopStep();
+    this.pebbles = [];
+    this.drawHeader(T.title, T.steps, T.instScoop);
+    this.stage = this.add.container(0, 0);
+    this.buildScoop();
   }
 
-  private buildScoopStep(): void {
+  // ------------------------------------------------------------------ 1. palear
+
+  private buildScoop(): void {
     this.phase = 'scoop';
     this.setActiveStep(0);
-    this.setInstruction(uiText.minigameSoil.instScoop);
-    this.stageContainer.removeAll(true);
-    this.activeDialog?.destroy();
-    this.activeDialog = null;
-
-    // Montículo de regolito marciano y pala
-    const moundOuter = this.add
-      .ellipse(300, 195, 220, 110, 0x733e39)
-      .setStrokeStyle(3, 0x181425)
-      .setInteractive({ useHandCursor: true });
-    const moundInner = this.add.ellipse(300, 190, 190, 88, 0xb86f50);
-    const shovelIcon = this.add.image(300, 152, 'icon_shovel').setScale(5);
-
-    const scoopBtn = this.add
-      .rectangle(300, 292, 220, 36, 0x181425)
-      .setStrokeStyle(2, 0xfee761)
-      .setInteractive({ useHandCursor: true });
-    const scoopTxt = this.add
-      .text(300, 292, uiText.minigameSoil.scoopButton, {
-        fontFamily: 'PixelifySans, monospace',
-        fontSize: '15px',
-        color: '#ffffff',
-      })
-      .setOrigin(0.5);
-
-    const goNext = (): void => this.buildSieveStep();
-    moundOuter.on('pointerdown', goNext);
-    scoopBtn.on('pointerdown', goNext);
-
-    this.stageContainer.add([moundOuter, moundInner, shovelIcon, scoopBtn, scoopTxt]);
+    this.stage.removeAll(true);
+    this.stage.add(txt(this, 14, 72, T.objective, 11, '#fee761', 612));
+    this.stage.add(this.add.ellipse(140, 220, 170, 70, 0xb86f50).setStrokeStyle(2, 0x733e39));
+    this.stage.add(this.add.ellipse(140, 208, 120, 40, 0xe4a672));
+    this.stage.add(this.add.image(140, 150, 'icon_shovel').setScale(4));
+    const d = this.inputData.difficulty;
+    this.stage.add(panel(this, 250, 120, 370, 120));
+    this.bar = new TimingBar(this, 270, 186, 330, d === 1 ? 0.28 : d === 2 ? 0.2 : 0.15, 0.7 + d * 0.15, T.scoopTitle);
+    this.stage.add(this.bar.objects);
+    this.stage.add(txt(this, 270, 204, 'poca', 10, '#8b9bb4'));
+    this.stage.add(txt(this, 600, 204, 'mucha', 10, '#8b9bb4').setOrigin(1, 0));
+    const b = button(this, 435, 280, 180, 34, T.scoopButton, () => this.tryScoop());
+    this.stage.add([b.bg, b.label]);
   }
 
-  private buildSieveStep(): void {
+  private tryScoop(): void {
+    if (this.phase !== 'scoop' || this.finished || !this.bar) return;
+    AudioSystem.play('brush', { volume: 0.7 });
+    if (this.bar.hit()) {
+      this.buildSieve();
+    } else {
+      this.bar.moveZone();
+      this.addStrike(T.scoopMiss, T.fail);
+    }
+  }
+
+  // ------------------------------------------------------------------ 2. tamizar
+
+  private buildSieve(): void {
     this.phase = 'sieve';
     this.setActiveStep(1);
-    this.setInstruction(uiText.minigameSoil.instSieve);
-    this.stageContainer.removeAll(true);
+    this.setInstruction(T.instSieve);
+    this.stage.removeAll(true);
+    this.progress = 0;
+    this.lastSide = 0;
+    this.pebbleTimer = 1.4;
+    this.pebbles = [];
 
-    this.fineGrainProgress = 0;
-
-    // 1. Tarjeta derecha "Grano fino" (fiel a s06_suelo.png)
-    const cardBg = this.add
-      .rectangle(454, 70, 176, 52, 0xc0cbdc)
-      .setOrigin(0, 0)
-      .setStrokeStyle(2, 0x181425);
-    const cardTitle = this.add.text(466, 78, uiText.minigameSoil.fineGrainLabel, {
-      fontFamily: 'PixelifySans, monospace',
-      fontSize: '12px',
-      color: '#181425',
-    });
-    const barTrack = this.add
-      .rectangle(466, 102, 154, 10, 0x3a4466)
-      .setOrigin(0, 0.5)
-      .setStrokeStyle(1, 0x181425);
-    this.fineBarFill = this.add
-      .rectangle(467, 102, 0, 8, 0xe4a672)
-      .setOrigin(0, 0.5);
-
-    // 2. Flechas amarillas laterales ◄ y ► (s06_suelo.png)
-    const leftArrow = this.add
-      .triangle(64, 186, 0, 10, 18, 0, 18, 20, 0xfee761)
-      .setInteractive({ useHandCursor: true });
-    const rightArrow = this.add
-      .triangle(540, 186, 0, 0, 0, 20, 18, 10, 0xfee761)
-      .setInteractive({ useHandCursor: true });
-
-    leftArrow.on('pointerdown', () => this.shakeSieve(-16));
-    rightArrow.on('pointerdown', () => this.shakeSieve(16));
-
-    // 3. Tamiz circular en el centro con malla cuadriculada (#5a6988 / #3a4466) y borde #8b9bb4 / #181425
-    this.sieveContainer = this.add.container(300, 188);
-    const rimOuter = this.add
-      .ellipse(0, 0, 280, 174, 0x8b9bb4)
-      .setStrokeStyle(5, 0x181425)
-      .setInteractive({ useHandCursor: true });
-    const meshBg = this.add
-      .ellipse(0, 0, 244, 146, 0x5a6988)
-      .setStrokeStyle(2, 0x3a4466);
-
-    const meshLines = this.add.graphics();
-    meshLines.lineStyle(1, 0x3a4466, 0.9);
-    for (let x = -100; x <= 100; x += 10) {
-      meshLines.lineBetween(x, -64, x, 64);
+    // Tamiz: aro con malla
+    const g = this.add.graphics();
+    g.fillStyle(0x8b9bb4).fillEllipse(0, 0, 230, 120);
+    g.fillStyle(0x3a4466).fillEllipse(0, 0, 210, 104);
+    g.lineStyle(1, 0x5a6988, 0.9);
+    for (let i = -100; i <= 100; i += 10) g.lineBetween(i, -50, i, 50);
+    for (let j = -50; j <= 50; j += 10) g.lineBetween(-100, j, 100, j);
+    this.grains = [];
+    const children: Phaser.GameObjects.GameObject[] = [g];
+    for (let i = 0; i < 46; i++) {
+      const r = this.add.rectangle((Math.random() - 0.5) * 180, (Math.random() - 0.5) * 80, 3, 2, Math.random() < 0.5 ? 0xe4a672 : 0xb86f50);
+      this.grains.push(r);
+      children.push(r);
     }
-    for (let y = -56; y <= 56; y += 10) {
-      meshLines.lineBetween(-108, y, 108, y);
-    }
+    this.sieve = this.add.container(250, 170, children);
+    this.stage.add(this.sieve);
 
-    // Granos de regolito dentro del tamiz
-    const grains = this.add.graphics();
-    const grainPositions = [
-      { x: -76, y: -22, c: 0x733e39 },
-      { x: -48, y: 12, c: 0xb86f50 },
-      { x: -24, y: -6, c: 0xd77643 },
-      { x: 12, y: -12, c: 0xb86f50 },
-      { x: 24, y: 28, c: 0xd77643 },
-      { x: 48, y: -20, c: 0x733e39 },
-      { x: 74, y: 36, c: 0xd77643 },
-      { x: -12, y: 42, c: 0xb86f50 },
-    ];
-    for (const gp of grainPositions) {
-      grains.fillStyle(gp.c, 1);
-      grains.fillRect(gp.x, gp.y, 9, 7);
-    }
+    // Tubo que se llena abajo
+    this.stage.add(this.add.image(250, 270, 'tube_empty').setScale(3).setAngle(90));
 
-    this.sieveContainer.add([rimOuter, meshBg, meshLines, grains]);
-
-    // En dificultad >= 2 agregamos piedras grandes que hay que tocar para quitar
-    this.pebblesRemaining = this.inputData.difficulty >= 2 ? 2 : 0;
-    if (this.pebblesRemaining > 0) {
-      this.setInstruction(uiText.minigameSoil.removePebbleHint);
-      for (let i = 0; i < this.pebblesRemaining; i++) {
-        const px = -35 + i * 70;
-        const py = -8 + i * 16;
-        const pebble = this.add
-          .image(px, py, 'rock_volcanic')
-          .setScale(4)
-          .setInteractive({ useHandCursor: true });
-        pebble.on('pointerdown', () => {
-          pebble.destroy();
-          this.pebblesRemaining = Math.max(0, this.pebblesRemaining - 1);
-          if (this.pebblesRemaining === 0) {
-            this.setInstruction(uiText.minigameSoil.instSieve);
-          }
-        });
-        this.sieveContainer.add(pebble);
-      }
-    }
-
-    // Arrastrar o deslizar a los lados agita el tamiz
-    this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
-      if (this.phase !== 'sieve') return;
-      if (this.lastPointerX !== null) {
-        const dx = pointer.x - this.lastPointerX;
-        if (Math.abs(dx) >= 6) {
-          this.shakeSieve(dx > 0 ? 10 : -10, Math.min(8, Math.abs(dx) * 0.25));
-          this.lastPointerX = pointer.x;
-        }
-      } else {
-        this.lastPointerX = pointer.x;
-      }
-    });
-
-    rimOuter.on('pointerdown', () => {
-      this.shakeSieve(this.sieveContainer.x >= 300 ? -14 : 14, 12);
-    });
-
-    // 4. Diálogo grande de Corvi con sello NASA (s06_suelo.png)
-    this.activeDialog = new DialogBox(this, {
-      mode: 'big',
-      mood: 'neutral',
-      text: uiText.minigameSoil.corviPerchlorates,
-      source: uiText.minigameSoil.corviSource,
-      label: 'ARCHIVO REAL',
-    });
-
-    this.stageContainer.add([
-      cardBg,
-      cardTitle,
-      barTrack,
-      this.fineBarFill,
-      leftArrow,
-      rightArrow,
-      this.sieveContainer,
-    ]);
+    this.stage.add(panel(this, 420, 84, 206, 186));
+    this.stage.add(txt(this, 432, 94, T.sieveProgress, 12, '#ead4aa'));
+    this.stage.add(this.add.rectangle(432, 122, 180, 14, 0x3a4466).setOrigin(0, 0.5).setStrokeStyle(2, 0x181425));
+    this.progressFill = this.add.rectangle(434, 122, 0, 10, 0x63c74d).setOrigin(0, 0.5);
+    this.stage.add(this.progressFill);
+    this.stage.add(txt(this, 432, 140, T.sameSide, 10, '#c0cbdc', 184));
+    const l = button(this, 470, 238, 84, 32, T.left, () => this.shake(-1), 0x5a6988);
+    const r = button(this, 580, 238, 84, 32, T.right, () => this.shake(1), 0x5a6988);
+    this.stage.add([l.bg, l.label, r.bg, r.label]);
   }
 
-  private shakeSieve(offsetX: number, amount = 14): void {
-    if (this.phase !== 'sieve') return;
-    if (this.pebblesRemaining > 0) {
-      this.setInstruction(uiText.minigameSoil.removePebbleHint);
-      return;
+  private shake(side: -1 | 1): void {
+    if (this.phase !== 'sieve' || this.finished) return;
+    AudioSystem.play('sieve', { volume: 0.5, pitchJitter: 0.1 });
+    this.tweens.add({ targets: this.sieve, x: 250 + side * 14, duration: 70, yoyo: true });
+    if (side === this.lastSide) {
+      this.progress = Math.max(0, this.progress - 3);
+      this.setInstruction(T.sameSide, '#feae34');
+    } else {
+      // Si hay piedras sobre la malla el tamiz casi no avanza
+      const gain = this.pebbles.length > 0 ? 1.5 : 6 - this.inputData.difficulty;
+      this.progress = Math.min(100, this.progress + gain);
+      this.setInstruction(T.instSieve);
     }
+    this.lastSide = side;
+    const remaining = Math.round(this.grains.length * (1 - this.progress / 100));
+    this.grains.forEach((gr, i) => gr.setVisible(i < remaining));
+    this.progressFill.width = Math.round((176 * this.progress) / 100);
+    if (this.progress >= 100) this.buildChoose();
+  }
 
-    this.sieveContainer.x = 300 + offsetX;
-    this.tweens.add({
-      targets: this.sieveContainer,
-      x: 300,
-      duration: 90,
-    });
+  private spawnPebble(): void {
+    const x = 250 + (Math.random() - 0.5) * 160;
+    const y = 170 + (Math.random() - 0.5) * 60;
+    const ttl = this.inputData.difficulty === 1 ? 3 : this.inputData.difficulty === 2 ? 2.3 : 1.7;
+    const obj = this.add.image(x, y, 'pebble_c').setScale(4).setInteractive({ useHandCursor: true });
+    const ring = this.add.circle(x, y, 18).setStrokeStyle(2, 0xfeae34);
+    const p = { obj, ttl, ring };
+    const remove = (): void => {
+      AudioSystem.play('ui_pluck', { volume: 0.6 });
+      this.removePebble(p);
+    };
+    obj.on('pointerdown', remove);
+    this.addCursorTarget(obj, remove);
+    this.pebbles.push(p);
+    this.stage.add([obj, ring]);
+  }
 
-    const difficultyFactor = this.inputData.difficulty === 1 ? 1 : 0.78;
-    this.fineGrainProgress = Math.min(
-      100,
-      this.fineGrainProgress + amount * difficultyFactor
-    );
+  private removePebble(p: { obj: Phaser.GameObjects.Image; ring: Phaser.GameObjects.Arc }): void {
+    this.pebbles = this.pebbles.filter((q) => q !== p);
+    p.obj.destroy();
+    p.ring.destroy();
+  }
 
-    if (this.fineBarFill) {
-      this.fineBarFill.width = Math.round((152 * this.fineGrainProgress) / 100);
+  private updateSieve(dt: number): void {
+    if (this.keyJustDown('left') || this.keyJustDown('a')) this.shake(-1);
+    if (this.keyJustDown('right') || this.keyJustDown('d')) this.shake(1);
+    // ↓/S o la mira sirven para quitar piedras con el teclado
+    if (this.keyJustDown('down') || this.keyJustDown('s') || this.actionJustDown()) {
+      const p = this.pebbles[0];
+      if (p) {
+        AudioSystem.play('ui_pluck', { volume: 0.6 });
+        this.removePebble(p);
+      }
     }
-
-    if (this.fineGrainProgress >= 100) {
-      this.buildSaveStep();
+    this.pebbleTimer -= dt;
+    if (this.pebbleTimer <= 0) {
+      this.spawnPebble();
+      this.pebbleTimer = (this.inputData.difficulty === 1 ? 3.2 : 2.4) + Math.random() * 1.2;
+    }
+    for (const p of this.pebbles.slice()) {
+      p.ttl -= dt;
+      p.ring.setRadius(8 + Math.max(0, p.ttl) * 4).setStrokeStyle(2, p.ttl < 0.8 ? 0xe43b44 : 0xfeae34);
+      if (p.ttl <= 0) {
+        this.removePebble(p);
+        this.progress = Math.max(0, this.progress - 15);
+        this.progressFill.width = Math.round((176 * this.progress) / 100);
+        if (!this.addStrike(T.pebbleTore, T.fail)) return;
+      }
     }
   }
 
-  private buildSaveStep(): void {
-    this.phase = 'save';
+  // ------------------------------------------------------------------ 3. elegir grano
+
+  private buildChoose(): void {
+    this.phase = 'choose';
+    for (const p of this.pebbles.slice()) this.removePebble(p);
+    this.clearCursorTargets();
     this.setActiveStep(2);
-    this.setInstruction(uiText.minigameSoil.instSave);
-    this.stageContainer.removeAll(true);
-    this.activeDialog?.destroy();
-    this.activeDialog = null;
-
-    const tubeImg = this.add.image(250, 186, 'tube_full').setScale(8);
-
-    const saveBtn = this.add
-      .rectangle(410, 186, 220, 42, 0x63c74d)
-      .setStrokeStyle(2, 0x181425)
-      .setInteractive({ useHandCursor: true });
-    const saveTxt = this.add
-      .text(410, 186, uiText.minigameSoil.saveButton, {
-        fontFamily: 'PixelifySans, monospace',
-        fontSize: '15px',
-        color: '#181425',
-      })
-      .setOrigin(0.5);
-
-    saveBtn.on('pointerdown', () => this.finishSoilSample());
-
-    this.stageContainer.add([tubeImg, saveBtn, saveTxt]);
-  }
-
-  private finishSoilSample(): void {
-    if (this.phase === 'done') return;
-    this.phase = 'done';
-
-    const fact = Data.getFactById('percloratos');
-    this.activeDialog = new DialogBox(this, {
-      mode: 'small',
-      mood: 'proud',
-      text: fact.text,
-      source: fact.source,
-      label: fact.label,
-      autoCloseMs: 2000,
-      onComplete: () => {
-        this.completeMinigame({
-          ok: true,
-          quality: 3,
-          factId: 'percloratos',
-        });
-      },
+    this.setInstruction(T.instChoose);
+    this.stage.removeAll(true);
+    const labels: Record<Grain, string> = { coarse: T.jarCoarse, medium: T.jarMedium, fine: T.jarFine };
+    const size: Record<Grain, number> = { coarse: 6, medium: 3, fine: 1 };
+    const order = shuffle<Grain>(['coarse', 'medium', 'fine']);
+    order.forEach((grain, i) => {
+      const x = 120 + i * 200;
+      const jar = this.add.rectangle(x, 170, 110, 120, 0x3a4466).setStrokeStyle(3, 0xc0cbdc).setInteractive({ useHandCursor: true });
+      this.stage.add(jar);
+      const s = size[grain];
+      for (let yy = 0; yy < 60; yy += s + 1) {
+        for (let xx = 0; xx < 90; xx += s + 1) {
+          if (Math.random() < 0.82) {
+            this.stage.add(this.add.rectangle(x - 45 + xx, 198 - yy, s, s, (xx + yy) % 3 === 0 ? 0xb86f50 : 0xe4a672).setOrigin(0, 0));
+          }
+        }
+      }
+      // Diferencia sutil: la etiqueta sólo dice el tamaño; en dificultad 3 se omite el adjetivo
+      const label = this.inputData.difficulty >= 3 ? labels[grain].split('·')[1].trim() : labels[grain];
+      this.stage.add(txt(this, x, 240, label, 11, '#ffffff').setOrigin(0.5));
+      this.stage.add(txt(this, x, 256, `[${i + 1}]`, 10, '#8b9bb4').setOrigin(0.5));
+      const pick = (): void => this.pickJar(grain);
+      jar.on('pointerdown', pick);
+      this.addCursorTarget(jar, pick);
     });
+    this.chooseOrder = order;
   }
 
-  update(): void {
+  private chooseOrder: Grain[] = [];
+
+  private pickJar(grain: Grain): void {
+    if (this.phase !== 'choose' || this.finished) return;
+    if (grain === 'fine') {
+      this.phase = 'done';
+      this.succeed('percloratos', T.success, T.source);
+    } else {
+      this.addStrike(T.wrongJar, T.fail);
+    }
+  }
+
+  update(_t: number, delta: number): void {
+    const dt = delta / 1000;
+    if (this.finished) {
+      this.actionJustDown();
+      return;
+    }
     if (this.phase === 'scoop') {
-      if (
-        Phaser.Input.Keyboard.JustDown(this.keySpace) ||
-        Phaser.Input.Keyboard.JustDown(this.keyE)
-      ) {
-        this.buildSieveStep();
+      this.bar?.update(dt);
+      if (this.actionJustDown()) this.tryScoop();
+    } else if (this.phase === 'sieve') {
+      this.updateSieve(dt);
+    } else if (this.phase === 'choose') {
+      this.updateKeyboardCursor(dt);
+      for (let i = 0; i < 3; i++) {
+        if (this.numberJustDown(i + 1) && this.chooseOrder[i]) this.pickJar(this.chooseOrder[i]);
       }
-      return;
-    }
-
-    if (this.phase === 'sieve') {
-      if (
-        Phaser.Input.Keyboard.JustDown(this.keyLeft) ||
-        Phaser.Input.Keyboard.JustDown(this.keyA)
-      ) {
-        this.shakeSieve(-16, 15);
-      } else if (
-        Phaser.Input.Keyboard.JustDown(this.keyRight) ||
-        Phaser.Input.Keyboard.JustDown(this.keyD) ||
-        Phaser.Input.Keyboard.JustDown(this.keySpace) ||
-        Phaser.Input.Keyboard.JustDown(this.keyE)
-      ) {
-        this.shakeSieve(16, 15);
-      }
-      return;
-    }
-
-    if (this.phase === 'save') {
-      if (
-        Phaser.Input.Keyboard.JustDown(this.keySpace) ||
-        Phaser.Input.Keyboard.JustDown(this.keyE)
-      ) {
-        this.finishSoilSample();
-      }
-      return;
-    }
-
-    if (this.phase === 'done') {
-      if (
-        Phaser.Input.Keyboard.JustDown(this.keySpace) ||
-        Phaser.Input.Keyboard.JustDown(this.keyE)
-      ) {
-        this.activeDialog?.advanceOrFinish();
-      }
+      if (this.actionJustDown()) this.pickWithReticle();
     }
   }
 }

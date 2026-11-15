@@ -18,6 +18,7 @@ export interface EventTickResult {
   stormImpactStarted: boolean;
   stormFalseAlarmResolved: boolean;
   stormFinished: boolean;
+  antennaDamaged: boolean;
   rescueCause: RescueCause | null;
 }
 
@@ -66,7 +67,9 @@ export class Events {
       { type: 'dust', at: '11:00', panels: ['p1', 'p2'] },
       { type: 'moxie_pipes', at: '10:30' },
       { type: 'cme_hit', at: '13:00', eventId: 'cme_mayo_2024' },
+      { type: 'antenna', at: '10:00' },
       { type: 'cold_night' },
+      { type: 'dust', at: '12:30', panels: ['p3'] },
       { type: 'cme_miss', at: '12:00', eventId: 'cme_falsa_alarma' },
     ];
 
@@ -190,13 +193,17 @@ export class Events {
    */
   static resolveMaintenanceEvent(
     state: GameState,
-    type: 'dust' | 'moxie_pipes' | 'antenna'
+    type: 'dust' | 'moxie_pipes' | 'antenna',
+    panelId?: string
   ): void {
     if (type === 'dust') {
+      // Se limpia sólo el panel trabajado; la energía sube poco a poco en BaseSystem.tick.
       for (const p of state.base.panels) {
-        p.dust = 0;
+        if (!panelId || p.id === panelId) p.dust = 0;
       }
-      state.base.energy = 100;
+      if (state.base.panels.some((p) => p.dust > balance.dust.dirtyThreshold)) {
+        return;
+      }
     } else if (type === 'moxie_pipes') {
       state.base.moxieOk = true;
     } else if (type === 'antenna') {
@@ -215,6 +222,7 @@ export class Events {
       stormImpactStarted: false,
       stormFalseAlarmResolved: false,
       stormFinished: false,
+      antennaDamaged: false,
       rescueCause: null,
     };
 
@@ -297,6 +305,13 @@ export class Events {
           state.stats.stormsSheltered += 1;
         }
         state.activeEvents = state.activeEvents.filter((e) => e !== 'cme_hit');
+        // Las partículas solares dañan la electrónica expuesta: la antena queda con estática.
+        // (En mayo de 2024 la cámara estelar del orbitador Mars Odyssey se apagó por lo mismo.)
+        if (state.base.antennaOk) {
+          state.base.antennaOk = false;
+          if (!state.activeEvents.includes('antenna')) state.activeEvents.push('antenna');
+          result.antennaDamaged = true;
+        }
         result.stormFinished = true;
         Events.activeStorm = null;
       }

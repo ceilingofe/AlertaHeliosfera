@@ -1,29 +1,7 @@
 {
-  "label": "ARCHIVO REAL",
-  "source": "MEDA, rover Perseverance (Jezero)",
-  "sourceUrl": "https://pds-atmospheres.nmsu.edu/",
-  "sols": [
-    {
-      "sol": "TODO_DATO",
-      "hourlyC": {
-        "06": "TODO",
-        "07": "TODO",
-        "08": "TODO",
-        "09": "TODO",
-        "10": "TODO",
-        "11": "TODO",
-        "12": "TODO",
-        "13": "TODO",
-        "14": "TODO",
-        "15": "TODO",
-        "16": "TODO",
-        "17": "TODO",
-        "18": "TODO"
-      }
-    }
-  ],
-  "backup": {
-    "note": "Si falta MEDA, usar InSight Mars Weather (archivado, otro lugar de Marte) con su etiqueta",
-    "source": "InSight Mars Weather (archivo)"
-  }
+  "label": "CALCULADO",
+  "source": "Curva modelo con el rango medido por MEDA en Jezero (aire: −83 °C a −23 °C)",
+  "sourceUrl": "https://science.nasa.gov/blogs/daily-records-of-atmospheric-temperature-with-perseverance/",
+  "range": { "minC": -83, "maxC": -23 },
+  "note": "El juego dibuja una curva diaria suave entre el mínimo de antes del amanecer y el máximo de la tarde que publica la NASA para MEDA. No es la lectura de un sol específico."
 }

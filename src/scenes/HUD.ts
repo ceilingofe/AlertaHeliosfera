@@ -3,58 +3,70 @@ import balance from '../../content/balance.json';
 import uiText from '../../content/ui_text.json';
 import { bus } from '../state/bus';
 import { gameStore } from '../state/GameState';
+import { mapMarkers, SAMPLE_COLORS, type MapMarker } from '../state/mapMarkers';
 import { AudioSystem } from '../systems/Audio';
 import { Clock } from '../systems/Clock';
 import { Events } from '../systems/Events';
 import { Quota } from '../systems/Quota';
 import type { SampleType } from '../types';
-import { AstronautAppearance } from '../ui/AstronautAppearance';
 import { TouchControls } from '../ui/Joystick';
+import { MINIGAME_KEYS } from './Mundo';
 
-const MINIGAME_KEYS = [
-  'MinijuegoRoca',
-  'MinijuegoSuelo',
-  'MinijuegoMinerales',
-  'MinijuegoAire',
-  'MinijuegoPaneles',
-  'MinijuegoTuberias',
-] as const;
+const FONT = 'PixelifySans, monospace';
+
+const RADAR = { x: 576, y: 104, r: 44, range: 360 };
 
 /**
- * Escena HUD en paralelo a zoom ×1 sobre el lienzo de 640×360.
- * Dibuja misiones con casillas dinámicas, reloj, signos vitales, herramientas, tubos y joystick.
+ * HUD en paralelo (diseño 640×360). Reorganizado para que nada se empalme:
+ * - Arriba izquierda: signos vitales (O₂, temperatura, radiación) y misiones del día.
+ * - Arriba centro: zona actual y avisos de radio de Corvi.
+ * - Arriba derecha: día y reloj, confianza de Control de Misión, puntos de ciencia y radar.
+ * - Abajo: acción disponible, herramientas y caja de tubos.
  */
 export class HUD extends Phaser.Scene {
-  private missionsContainer!: Phaser.GameObjects.Container;
-  private missionCheckBoxes: Phaser.GameObjects.Rectangle[] = [];
-  private missionLabels: Phaser.GameObjects.Text[] = [];
+  private missionsBg!: Phaser.GameObjects.Rectangle;
+  private missionRows: { box: Phaser.GameObjects.Rectangle; label: Phaser.GameObjects.Text }[] = [];
 
   private dayText!: Phaser.GameObjects.Text;
   private timeText!: Phaser.GameObjects.Text;
   private dayBarFill!: Phaser.GameObjects.Rectangle;
   private skyIcon!: Phaser.GameObjects.Image;
 
-  private zoneContainer!: Phaser.GameObjects.Container;
   private zoneText!: Phaser.GameObjects.Text;
+  private zoneBg!: Phaser.GameObjects.Rectangle;
 
   private o2ValueText!: Phaser.GameObjects.Text;
   private o2BarFill!: Phaser.GameObjects.Rectangle;
-
   private tempValueText!: Phaser.GameObjects.Text;
   private tempBarFill!: Phaser.GameObjects.Rectangle;
-
   private radValueText!: Phaser.GameObjects.Text;
-  private radTodayFill!: Phaser.GameObjects.Rectangle;
-  private radTotalFill!: Phaser.GameObjects.Rectangle;
+  private radBarFill!: Phaser.GameObjects.Rectangle;
+
+  private trustStars: Phaser.GameObjects.Text[] = [];
+  private scienceText!: Phaser.GameObjects.Text;
 
   private toolSlots: Phaser.GameObjects.Rectangle[] = [];
-
   private boxCountText!: Phaser.GameObjects.Text;
   private tubeSprites: Phaser.GameObjects.Image[] = [];
 
   private radioContainer!: Phaser.GameObjects.Container;
   private radioText!: Phaser.GameObjects.Text;
+  private radioBg!: Phaser.GameObjects.Rectangle;
   private radioTimer: Phaser.Time.TimerEvent | null = null;
+
+  private promptContainer!: Phaser.GameObjects.Container;
+  private promptBg!: Phaser.GameObjects.Rectangle;
+  private promptText!: Phaser.GameObjects.Text;
+
+  private radarContainer!: Phaser.GameObjects.Container;
+  private radarGfx!: Phaser.GameObjects.Graphics;
+  private radarSweep = 0;
+
+  private mapContainer: Phaser.GameObjects.Container | null = null;
+  private mapGfx: Phaser.GameObjects.Graphics | null = null;
+
+  private dangerVignette!: Phaser.GameObjects.Graphics;
+  private lastHeartbeat = 0;
 
   private pauseContainer!: Phaser.GameObjects.Container;
   private touchControls: TouchControls | null = null;
@@ -66,527 +78,564 @@ export class HUD extends Phaser.Scene {
 
   create(): void {
     this.tubeSprites = [];
-    this.missionCheckBoxes = [];
-    this.missionLabels = [];
+    this.missionRows = [];
     this.toolSlots = [];
+    this.trustStars = [];
     this.unsubscribers = [];
+    this.mapContainer = null;
+    this.mapGfx = null;
 
-    // 1. Arriba izquierda: MISIONES DEL DÍA
-    const mBg = this.createPanel(8, 6, 198, 68, 0xc0cbdc);
-    const mTitle = this.add.text(16, 11, uiText.hud.missionsTitle, {
-      fontFamily: 'PixelifySans, monospace',
-      resolution: 2,
-      fontSize: '12px',
-      color: '#5a6988',
-    });
+    this.buildVitals();
+    this.buildMissions();
+    this.buildClock();
+    this.buildZoneAndRadio();
+    this.buildRadar();
+    this.buildBottomBar();
+    this.buildPrompt();
 
-    const missionChildren: Phaser.GameObjects.GameObject[] = [mBg, mTitle];
-    for (let idx = 0; idx < 3; idx++) {
-      const y = 28 + idx * 14;
-      const box = this.add
-        .rectangle(20, y + 5, 9, 9, 0xffffff)
-        .setOrigin(0.5)
-        .setStrokeStyle(1, 0x181425);
-      const txt = this.add.text(30, y, '', {
-        fontFamily: 'PixelifySans, monospace',
-        resolution: 2,
-        fontSize: '11px',
-        color: '#181425',
-      });
-      this.missionCheckBoxes.push(box);
-      this.missionLabels.push(txt);
-      missionChildren.push(box, txt);
-    }
-    this.missionsContainer = this.add.container(0, 0, missionChildren);
+    this.dangerVignette = this.add.graphics().setDepth(40);
 
-    // 2. Arriba centro: cartel de zona actual (se oculta durante tormenta para no empalmarse)
-    const zoneBg = this.add
-      .rectangle(316, 16, 178, 20, 0x262b44, 0.95)
-      .setOrigin(0.5)
-      .setStrokeStyle(2, 0x181425);
-    this.zoneText = this.add
-      .text(316, zoneBg.y, `↑ ${uiText.hud.zoneDefault}`, {
-        fontFamily: 'PixelifySans, monospace',
-        resolution: 2,
-        fontSize: '11px',
-        color: '#ead4aa',
-      })
-      .setOrigin(0.5);
-    this.zoneContainer = this.add.container(0, 0, [zoneBg, this.zoneText]);
-
-    // 3. Arriba derecha: DÍA N, reloj HH:MM, sol/luna y barra de progreso del día (tocar pausa)
-    const clockPanel = this.createPanel(510, 6, 122, 50, 0xc0cbdc).setInteractive({
-      useHandCursor: true,
-    });
-    clockPanel.on('pointerdown', () => {
-      const paused = Clock.togglePause(gameStore.state);
-      bus.emit('clock:pauseChanged', { paused });
-    });
-    this.dayText = this.add.text(518, 10, `${uiText.hud.dayPrefix} 1`, {
-      fontFamily: 'PixelifySans, monospace',
-      resolution: 2,
-      fontSize: '15px',
-      color: '#181425',
-    });
-    this.skyIcon = this.add.image(616, 18, 'icon_sun').setScale(2);
-
-    this.timeText = this.add.text(518, 32, '09:00', {
-      fontFamily: 'PixelifySans, monospace',
-      resolution: 2,
-      fontSize: '13px',
-      color: '#181425',
-    });
-
-    this.add
-      .rectangle(566, 40, 58, 8, 0x3a4466)
-      .setOrigin(0, 0.5)
-      .setStrokeStyle(1, 0x181425);
-    this.dayBarFill = this.add
-      .rectangle(567, 40, 0, 6, 0xfee761)
-      .setOrigin(0, 0.5);
-
-    // 4. Panel del astronauta
-    const panelY = 198;
-    this.createPanel(8, panelY, 236, 78, 0xc0cbdc);
-
-    this.add
-      .rectangle(31, panelY + 33, 36, 46, 0x262b44)
-      .setOrigin(0.5)
-      .setStrokeStyle(1, 0x181425);
-    const hudMiniKey = AstronautAppearance.getMiniTextureKey(
-      this,
-      gameStore.state.customization.hair,
-      gameStore.state.customization.suit
-    );
-    this.add.image(31, panelY + 34, hudMiniKey).setScale(2);
-    this.add
-      .text(31, panelY + 64, uiText.hud.youLabel, {
-        fontFamily: 'PixelifySans, monospace',
-        resolution: 2,
-        fontSize: '11px',
-        color: '#3a4466',
-      })
-      .setOrigin(0.5);
-
-    const row1Y = panelY + 8;
-    this.add.image(60, row1Y + 6, 'icon_o2').setScale(1.5);
-    this.add.text(70, row1Y, uiText.hud.o2Label, {
-      fontFamily: 'PixelifySans, monospace',
-      resolution: 2,
-      fontSize: '11px',
-      color: '#181425',
-    });
-    this.o2ValueText = this.add
-      .text(236, row1Y, '100 %', {
-        fontFamily: 'PixelifySans, monospace',
-        resolution: 2,
-        fontSize: '11px',
-        color: '#181425',
-      })
-      .setOrigin(1, 0);
-    this.add
-      .rectangle(70, row1Y + 16, 166, 7, 0x3a4466)
-      .setOrigin(0, 0.5)
-      .setStrokeStyle(1, 0x181425);
-    this.o2BarFill = this.add
-      .rectangle(71, row1Y + 16, 164, 5, 0x2ce8f5)
-      .setOrigin(0, 0.5);
-
-    const row2Y = panelY + 31;
-    this.add.image(60, row2Y + 6, 'icon_temp').setScale(1.5);
-    this.add.text(70, row2Y, uiText.hud.tempLabel, {
-      fontFamily: 'PixelifySans, monospace',
-      resolution: 2,
-      fontSize: '11px',
-      color: '#181425',
-    });
-    this.tempValueText = this.add
-      .text(236, row2Y, '21 °C · 100 %', {
-        fontFamily: 'PixelifySans, monospace',
-        resolution: 2,
-        fontSize: '11px',
-        color: '#181425',
-      })
-      .setOrigin(1, 0);
-    this.add
-      .rectangle(70, row2Y + 16, 166, 7, 0x3a4466)
-      .setOrigin(0, 0.5)
-      .setStrokeStyle(1, 0x181425);
-    this.tempBarFill = this.add
-      .rectangle(71, row2Y + 16, 164, 5, 0xe43b44)
-      .setOrigin(0, 0.5);
-    this.add.rectangle(168, row2Y + 16, 2, 9, 0x63c74d).setOrigin(0.5);
-    this.add.rectangle(202, row2Y + 16, 2, 9, 0x63c74d).setOrigin(0.5);
-
-    const row3Y = panelY + 54;
-    this.add.image(60, row3Y + 6, 'icon_rad').setScale(1.5);
-    this.add.text(70, row3Y, uiText.hud.radLabel, {
-      fontFamily: 'PixelifySans, monospace',
-      resolution: 2,
-      fontSize: '11px',
-      color: '#181425',
-    });
-    this.radValueText = this.add
-      .text(236, row3Y, '0.00 / 0.00 DR', {
-        fontFamily: 'PixelifySans, monospace',
-        resolution: 2,
-        fontSize: '10px',
-        color: '#3a4466',
-      })
-      .setOrigin(1, 0);
-
-    this.add
-      .rectangle(70, row3Y + 16, 78, 7, 0x3a4466)
-      .setOrigin(0, 0.5)
-      .setStrokeStyle(1, 0x181425);
-    this.radTodayFill = this.add
-      .rectangle(71, row3Y + 16, 0, 5, 0xfeae34)
-      .setOrigin(0, 0.5);
-
-    this.add
-      .rectangle(156, row3Y + 16, 80, 7, 0x3a4466)
-      .setOrigin(0, 0.5)
-      .setStrokeStyle(1, 0x181425);
-    this.radTotalFill = this.add
-      .rectangle(157, row3Y + 16, 0, 5, 0xf77622)
-      .setOrigin(0, 0.5);
-
-    // 5. Abajo centro: Barra de herramientas
-    this.createPanel(252, 322, 164, 32, 0x8b9bb4);
-    const toolIcons = [
-      'icon_drill',
-      'icon_shovel',
-      'icon_scanner',
-      'icon_valve',
-      'icon_brush',
-      'icon_wrench',
-    ];
-    toolIcons.forEach((iconKey, idx) => {
-      const slotX = 268 + idx * 26;
-      const slotY = 338;
-      const slotBg = this.add
-        .rectangle(slotX, slotY, 22, 22, idx === 0 ? 0xfee761 : 0xffffff)
-        .setOrigin(0.5)
-        .setStrokeStyle(1, 0x181425);
-      this.add.image(slotX, slotY, iconKey).setScale(2);
-      this.toolSlots.push(slotBg);
-    });
-
-    // 6. Abajo derecha: Caja de tubos (CAJA n/6)
-    this.createPanel(424, 322, 138, 32, 0x733e39);
-    this.add.text(431, 325, uiText.hud.boxLabel, {
-      fontFamily: 'PixelifySans, monospace',
-      resolution: 2,
-      fontSize: '10px',
-      color: '#ead4aa',
-    });
-    this.boxCountText = this.add.text(431, 338, '0/6', {
-      fontFamily: 'PixelifySans, monospace',
-      resolution: 2,
-      fontSize: '12px',
-      color: '#ffffff',
-    });
-
-    for (let i = 0; i < 6; i++) {
-      const tx = 472 + i * 14;
-      const tubeImg = this.add.image(tx, 338, 'tube_empty').setScale(1.6);
-      this.tubeSprites.push(tubeImg);
+    // Controles táctiles sólo en pantallas táctiles: en computadora estorban.
+    if (this.sys.game.device.input.touch) {
+      this.touchControls = new TouchControls(this, 44, 300, 600, 300);
     }
 
-    // 7. Controles táctiles
-    this.touchControls = new TouchControls(this, 44, 316, 598, 316);
-
-    // 8. Banner de radio de Corvi
-    const radioBg = this.add
-      .rectangle(320, 176, 396, 28, 0xead4aa, 0.98)
-      .setOrigin(0.5)
-      .setStrokeStyle(2, 0x181425);
-    const radioIcon = this.add.image(138, 176, 'corvi_alert').setScale(0.55);
-    this.radioText = this.add.text(154, 169, '', {
-      fontFamily: 'PixelifySans, monospace',
-      resolution: 2,
-      fontSize: '12px',
-      color: '#181425',
-    });
-    this.radioContainer = this.add
-      .container(0, 0, [radioBg, radioIcon, this.radioText])
-      .setVisible(false)
-      .setDepth(50);
-
-    // 9. Cartel de pausa con botón de Silencio y Créditos NASA
-    const pauseDim = this.add
-      .rectangle(320, 180, 640, 360, 0x181425, 0.65)
-      .setInteractive();
-    const pauseBox = this.add
-      .rectangle(320, 180, 316, 128, 0x262b44, 0.98)
-      .setStrokeStyle(2, 0xfee761);
-    const pauseTitle = this.add
-      .text(320, 134, uiText.hud.pausedTitle, {
-        fontFamily: 'PixelifySans, monospace',
-        resolution: 2,
-        fontSize: '18px',
-        color: '#fee761',
-      })
-      .setOrigin(0.5);
-    const pauseHint = this.add
-      .text(320, 158, uiText.hud.pausedHint, {
-        fontFamily: 'PixelifySans, monospace',
-        resolution: 2,
-        fontSize: '11px',
-        color: '#ead4aa',
-      })
-      .setOrigin(0.5);
-
-    const muteBtn = this.add
-      .rectangle(242, 198, 134, 26, 0x3a4466)
-      .setStrokeStyle(2, 0x181425)
-      .setInteractive({ useHandCursor: true });
-    const muteBtnText = this.add
-      .text(
-        242,
-        198,
-        AudioSystem.isMuted() ? 'Sonido: SILENCIO' : 'Sonido: ACTIVO',
-        {
-          fontFamily: 'PixelifySans, monospace',
-          resolution: 2,
-          fontSize: '11px',
-          color: '#ffffff',
-        }
-      )
-      .setOrigin(0.5);
-    muteBtn.on('pointerdown', () => {
-      const muted = AudioSystem.toggleMute();
-      muteBtnText.setText(muted ? 'Sonido: SILENCIO' : 'Sonido: ACTIVO');
-    });
-
-    const creditsBtn = this.add
-      .rectangle(398, 198, 134, 26, 0x124e89)
-      .setStrokeStyle(2, 0x181425)
-      .setInteractive({ useHandCursor: true });
-    const creditsBtnText = this.add
-      .text(398, 198, 'Fuentes NASA', {
-        fontFamily: 'PixelifySans, monospace',
-        resolution: 2,
-        fontSize: '11px',
-        color: '#fee761',
-      })
-      .setOrigin(0.5);
-    creditsBtn.on('pointerdown', () => {
-      const returnScene = gameStore.state.location === 'mundo' ? 'Mundo' : 'Base';
-      this.scene.stop('HUD');
-      this.scene.stop('Dialogo');
-      this.scene.stop('Tormenta');
-      this.scene.stop(returnScene);
-      this.scene.start('Creditos', { returnScene });
-    });
-
-    pauseDim.on('pointerdown', () => {
-      Clock.setPaused(gameStore.state, false);
-      bus.emit('clock:pauseChanged', { paused: false });
-    });
-
-    this.pauseContainer = this.add
-      .container(0, 0, [
-        pauseDim,
-        pauseBox,
-        pauseTitle,
-        pauseHint,
-        muteBtn,
-        muteBtnText,
-        creditsBtn,
-        creditsBtnText,
-      ])
-      .setVisible(false)
-      .setDepth(100);
+    this.buildPauseMenu();
 
     this.unsubscribers.push(
       bus.on('zone:changed', ({ name }) => {
-        this.zoneText.setText(`↑ ${name}`);
+        this.zoneText.setText(name);
+        this.zoneBg.width = Math.round(this.zoneText.width + 16);
       }),
       bus.on('tool:changed', ({ index }) => {
-        this.toolSlots.forEach((slot, idx) => {
-          slot.setFillStyle(idx === index ? 0xfee761 : 0xffffff);
-        });
+        this.toolSlots.forEach((slot, idx) => slot.setFillStyle(idx === index ? 0xfee761 : 0xffffff));
       }),
-      bus.on('clock:warn16', () => {
-        this.showRadioMessage(uiText.hud.radioWarn16);
-      }),
-      bus.on('clock:curfew17', () => {
-        this.showRadioMessage(uiText.hud.radioCurfew17);
-      }),
+      bus.on('clock:warn16', () => this.showRadioMessage(uiText.hud.radioWarn16)),
+      bus.on('clock:curfew17', () => this.showRadioMessage(uiText.hud.radioCurfew17)),
       bus.on('vitals:o2Warn40', () => {
-        AudioSystem.play('o2Beep');
+        AudioSystem.play('o2_beep');
         this.showRadioMessage(uiText.hud.radioO2Warn40);
       }),
       bus.on('vitals:o2Danger20', () => {
-        AudioSystem.play('o2Beep');
+        AudioSystem.play('o2_beep');
         this.showRadioMessage(uiText.hud.radioO2Danger20);
       }),
       bus.on('interact:prompt', ({ text }) => {
-        if (text) {
-          this.showRadioMessage(text);
-        }
+        if (text) this.showRadioMessage(text);
       }),
+      bus.on('prompt:near', ({ text }) => this.setPrompt(text)),
+      bus.on('toast', ({ text, color }) => this.showToast(text, color)),
+      bus.on('map:toggle', () => this.toggleMap()),
       bus.on('clock:pauseChanged', ({ paused }) => {
         this.pauseContainer.setVisible(paused);
+        AudioSystem.play(paused ? 'ui_open' : 'ui_close', { volume: 0.6 });
       })
     );
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-      for (const unsub of this.unsubscribers) {
-        unsub();
-      }
+      for (const unsub of this.unsubscribers) unsub();
       this.unsubscribers = [];
       this.touchControls?.destroy();
       this.touchControls = null;
     });
   }
 
-  update(time: number): void {
+  // ------------------------------------------------------------------ construcción
+
+  private panel(x: number, y: number, w: number, h: number, fill = 0xc0cbdc): Phaser.GameObjects.Rectangle {
+    return this.add.rectangle(x, y, w, h, fill, 0.96).setOrigin(0, 0).setStrokeStyle(2, 0x181425);
+  }
+
+  private label(x: number, y: number, text: string, size: number, color: string): Phaser.GameObjects.Text {
+    return this.add.text(x, y, text, { fontFamily: FONT, fontSize: `${size}px`, color });
+  }
+
+  private buildVitals(): void {
+    this.panel(6, 6, 184, 64);
+    const rows: { icon: string; label: string; y: number }[] = [
+      { icon: 'icon_o2', label: uiText.hud.o2Label, y: 10 },
+      { icon: 'icon_temp', label: uiText.hud.tempLabel, y: 29 },
+      { icon: 'icon_rad', label: uiText.hud.radLabel, y: 48 },
+    ];
+    for (const r of rows) {
+      this.add.image(17, r.y + 7, r.icon).setScale(1.2);
+      this.label(27, r.y, r.label, 11, '#181425');
+    }
+    this.o2ValueText = this.label(184, 10, '100 %', 11, '#181425').setOrigin(1, 0);
+    this.tempValueText = this.label(184, 29, '21 °C', 11, '#181425').setOrigin(1, 0);
+    this.radValueText = this.label(184, 48, '0 %', 11, '#181425').setOrigin(1, 0);
+
+    const bar = (y: number, color: number): Phaser.GameObjects.Rectangle => {
+      this.add.rectangle(27, y, 157, 5, 0x3a4466).setOrigin(0, 0.5);
+      return this.add.rectangle(27, y, 157, 5, color).setOrigin(0, 0.5);
+    };
+    this.o2BarFill = bar(24, 0x2ce8f5);
+    this.tempBarFill = bar(43, 0xf77622);
+    this.radBarFill = bar(62, 0xfeae34);
+  }
+
+  private buildMissions(): void {
+    this.missionsBg = this.panel(6, 74, 184, 20, 0x262b44);
+    this.label(12, 77, uiText.hud.missionsTitle, 11, '#fee761');
+    for (let i = 0; i < 6; i++) {
+      const y = 94 + i * 14;
+      const box = this.add.rectangle(16, y + 6, 8, 8, 0xffffff).setStrokeStyle(1, 0x181425);
+      const label = this.label(24, y, '', 11, '#ffffff');
+      this.missionRows.push({ box, label });
+    }
+  }
+
+  private buildClock(): void {
+    const clockPanel = this.panel(520, 6, 114, 34).setInteractive({ useHandCursor: true });
+    clockPanel.on('pointerdown', () => {
+      const paused = Clock.togglePause(gameStore.state);
+      bus.emit('clock:pauseChanged', { paused });
+    });
+    this.dayText = this.label(526, 8, `${uiText.hud.dayPrefix} 1`, 13, '#181425');
+    this.timeText = this.label(612, 8, '09:00', 13, '#181425').setOrigin(1, 0);
+    this.skyIcon = this.add.image(622, 15, 'icon_sun').setScale(1.2);
+    this.add.rectangle(526, 32, 102, 4, 0x3a4466).setOrigin(0, 0.5);
+    this.dayBarFill = this.add.rectangle(526, 32, 0, 4, 0xfee761).setOrigin(0, 0.5);
+
+    // Confianza de Control de Misión + puntos de ciencia
+    this.panel(520, 42, 114, 16, 0x262b44);
+    for (let i = 0; i < balance.mission.maxTrust; i++) {
+      this.trustStars.push(this.label(526 + i * 12, 43, '★', 12, '#fee761'));
+    }
+    this.scienceText = this.label(628, 44, '0 pts', 10, '#2ce8f5').setOrigin(1, 0);
+    const trustHit = this.add.rectangle(520, 42, 60, 16, 0, 0).setOrigin(0, 0).setInteractive();
+    trustHit.on('pointerdown', () => this.showRadioMessage(uiText.hud.trustExplain));
+  }
+
+  private buildZoneAndRadio(): void {
+    this.zoneBg = this.add.rectangle(320, 14, 160, 16, 0x262b44, 0.92).setStrokeStyle(1, 0x181425);
+    this.zoneText = this.label(320, 14, uiText.hud.zoneDefault, 11, '#ead4aa').setOrigin(0.5);
+    this.zoneBg.width = Math.round(this.zoneText.width + 16);
+    this.zoneBg.setOrigin(0.5);
+
+    this.radioBg = this.add.rectangle(320, 26, 252, 30, 0xead4aa, 0.98).setOrigin(0.5, 0).setStrokeStyle(2, 0x181425);
+    const radioIcon = this.add.image(209, 41, 'corvi_alert').setScale(0.36);
+    this.radioText = this.add.text(222, 30, '', {
+      fontFamily: FONT,
+      fontSize: '11px',
+      color: '#181425',
+      wordWrap: { width: 218 },
+      lineSpacing: 1,
+    });
+    this.radioContainer = this.add.container(0, 0, [this.radioBg, radioIcon, this.radioText]).setVisible(false).setDepth(50);
+  }
+
+  private buildRadar(): void {
+    this.radarGfx = this.add.graphics();
+    const hit = this.add.circle(RADAR.x, RADAR.y, RADAR.r, 0, 0).setInteractive({ useHandCursor: true });
+    hit.on('pointerdown', () => this.toggleMap());
+    const hint = this.label(RADAR.x, RADAR.y + RADAR.r + 2, uiText.hud.radarHint, 10, '#ead4aa').setOrigin(0.5, 0);
+    const hintBg = this.add
+      .rectangle(RADAR.x, RADAR.y + RADAR.r + 1, hint.width + 8, 13, 0x181425, 0.75)
+      .setOrigin(0.5, 0);
+    this.radarContainer = this.add.container(0, 0, [this.radarGfx, hit, hintBg, hint]);
+  }
+
+  private buildBottomBar(): void {
+    this.panel(206, 324, 160, 30, 0x8b9bb4);
+    const toolIcons = ['icon_drill', 'icon_shovel', 'icon_scanner', 'icon_valve', 'icon_brush', 'icon_wrench'];
+    toolIcons.forEach((iconKey, idx) => {
+      const slotX = 222 + idx * 26;
+      const slotBg = this.add.rectangle(slotX, 339, 22, 22, 0xffffff).setStrokeStyle(1, 0x181425);
+      this.add.image(slotX, 339, iconKey).setScale(2);
+      this.toolSlots.push(slotBg);
+    });
+
+    this.panel(372, 324, 140, 30, 0x733e39);
+    this.label(378, 326, uiText.hud.boxLabel, 10, '#ead4aa');
+    this.boxCountText = this.label(378, 338, '0/6', 12, '#ffffff');
+    for (let i = 0; i < 6; i++) {
+      this.tubeSprites.push(this.add.image(420 + i * 15, 339, 'tube_empty').setScale(1.6));
+    }
+  }
+
+  private buildPrompt(): void {
+    this.promptBg = this.add.rectangle(320, 308, 200, 18, 0x181425, 0.92).setStrokeStyle(1, 0xfee761);
+    this.promptText = this.label(320, 308, '', 12, '#fee761').setOrigin(0.5);
+    this.promptContainer = this.add.container(0, 0, [this.promptBg, this.promptText]).setVisible(false).setDepth(20);
+  }
+
+  private setPrompt(text: string | null): void {
+    if (!text) {
+      this.promptContainer.setVisible(false);
+      return;
+    }
+    this.promptText.setText(text);
+    this.promptBg.width = Math.round(this.promptText.width + 18);
+    this.promptContainer.setVisible(true);
+  }
+
+  private buildPauseMenu(): void {
+    const dim = this.add.rectangle(320, 180, 640, 360, 0x181425, 0.75).setInteractive();
+    const box = this.add.rectangle(320, 180, 340, 228, 0x262b44, 0.98).setStrokeStyle(2, 0xfee761);
+    const title = this.label(320, 84, uiText.hud.pausedTitle, 18, '#fee761').setOrigin(0.5);
+    const controls = this.add
+      .text(320, 104, uiText.hud.controlsHelp, {
+        fontFamily: FONT,
+        fontSize: '11px',
+        color: '#c0cbdc',
+        align: 'center',
+        lineSpacing: 2,
+      })
+      .setOrigin(0.5, 0);
+
+    const items: Phaser.GameObjects.GameObject[] = [dim, box, title, controls];
+    const button = (
+      x: number,
+      y: number,
+      text: () => string,
+      fill: number,
+      onClick: (t: Phaser.GameObjects.Text) => void
+    ): void => {
+      const bg = this.add.rectangle(x, y, 150, 24, fill).setStrokeStyle(2, 0x181425).setInteractive({ useHandCursor: true });
+      const t = this.label(x, y, text(), 11, '#ffffff').setOrigin(0.5);
+      bg.on('pointerdown', () => {
+        AudioSystem.play('ui_click');
+        onClick(t);
+      });
+      items.push(bg, t);
+    };
+
+    button(242, 196, () => uiText.hud.resumeButton, 0x3e8948, () => {
+      Clock.setPaused(gameStore.state, false);
+      bus.emit('clock:pauseChanged', { paused: false });
+    });
+    button(398, 196, () => uiText.hud.mapButton, 0x124e89, () => {
+      Clock.setPaused(gameStore.state, false);
+      bus.emit('clock:pauseChanged', { paused: false });
+      if (gameStore.state.location === 'mundo') this.toggleMap();
+    });
+    button(242, 226, () => (AudioSystem.isMusicOn() ? uiText.hud.musicOn : uiText.hud.musicOff), 0x3a4466, (t) => {
+      AudioSystem.toggleMusic();
+      t.setText(AudioSystem.isMusicOn() ? uiText.hud.musicOn : uiText.hud.musicOff);
+    });
+    button(398, 226, () => (AudioSystem.isSfxOn() ? uiText.hud.sfxOn : uiText.hud.sfxOff), 0x3a4466, (t) => {
+      AudioSystem.toggleSfx();
+      t.setText(AudioSystem.isSfxOn() ? uiText.hud.sfxOn : uiText.hud.sfxOff);
+    });
+    button(242, 256, () => uiText.hud.creditsButton, 0x5a6988, () => {
+      const returnScene = gameStore.state.location === 'mundo' ? 'Mundo' : 'Base';
+      this.scene.stop('Dialogo');
+      this.scene.stop('Tormenta');
+      this.scene.stop(returnScene);
+      this.scene.start('Creditos', { returnScene });
+    });
+    button(398, 256, () => uiText.hud.titleButton, 0x733e39, () => {
+      const current = gameStore.state.location === 'mundo' ? 'Mundo' : 'Base';
+      Clock.setPaused(gameStore.state, false);
+      this.scene.stop('Dialogo');
+      this.scene.stop('Tormenta');
+      this.scene.stop(current);
+      this.scene.start('Titulo');
+    });
+
+    this.pauseContainer = this.add.container(0, 0, items).setVisible(false).setDepth(100);
+  }
+
+  // ------------------------------------------------------------------ bucle
+
+  update(time: number, delta: number): void {
     const state = gameStore.state;
 
-    // Ocultar el HUD cuando corre cualquiera de los 6 minijuegos encima
+    // Ocultar el HUD cuando corre un minijuego encima
     const inMinigame = MINIGAME_KEYS.some((k) => this.scene.isActive(k));
     this.cameras.main.setVisible(!inMinigame);
     if (inMinigame) return;
 
     const stormActive = Events.getActiveStorm() !== null;
-    this.missionsContainer.setVisible(state.location === 'mundo' && !stormActive);
-    this.zoneContainer.setVisible(!stormActive);
+    const outside = state.location === 'mundo';
+    this.zoneBg.setVisible(!stormActive);
+    this.zoneText.setVisible(!stormActive);
+    this.radarContainer.setVisible(outside);
 
-    // Actualizar texto y casillas de MISIONES DEL DÍA según la cuota y eventos activos
-    const dynamicMissions: { label: string; done: boolean }[] = [];
-    const typeNameMap: Record<SampleType, string> = {
+    this.updateMissions();
+    this.updateVitals(time);
+    this.updateClockAndTrust();
+    this.updateBox();
+    if (outside) this.drawRadar(delta);
+    if (this.mapContainer && this.mapGfx) this.drawFullMap();
+  }
+
+  private updateMissions(): void {
+    const state = gameStore.state;
+    const missions: { label: string; done: boolean }[] = [];
+    const names: Record<SampleType, string> = {
       roca: uiText.hud.missionRockUnit,
       suelo: uiText.hud.missionSoilUnit,
       minerales: uiText.hud.missionMineralsUnit,
       aire: uiText.hud.missionAirUnit,
     };
-
     for (const t of ['roca', 'suelo', 'minerales', 'aire'] as SampleType[]) {
       const req = state.quotaToday[t] ?? 0;
       if (req > 0) {
-        const unitLabel =
-          t === 'roca' && req > 1 ? uiText.hud.missionRocksUnit : typeNameMap[t];
-        dynamicMissions.push({
-          label: `${uiText.hud.missionRockPrefix} ${req} ${unitLabel}`,
+        const got = Math.min(req, state.deliveredToday[t] ?? 0);
+        const unit = t === 'roca' && req > 1 ? uiText.hud.missionRocksUnit : names[t];
+        missions.push({
+          label: `${uiText.hud.missionRockPrefix} ${unit}  ${got}/${req}`,
           done: Quota.isTypeMet(state, t),
         });
       }
     }
-
-    if (state.activeEvents.includes('dust')) {
-      dynamicMissions.push({
-        label: uiText.hud.missionCleanPanel,
-        done: false,
+    if (state.base.panels.some((p) => p.dust > balance.dust.dirtyThreshold)) {
+      missions.push({ label: uiText.hud.missionCleanPanel, done: false });
+    }
+    if (!state.base.moxieOk) missions.push({ label: uiText.hud.missionFixMoxie, done: false });
+    if (!state.base.antennaOk) missions.push({ label: uiText.hud.missionFixAntenna, done: false });
+    const storm = Events.getActiveStorm();
+    if (storm && storm.phase !== 'resolved' && storm.type === 'cme_hit') {
+      missions.push({ label: uiText.hud.missionStormShelter, done: state.location === 'refugio' });
+    }
+    if (missions.length < 6) {
+      missions.push({
+        label: uiText.hud.defaultMissionReturn,
+        done: state.location !== 'mundo' && state.clock.minutes < balance.dayClock.curfewMin,
       });
     }
-    if (!state.base.moxieOk) {
-      dynamicMissions.push({
-        label: uiText.hud.missionFixMoxie,
-        done: false,
-      });
-    }
 
-    while (dynamicMissions.length < 3) {
-      if (dynamicMissions.length === 1) {
-        dynamicMissions.push({
-          label: uiText.hud.defaultMissionExplore,
-          done:
-            state.deliveredToday.roca +
-              state.tubes.filter((t) => t !== null).length >
-            0,
-        });
-      } else {
-        dynamicMissions.push({
-          label: uiText.hud.defaultMissionReturn,
-          done:
-            state.location !== 'mundo' &&
-            state.clock.minutes < balance.dayClock.curfewMin,
-        });
-      }
-    }
-
-    this.missionCheckBoxes.forEach((box, idx) => {
-      const item = dynamicMissions[idx];
-      this.missionLabels[idx].setText(item.label);
-      box.setFillStyle(item.done ? 0x2ce8f5 : 0xffffff);
-      this.missionLabels[idx].setColor(item.done ? '#5a6988' : '#181425');
+    const shown = missions.slice(0, 6);
+    this.missionsBg.height = 22 + shown.length * 14;
+    this.missionRows.forEach((row, idx) => {
+      const item = shown[idx];
+      row.box.setVisible(!!item);
+      row.label.setVisible(!!item);
+      if (!item) return;
+      row.label.setText(item.label);
+      row.box.setFillStyle(item.done ? 0x63c74d : 0xffffff);
+      row.label.setColor(item.done ? '#8b9bb4' : '#ffffff');
     });
+  }
 
-    // Actualizar día y reloj
-    this.dayText.setText(`${uiText.hud.dayPrefix} ${state.day}`);
-    this.timeText.setText(Clock.formatTime(state.clock.minutes));
-    this.dayBarFill.width = Math.round(56 * Clock.getProgress(state.clock.minutes));
-    this.skyIcon.setTexture(Clock.isNight(state.clock.minutes) ? 'icon_moon' : 'icon_sun');
-
-    // Actualizar barra de oxígeno
-    const o2 = Math.max(0, Math.min(100, state.astronaut.o2));
+  private updateVitals(time: number): void {
+    const state = gameStore.state;
+    const o2 = Phaser.Math.Clamp(state.astronaut.o2, 0, 100);
     this.o2ValueText.setText(`${Math.ceil(o2)} %`);
-    this.o2BarFill.width = Math.round((164 * o2) / 100);
-
+    this.o2BarFill.width = Math.round((157 * o2) / 100);
     if (o2 <= balance.o2.dangerAt) {
-      const blinkOn = Math.floor(time / 200) % 2 === 0;
-      this.o2BarFill.setFillStyle(blinkOn ? 0xe43b44 : 0xff0044);
+      this.o2BarFill.setFillStyle(Math.floor(time / 200) % 2 === 0 ? 0xe43b44 : 0xff0044);
     } else if (o2 <= balance.o2.warnAt) {
       this.o2BarFill.setFillStyle(0xfee761);
     } else {
       this.o2BarFill.setFillStyle(0x2ce8f5);
     }
 
-    // Actualizar barra de temperatura del traje y batería del calefactor
     const tempC = Math.round(state.astronaut.suitTempC);
     const bat = Math.ceil(state.astronaut.heaterBattery);
     this.tempValueText.setText(`${tempC} °C · ${bat} %`);
-    this.tempBarFill.width = Math.round((164 * bat) / 100);
-    this.tempBarFill.setFillStyle(
-      state.astronaut.suitTempC >= balance.heater.comfortMinC ? 0xe43b44 : 0x2ce8f5
-    );
+    this.tempBarFill.width = Math.round((157 * bat) / 100);
+    this.tempBarFill.setFillStyle(state.astronaut.suitTempC >= balance.heater.comfortMinC ? 0xf77622 : 0x2ce8f5);
 
-    // Actualizar barras de radiación hoy y total
-    const doseToday = state.astronaut.doseToday;
-    const doseTotal = state.astronaut.doseTotal;
-    this.radValueText.setText(`${doseToday.toFixed(2)} / ${doseTotal.toFixed(2)} DR`);
+    const radPct = Math.min(100, (state.astronaut.doseTotal / balance.radiation.doseLimit) * 100);
+    this.radValueText.setText(`${radPct.toFixed(radPct < 10 ? 1 : 0)} %`);
+    this.radBarFill.width = Math.max(state.astronaut.doseTotal > 0 ? 2 : 0, Math.round((157 * radPct) / 100));
+    this.radBarFill.setFillStyle(radPct >= 66 ? 0xe43b44 : radPct >= 33 ? 0xf77622 : 0xfeae34);
 
-    const todayRatio = Math.min(1, doseToday / 5);
-    const totalRatio = Math.min(1, doseTotal / balance.radiation.doseLimit);
-    this.radTodayFill.width = Math.max(
-      doseToday > 0 ? 2 : 0,
-      Math.round(76 * todayRatio)
-    );
-    this.radTotalFill.width = Math.max(
-      doseTotal > 0 ? 2 : 0,
-      Math.round(78 * totalRatio)
-    );
+    // Bordes rojos y latido cuando el oxígeno está en peligro
+    this.dangerVignette.clear();
+    if (state.location === 'mundo' && o2 <= balance.o2.dangerAt) {
+      const a = 0.18 + 0.12 * Math.sin(time / 180);
+      this.dangerVignette.fillStyle(0xe43b44, a);
+      this.dangerVignette.fillRect(0, 0, 640, 6);
+      this.dangerVignette.fillRect(0, 354, 640, 6);
+      this.dangerVignette.fillRect(0, 0, 6, 360);
+      this.dangerVignette.fillRect(634, 0, 6, 360);
+      if (time - this.lastHeartbeat > 1100 && !state.clock.paused) {
+        this.lastHeartbeat = time;
+        AudioSystem.play('heartbeat');
+      }
+    }
+  }
 
-    // Actualizar caja de tubos
+  private updateClockAndTrust(): void {
+    const state = gameStore.state;
+    this.dayText.setText(`${uiText.hud.dayPrefix} ${state.day}`);
+    this.timeText.setText(Clock.formatTime(state.clock.minutes));
+    this.dayBarFill.width = Math.round(102 * Clock.getProgress(state.clock.minutes));
+    this.skyIcon.setTexture(Clock.isNight(state.clock.minutes) ? 'icon_moon' : 'icon_sun');
+    this.trustStars.forEach((s, i) => s.setColor(i < state.missionTrust ? '#fee761' : '#3a4466'));
+    this.scienceText.setText(`${state.sciencePoints} pts`);
+  }
+
+  private updateBox(): void {
+    const state = gameStore.state;
     const filledCount = state.tubes.filter((t) => t !== null).length;
     this.boxCountText.setText(`${filledCount}/6`);
     this.tubeSprites.forEach((sprite, idx) => {
-      sprite.setTexture(state.tubes[idx] ? 'tube_full' : 'tube_empty');
+      const t = state.tubes[idx];
+      sprite.setTexture(t ? 'tube_full' : 'tube_empty');
+      if (t) sprite.setTint(SAMPLE_COLORS[t]);
+      else sprite.clearTint();
     });
   }
 
-  private createPanel(
-    x: number,
-    y: number,
-    w: number,
-    h: number,
-    fillColor: number
-  ): Phaser.GameObjects.Rectangle {
-    const rect = this.add.rectangle(x, y, w, h, fillColor).setOrigin(0, 0);
-    rect.setStrokeStyle(2, 0x181425);
-    return rect;
+  // ------------------------------------------------------------------ radar y mapa
+
+  private drawMarkerShape(g: Phaser.GameObjects.Graphics, m: MapMarker, x: number, y: number, s: number, blink: boolean): void {
+    switch (m.kind) {
+      case 'base':
+        g.fillStyle(0xfee761, 1).fillRect(x - s, y - s * 0.6, s * 2, s * 1.6);
+        g.fillStyle(0x181425, 1).fillRect(x - s * 0.3, y, s * 0.6, s);
+        break;
+      case 'refuge':
+        g.fillStyle(0x63c74d, 1).fillTriangle(x - s, y + s * 0.8, x + s, y + s * 0.8, x, y - s);
+        break;
+      case 'depot':
+        g.fillStyle(0xb55088, 1).fillRect(x - s * 0.8, y - s * 0.8, s * 1.6, s * 1.6);
+        break;
+      case 'repair':
+        if (blink) g.fillStyle(0xe43b44, 1).fillRect(x - s * 0.35, y - s, s * 0.7, s * 1.3);
+        if (blink) g.fillRect(x - s * 0.35, y + s * 0.5, s * 0.7, s * 0.5);
+        break;
+      case 'sample': {
+        const color = SAMPLE_COLORS[m.sampleType ?? 'roca'];
+        g.fillStyle(0x181425, 1).fillCircle(x, y, s + 1);
+        g.fillStyle(color, 1).fillCircle(x, y, s);
+        if (m.needed) {
+          g.lineStyle(1, 0xfee761, 1).strokeCircle(x, y, s + 2.5);
+        }
+        break;
+      }
+      default:
+        break;
+    }
   }
+
+  private drawRadar(delta: number): void {
+    const g = this.radarGfx;
+    g.clear();
+    const { x: cx, y: cy, r } = RADAR;
+    g.fillStyle(0x0b1f2a, 0.92).fillCircle(cx, cy, r);
+    g.lineStyle(2, 0x181425, 1).strokeCircle(cx, cy, r + 1);
+    g.lineStyle(1, 0x265c42, 1).strokeCircle(cx, cy, r * 0.66).strokeCircle(cx, cy, r * 0.33);
+    g.lineBetween(cx - r, cy, cx + r, cy).lineBetween(cx, cy - r, cx, cy + r);
+
+    // Barrido verde
+    this.radarSweep = (this.radarSweep + delta * 0.0025) % (Math.PI * 2);
+    g.fillStyle(0x63c74d, 0.18).slice(cx, cy, r, this.radarSweep - 0.6, this.radarSweep, false).fillPath();
+    g.lineStyle(1, 0x63c74d, 0.8).lineBetween(cx, cy, cx + Math.cos(this.radarSweep) * r, cy + Math.sin(this.radarSweep) * r);
+
+    const scale = r / RADAR.range;
+    const blink = Math.floor(this.time.now / 300) % 2 === 0;
+    const px = mapMarkers.player.x;
+    const py = mapMarkers.player.y;
+    for (const m of mapMarkers.markers) {
+      if (!m.active && m.kind !== 'base' && m.kind !== 'refuge' && m.kind !== 'depot') continue;
+      let dx = (m.x - px) * scale;
+      let dy = (m.y - py) * scale;
+      const dist = Math.hypot(dx, dy);
+      const edge = dist > r - 4;
+      if (edge) {
+        dx = (dx / dist) * (r - 4);
+        dy = (dy / dist) * (r - 4);
+      }
+      const size = m.kind === 'sample' ? (edge ? 1.6 : 2.4) : edge ? 2 : 3;
+      this.drawMarkerShape(g, m, cx + dx, cy + dy, size, m.kind === 'repair' ? blink : true);
+    }
+    // El astronauta en el centro
+    g.fillStyle(0xffffff, 1).fillTriangle(cx, cy - 3, cx - 2.5, cy + 2.5, cx + 2.5, cy + 2.5);
+  }
+
+  private toggleMap(): void {
+    if (this.mapContainer) {
+      this.mapContainer.destroy(true);
+      this.mapContainer = null;
+      this.mapGfx = null;
+      AudioSystem.play('ui_close', { volume: 0.6 });
+      return;
+    }
+    if (gameStore.state.location !== 'mundo') return;
+    AudioSystem.play('ui_open', { volume: 0.6 });
+    const dim = this.add.rectangle(320, 180, 640, 360, 0x181425, 0.8).setInteractive();
+    dim.on('pointerdown', () => this.toggleMap());
+    const frame = this.add.rectangle(320, 172, 420, 318, 0x262b44).setStrokeStyle(2, 0xfee761);
+    const title = this.label(320, 22, uiText.hud.mapTitle, 14, '#fee761').setOrigin(0.5, 0);
+    this.mapGfx = this.add.graphics();
+    const zoneLabels: [string, number, number][] = [
+      ['Bright Angel', 640, 110],
+      ['Séítah', 250, 760],
+      ['Three Forks', 1000, 380],
+      ['Octavia E. Butler', 640, 600],
+    ];
+    const items: Phaser.GameObjects.GameObject[] = [dim, frame, title, this.mapGfx];
+    for (const [name, wx, wy] of zoneLabels) {
+      const p = this.mapPoint(wx, wy);
+      items.push(this.label(p.x, p.y, name, 10, '#ead4aa').setOrigin(0.5).setAlpha(0.85));
+    }
+    // Leyenda
+    const legend: [string, number][] = [
+      [uiText.hud.legendRock, SAMPLE_COLORS.roca],
+      [uiText.hud.legendSoil, SAMPLE_COLORS.suelo],
+      [uiText.hud.legendMinerals, SAMPLE_COLORS.minerales],
+      [uiText.hud.legendAir, SAMPLE_COLORS.aire],
+    ];
+    legend.forEach(([name, color], i) => {
+      const lx = 130 + i * 92;
+      items.push(this.add.circle(lx, 322, 4, color).setStrokeStyle(1, 0x181425));
+      items.push(this.label(lx + 8, 316, name, 10, '#ffffff'));
+    });
+    items.push(this.label(320, 336, uiText.hud.mapLegendExtra, 10, '#c0cbdc').setOrigin(0.5, 0));
+    this.mapContainer = this.add.container(0, 0, items).setDepth(90);
+  }
+
+  private mapPoint(wx: number, wy: number): { x: number; y: number } {
+    // Mundo 1280×960 → caja de 384×288 centrada
+    return { x: 128 + (wx / 1280) * 384, y: 30 + 10 + (wy / 960) * 268 };
+  }
+
+  private drawFullMap(): void {
+    const g = this.mapGfx;
+    if (!g) return;
+    g.clear();
+    const tl = this.mapPoint(0, 0);
+    const br = this.mapPoint(1280, 960);
+    g.fillStyle(0xb86f50, 1).fillRect(tl.x, tl.y, br.x - tl.x, br.y - tl.y);
+    g.lineStyle(1, 0x733e39, 1);
+    // Bordes de zonas
+    const zones: [number, number, number, number][] = [
+      [360, 60, 560, 280],
+      [80, 540, 460, 360],
+      [800, 340, 400, 340],
+      [440, 340, 360, 300],
+    ];
+    for (const [x, y, w, h] of zones) {
+      const a = this.mapPoint(x, y);
+      const b = this.mapPoint(x + w, y + h);
+      g.strokeRect(a.x, a.y, b.x - a.x, b.y - a.y);
+    }
+    const blink = Math.floor(this.time.now / 300) % 2 === 0;
+    for (const m of mapMarkers.markers) {
+      if (!m.active && m.kind === 'sample') continue;
+      if (m.kind === 'repair' && !m.active) continue;
+      const p = this.mapPoint(m.x, m.y);
+      this.drawMarkerShape(g, m, p.x, p.y, m.kind === 'sample' ? 3.5 : 4.5, m.kind === 'repair' ? blink : true);
+    }
+    const pp = this.mapPoint(mapMarkers.player.x, mapMarkers.player.y);
+    g.fillStyle(0xffffff, 1).fillTriangle(pp.x, pp.y - 5, pp.x - 4, pp.y + 4, pp.x + 4, pp.y + 4);
+    g.lineStyle(1, 0x181425, 1).strokeTriangle(pp.x, pp.y - 5, pp.x - 4, pp.y + 4, pp.x + 4, pp.y + 4);
+  }
+
+  // ------------------------------------------------------------------ avisos
 
   private showRadioMessage(msg: string): void {
     this.radioText.setText(msg);
+    this.radioBg.height = Math.max(30, Math.round(this.radioText.height + 10));
     this.radioContainer.setVisible(true);
-    if (this.radioTimer) {
-      this.radioTimer.remove(false);
-    }
-    this.radioTimer = this.time.delayedCall(3000, () => {
+    AudioSystem.play('radio_in', { volume: 0.5 });
+    this.radioTimer?.remove(false);
+    this.radioTimer = this.time.delayedCall(Math.max(3200, msg.length * 55), () => {
       this.radioContainer.setVisible(false);
     });
+  }
+
+  private showToast(text: string, color = '#fee761'): void {
+    const t = this.add
+      .text(574, 62, text, { fontFamily: FONT, fontSize: '12px', color, stroke: '#181425', strokeThickness: 3 })
+      .setOrigin(1, 0)
+      .setDepth(60);
+    this.tweens.add({ targets: t, y: 50, alpha: 0, delay: 900, duration: 700, onComplete: () => t.destroy() });
   }
 }

@@ -1,29 +1,31 @@
 {
-  "generatedAt": "2026-11-14",
+  "generatedAt": "2026-11-15",
+  "note": "Eventos curados a mano con datos publicados por la NASA. scripts/fetch-nasa.mjs agrega eventos recientes de DONKI en 'recent' si se ejecuta con conexión.",
   "curated": [
     {
       "id": "cme_mayo_2024",
       "type": "cme_hit",
-      "donkiActivityID": "TODO_DATO copiar de DONKI (formato 2024-05-..T..:..:00-CME-001)",
-      "startTime": "TODO_DATO",
-      "speedKmS": "TODO_DATO",
-      "halfAngleDeg": "TODO_DATO",
-      "arrivalMars": "2024-05-20",
+      "title": "Tormenta solar del 20 de mayo de 2024",
+      "donkiActivityID": "FLR X12 · 2024-05-20",
+      "date": "2024-05-20",
+      "flareClass": "X12",
+      "speedKmS": "llegó en decenas de minutos",
       "measured": {
         "instrument": "Curiosity RAD",
         "doseMicroGray": 8100,
-        "note": "como 30 radiografías de tórax según la NASA"
+        "note": "como 30 radiografías de tórax; la mayor dosis medida por RAD desde 2012"
       },
       "label": "ARCHIVO REAL",
-      "source": "DONKI, NASA Curiosity RAD, NASA MAVEN",
-      "sourceUrl": "https://kauai.ccmc.gsfc.nasa.gov/DONKI/"
+      "source": "NASA: MAVEN, Curiosity RAD y Mars Odyssey (junio 2024)",
+      "sourceUrl": "https://www.nasa.gov/missions/maven/nasa-watches-mars-light-up-during-epic-solar-storm/"
     },
     {
       "id": "cme_falsa_alarma",
       "type": "cme_miss",
-      "donkiActivityID": "TODO_DATO elegir en DONKI una CME cuyo modelo WSA-Enlil prediga roce o paso de lado de Marte",
+      "title": "Modelo WSA-Enlil: la nube pasa de lado",
+      "donkiActivityID": "WSA-Enlil",
       "label": "ARCHIVO REAL",
-      "source": "DONKI WSA-Enlil",
+      "source": "DONKI · modelo WSA-Enlil (NASA CCMC)",
       "sourceUrl": "https://kauai.ccmc.gsfc.nasa.gov/DONKI/"
     }
   ],

@@ -41,7 +41,7 @@ export class Save {
     try {
       const raw = storage.getItem(SAVE_STORAGE_KEY);
       if (!raw) return null;
-      const parsed: unknown = JSON.parse(raw);
+      const parsed: unknown = Save.migrate(JSON.parse(raw));
       if (!Save.isValidGameState(parsed)) {
         return null;
       }
@@ -64,11 +64,35 @@ export class Save {
     }
   }
 
+  /**
+   * Convierte partidas guardadas con la versión 1 al formato actual
+   * rellenando los campos nuevos con sus valores iniciales.
+   */
+  static migrate(value: unknown): unknown {
+    if (!value || typeof value !== 'object') return value;
+    const obj = value as Record<string, unknown>;
+    if (obj.version !== 1) return value;
+    const fresh = createInitialGameState();
+    const stats = { ...fresh.stats, ...((obj.stats as object) ?? {}) };
+    return {
+      ...fresh,
+      ...obj,
+      version: 2,
+      stats,
+      missionTrust: fresh.missionTrust,
+      sciencePoints: fresh.sciencePoints,
+      sitesUsedToday: [],
+      journal: [],
+      triviaDoneDay: 0,
+    };
+  }
+
   static isValidGameState(value: unknown): value is GameState {
     if (!value || typeof value !== 'object') return false;
     const obj = value as Record<string, unknown>;
 
-    if (obj.version !== 1) return false;
+    if (obj.version !== 2) return false;
+    if (typeof obj.missionTrust !== 'number' || !Array.isArray(obj.sitesUsedToday)) return false;
     if (typeof obj.day !== 'number' || !Number.isFinite(obj.day) || obj.day < 1) return false;
 
     const clock = obj.clock as Record<string, unknown> | undefined;
