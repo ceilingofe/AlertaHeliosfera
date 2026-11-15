@@ -9,9 +9,11 @@ Phaser.GameObjects.GameObjectFactory.prototype.text = function (
   text: string | string[],
   style?: Phaser.Types.GameObjects.Text.TextStyle
 ): Phaser.GameObjects.Text {
+  // La cámara dibuja ×2 (×4 en Mundo); rasterizar el texto a esa misma escala evita
+  // que el filtro "pixelArt" (vecino más cercano) se coma columnas de píxeles.
   const resolvedStyle: Phaser.Types.GameObjects.Text.TextStyle = {
     ...style,
-    resolution: 4,
+    resolution: this.scene.cameras?.main?.zoom ?? 2,
   };
 
   return defaultTextFactory.call(this, x, y, text, resolvedStyle);

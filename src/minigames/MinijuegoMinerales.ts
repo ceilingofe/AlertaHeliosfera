@@ -197,7 +197,7 @@ export class MinijuegoMinerales extends MinigameBase {
 
     this.input.on('pointermove', (p: Phaser.Input.Pointer) => {
       if (this.phase === 'scan') {
-        this.scannerBeam.x = Phaser.Math.Clamp(p.x, 180, 420);
+        this.scannerBeam.x = Phaser.Math.Clamp(p.worldX, 180, 420);
       }
     });
 

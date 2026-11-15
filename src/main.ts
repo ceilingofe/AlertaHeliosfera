@@ -20,12 +20,17 @@ import { Rescate } from './scenes/Rescate';
 import { Tormenta } from './scenes/Tormenta';
 import { Transmision } from './scenes/Transmision';
 import './ui/installTextDefaults';
+import { installCameraDefaults, VIEW_H, VIEW_W } from './ui/installCameraDefaults';
+
+installCameraDefaults();
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
   parent: 'game',
-  width: 640,
-  height: 360,
+  // Lienzo interno a 1280×720: el mundo sigue diseñado en 640×360 y cada cámara usa zoom ×2,
+  // así el texto se rasteriza 1:1 y se ve nítido en vez de borroso.
+  width: VIEW_W * 2,
+  height: VIEW_H * 2,
   backgroundColor: '#181425',
   pixelArt: true,
   roundPixels: true,
@@ -60,4 +65,7 @@ const config: Phaser.Types.Core.GameConfig = {
   ],
 };
 
-export default new Phaser.Game(config);
+const game = new Phaser.Game(config);
+// Acceso de depuración para pruebas automatizadas (no afecta el juego).
+(window as unknown as { __game?: Phaser.Game }).__game = game;
+export default game;

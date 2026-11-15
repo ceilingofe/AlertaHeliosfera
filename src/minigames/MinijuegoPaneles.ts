@@ -93,7 +93,7 @@ export class MinijuegoPaneles extends MinigameBase {
       for (const cell of this.dustCells) {
         if (!cell.active) continue;
         const bounds = cell.getBounds();
-        if (bounds.contains(p.x, p.y)) {
+        if (bounds.contains(p.worldX, p.worldY)) {
           this.cleanCell(cell);
         }
       }

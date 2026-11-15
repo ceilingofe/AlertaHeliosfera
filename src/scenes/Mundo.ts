@@ -84,6 +84,7 @@ export class Mundo extends Phaser.Scene {
 
     const mapWidth = 1280;
     const mapHeight = 960;
+    this.cameras.main.setOrigin(0.5, 0.5).setZoom(4);
 
     // 1. Suelo provisional repetido (sin marca de agua MARU)
     this.add.tileSprite(0, 0, mapWidth, mapHeight, 'ground_placeholder').setOrigin(0, 0);
@@ -305,8 +306,7 @@ export class Mundo extends Phaser.Scene {
       .setOrigin(0, 0)
       .setDepth(30);
 
-    // 7. Cámara con zoom ×2
-    this.cameras.main.setZoom(2);
+    // 7. Cámara: ×4 sobre el lienzo de 1280×720 (equivale al ×2 del diseño 640×360)
     this.cameras.main.setBounds(0, 0, mapWidth, mapHeight);
     this.cameras.main.startFollow(this.player, true);
     this.physics.world.setBounds(0, 0, mapWidth, mapHeight);

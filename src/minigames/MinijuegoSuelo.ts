@@ -201,13 +201,13 @@ export class MinijuegoSuelo extends MinigameBase {
     this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
       if (this.phase !== 'sieve') return;
       if (this.lastPointerX !== null) {
-        const dx = pointer.x - this.lastPointerX;
+        const dx = pointer.worldX - this.lastPointerX;
         if (Math.abs(dx) >= 6) {
           this.shakeSieve(dx > 0 ? 10 : -10, Math.min(8, Math.abs(dx) * 0.25));
-          this.lastPointerX = pointer.x;
+          this.lastPointerX = pointer.worldX;
         }
       } else {
-        this.lastPointerX = pointer.x;
+        this.lastPointerX = pointer.worldX;
       }
     });
 

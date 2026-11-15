@@ -4,6 +4,7 @@ import { gameStore } from '../state/GameState';
 import { Save } from '../state/Save';
 import { Data } from '../systems/Data';
 import { Quota } from '../systems/Quota';
+import { VIEW_H, VIEW_W } from '../ui/installCameraDefaults';
 
 const SPRITE_KEYS = [
   'acc_antena',
@@ -67,8 +68,8 @@ export class Preload extends Phaser.Scene {
   }
 
   preload(): void {
-    const width = this.cameras.main.width;
-    const height = this.cameras.main.height;
+    const width = VIEW_W;
+    const height = VIEW_H;
 
     const barBg = this.add.rectangle(width / 2, height / 2 + 20, 244, 16, 0x262b44).setOrigin(0.5);
     barBg.setStrokeStyle(2, 0x181425);
