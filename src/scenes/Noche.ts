@@ -2,8 +2,10 @@ import Phaser from 'phaser';
 import uiText from '../../content/ui_text.json';
 import { gameStore } from '../state/GameState';
 import { Save } from '../state/Save';
+import { AudioSystem } from '../systems/Audio';
 import { BaseSystem } from '../systems/BaseSystem';
 import { Data } from '../systems/Data';
+import { StaticEffect } from '../ui/StaticEffect';
 
 interface ShootingStar {
   x: number;
@@ -22,6 +24,7 @@ interface ShootingStar {
 export class Noche extends Phaser.Scene {
   private shootingStars: ShootingStar[] = [];
   private starGraphics!: Phaser.GameObjects.Graphics;
+  private staticEffect!: StaticEffect;
 
   constructor() {
     super('Noche');
@@ -36,6 +39,7 @@ export class Noche extends Phaser.Scene {
     BaseSystem.deliverTubes(state, 1);
     BaseSystem.sleepToNextDay(state);
     Save.save(state);
+    AudioSystem.play(completedDay === 1 || completedDay === 4 ? 'unlock' : 'shootingStar');
 
     const nextDay = state.day;
 
@@ -219,7 +223,20 @@ export class Noche extends Phaser.Scene {
       color: '#181425',
     });
 
+    // Efecto suave de estática tipo TV en toda la pantalla cuando el Día 1 avisa de la tormenta solar
+    this.staticEffect = new StaticEffect(this, {
+      intervalMs: 3600,
+      burstDurationMs: 250,
+      maxAlpha: 0.14,
+    });
+    this.staticEffect.setEnabled(completedDay === 1, completedDay === 1);
+
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.staticEffect?.destroy();
+    });
+
     const startNextDay = (): void => {
+      AudioSystem.play('scanClick');
       state.location = 'base';
       Save.save(state);
       this.scene.start('Transmision');
@@ -231,7 +248,8 @@ export class Noche extends Phaser.Scene {
     this.input.keyboard?.once('keydown-ENTER', startNextDay);
   }
 
-  update(_time: number, delta: number): void {
+  update(time: number, delta: number): void {
+    this.staticEffect?.update(time);
     const dt = delta / 1000;
     this.starGraphics.clear();
 

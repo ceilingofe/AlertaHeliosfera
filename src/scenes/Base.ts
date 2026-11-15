@@ -9,6 +9,7 @@ import { Clock } from '../systems/Clock';
 import { Data, type CorviQAEntry } from '../systems/Data';
 import { Events } from '../systems/Events';
 import { Vitals } from '../systems/Vitals';
+import { AstronautAppearance } from '../ui/AstronautAppearance';
 import { DialogBox } from '../ui/DialogBox';
 import { getSharedJoystickVector } from '../ui/Joystick';
 import { resetPlayerMotion, updatePlayerMotion } from '../systems/PlayerMotion';
@@ -156,33 +157,40 @@ export class Base extends Phaser.Scene {
       .rectangle(35, 72, 130, 6, 0x2ce8f5)
       .setOrigin(0, 0.5);
 
-    // 3. Consola central de telemetría (s04_base.png)
-    const consoleFrame = this.add.rectangle(316, 54, 188, 76, 0x262b44).setOrigin(0.5);
+    // 3. Consola central de telemetría (debajo del cartel superior de zona, y = 34..86)
+    const consoleFrame = this.add.rectangle(306, 60, 178, 52, 0x262b44).setOrigin(0.5);
     consoleFrame.setStrokeStyle(2, 0x181425);
-    this.add.rectangle(272, 54, 78, 50, 0x124e89).setOrigin(0.5);
-    this.add.rectangle(360, 54, 74, 50, 0x124e89).setOrigin(0.5);
-    this.add.rectangle(360, 44, 56, 10, 0xfee761).setOrigin(0.5);
+    this.add.rectangle(264, 60, 74, 36, 0x124e89).setOrigin(0.5);
+    this.add.rectangle(348, 60, 70, 36, 0x124e89).setOrigin(0.5);
+    this.add.rectangle(348, 50, 52, 8, 0xfee761).setOrigin(0.5);
 
     const chartLine = this.add.graphics();
     chartLine.lineStyle(2, 0x2ce8f5, 1);
     chartLine.beginPath();
-    chartLine.moveTo(238, 68);
-    chartLine.lineTo(256, 54);
-    chartLine.lineTo(274, 60);
-    chartLine.lineTo(304, 38);
+    chartLine.moveTo(232, 70);
+    chartLine.lineTo(250, 58);
+    chartLine.lineTo(268, 64);
+    chartLine.lineTo(294, 48);
     chartLine.strokePath();
 
-    // 4. Botones superiores "Recargar", "Calentarme" y "Dormir"
-    this.createActionButton(460, 66, 86, 24, 0x262b44, '#ffffff', uiText.base.refillButton, () => {
+    // 4. Botones superiores "Recargar", "Calentarme", "Dormir" y "Traje" (debajo del reloj del HUD, y >= 60)
+    this.createActionButton(450, 70, 84, 20, 0x262b44, '#ffffff', uiText.base.refillButton, () => {
       this.triggerRefillO2();
     });
 
-    this.createActionButton(552, 66, 92, 24, 0xc0cbdc, '#181425', uiText.base.heatButton, () => {
+    this.createActionButton(542, 70, 88, 20, 0xc0cbdc, '#181425', uiText.base.heatButton, () => {
       this.triggerHeatSuit();
     });
 
-    this.createActionButton(460, 96, 86, 22, 0xb55088, '#ffffff', uiText.base.sleepButton, () => {
+    this.createActionButton(450, 93, 84, 20, 0xb55088, '#ffffff', uiText.base.sleepButton, () => {
       this.goToSleep();
+    });
+
+    this.createActionButton(542, 93, 88, 20, 0x3a4466, '#fee761', 'Traje', () => {
+      this.scene.stop('HUD');
+      this.scene.stop('Dialogo');
+      this.scene.stop('Tormenta');
+      this.scene.start('Personaliza', { nextScene: 'Base' });
     });
 
     // 5. Estaciones e interior: Cama, Percha de Corvi, Mesa de muestras, Puerta al Refugio y Puerta de Salida
@@ -220,36 +228,36 @@ export class Base extends Phaser.Scene {
 
     // Mesa de muestras a la derecha (s04_base.png)
     const tableTop = this.add
-      .rectangle(512, 152, 152, 34, 0xc0cbdc)
+      .rectangle(512, 168, 152, 34, 0xc0cbdc)
       .setStrokeStyle(2, 0x181425)
       .setInteractive({ useHandCursor: true });
-    this.add.rectangle(512, 173, 152, 10, 0x181425);
-    addBlock(512, 156, 152, 42);
+    this.add.rectangle(512, 189, 152, 10, 0x181425);
+    addBlock(512, 172, 152, 42);
 
     for (let i = 0; i < 6; i++) {
       const tx = 458 + i * 21;
-      const tSprite = this.add.image(tx, 140, 'tube_empty').setScale(2);
+      const tSprite = this.add.image(tx, 156, 'tube_empty').setScale(2);
       this.tableTubeSprites.push(tSprite);
     }
     this.refreshTableTubes();
     tableTop.on('pointerdown', () => this.deliverSamplesAtTable());
 
-    // Puerta al refugio (arriba a la derecha, como en s04_base.png)
+    // Puerta al refugio (arriba a la derecha, debajo del botón Traje)
     const refugeFrame = this.add
-      .rectangle(560, 118, 66, 44, 0x733e39)
+      .rectangle(560, 126, 64, 34, 0x733e39)
       .setStrokeStyle(3, 0x181425)
       .setInteractive({ useHandCursor: true });
-    this.add.rectangle(560, 120, 34, 38, 0x262b44);
-    this.add.circle(570, 122, 2, 0xfee761);
+    this.add.rectangle(560, 127, 32, 28, 0x262b44);
+    this.add.circle(570, 128, 2, 0xfee761);
     refugeFrame.on('pointerdown', () => this.toggleRefuge());
 
-    // Puerta de salida al exterior (abajo al centro)
+    // Puerta de salida al exterior (abajo al centro, arriba de la barra de herramientas del HUD)
     const exitDoor = this.add
-      .rectangle(334, 294, 68, 22, 0x3a4466)
+      .rectangle(334, 278, 68, 20, 0x3a4466)
       .setStrokeStyle(2, 0x181425)
       .setInteractive({ useHandCursor: true });
     this.add
-      .text(334, 294, 'SALIR', {
+      .text(334, 278, 'SALIR', {
         fontFamily: 'PixelifySans, monospace',
         resolution: 2,
         fontSize: '10px',
@@ -260,10 +268,10 @@ export class Base extends Phaser.Scene {
 
     // Indicador visual cuando el astronauta está dentro del Refugio Blindado
     const refBg = this.add
-      .rectangle(320, 240, 290, 28, 0x265c42, 0.95)
+      .rectangle(334, 232, 286, 26, 0x265c42, 0.95)
       .setStrokeStyle(2, 0x63c74d);
     const refTxt = this.add
-      .text(320, 240, uiText.base.refugeEnteredMsg, {
+      .text(334, 232, uiText.base.refugeEnteredMsg, {
         fontFamily: 'PixelifySans, monospace',
         resolution: 2,
         fontSize: '11px',
@@ -278,22 +286,25 @@ export class Base extends Phaser.Scene {
     this.stations = [
       { id: 'bed', x: 128, y: 156, prompt: uiText.base.interactBed },
       { id: 'corvi', x: 236, y: 166, prompt: uiText.base.interactCorvi },
-      { id: 'console', x: 316, y: 112, prompt: uiText.base.interactConsole },
-      { id: 'table', x: 512, y: 192, prompt: uiText.base.interactTable },
-      { id: 'refugeDoor', x: 560, y: 132, prompt: uiText.base.interactRefugeDoor },
-      { id: 'exitDoor', x: 334, y: 274, prompt: uiText.base.interactExitDoor },
+      { id: 'console', x: 306, y: 112, prompt: uiText.base.interactConsole },
+      { id: 'table', x: 512, y: 204, prompt: uiText.base.interactTable },
+      { id: 'refugeDoor', x: 560, y: 140, prompt: uiText.base.interactRefugeDoor },
+      { id: 'exitDoor', x: 334, y: 262, prompt: uiText.base.interactExitDoor },
     ];
 
-    // 6. Astronauta en el interior (escala ×2)
-    const hairKey =
-      state.customization.hair === 2 ? 'astronaut_mini_hair2' : 'astronaut_mini_hair1';
+    // 6. Astronauta en el interior (escala ×2) con su color de traje y peinado actuales
+    const hairKey = AstronautAppearance.getMiniTextureKey(
+      this,
+      state.customization.hair,
+      state.customization.suit
+    );
     this.player = this.physics.add
       .sprite(300, 168, hairKey)
       .setScale(2)
       .setCollideWorldBounds(true);
     this.playerOriginY = this.player.displayOriginY;
 
-    this.physics.world.setBounds(16, 92, 608, 214);
+    this.physics.world.setBounds(16, 92, 608, 194);
     this.physics.add.collider(this.player, obstacles);
 
     // 7. Etiqueta flotante de interacción

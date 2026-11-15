@@ -3,10 +3,12 @@ import balance from '../../content/balance.json';
 import uiText from '../../content/ui_text.json';
 import { bus } from '../state/bus';
 import { gameStore } from '../state/GameState';
+import { AudioSystem } from '../systems/Audio';
 import { Clock } from '../systems/Clock';
 import { Events } from '../systems/Events';
 import { Quota } from '../systems/Quota';
 import type { SampleType } from '../types';
+import { AstronautAppearance } from '../ui/AstronautAppearance';
 import { TouchControls } from '../ui/Joystick';
 
 const MINIGAME_KEYS = [
@@ -32,6 +34,7 @@ export class HUD extends Phaser.Scene {
   private dayBarFill!: Phaser.GameObjects.Rectangle;
   private skyIcon!: Phaser.GameObjects.Image;
 
+  private zoneContainer!: Phaser.GameObjects.Container;
   private zoneText!: Phaser.GameObjects.Text;
 
   private o2ValueText!: Phaser.GameObjects.Text;
@@ -96,43 +99,50 @@ export class HUD extends Phaser.Scene {
     }
     this.missionsContainer = this.add.container(0, 0, missionChildren);
 
-    // 2. Arriba centro: cartel de zona actual
+    // 2. Arriba centro: cartel de zona actual (se oculta durante tormenta para no empalmarse)
     const zoneBg = this.add
-      .rectangle(316, 18, 178, 22, 0x262b44, 0.95)
+      .rectangle(316, 16, 178, 20, 0x262b44, 0.95)
       .setOrigin(0.5)
       .setStrokeStyle(2, 0x181425);
     this.zoneText = this.add
       .text(316, zoneBg.y, `↑ ${uiText.hud.zoneDefault}`, {
         fontFamily: 'PixelifySans, monospace',
         resolution: 2,
-        fontSize: '12px',
+        fontSize: '11px',
         color: '#ead4aa',
       })
       .setOrigin(0.5);
+    this.zoneContainer = this.add.container(0, 0, [zoneBg, this.zoneText]);
 
-    // 3. Arriba derecha: DÍA N, reloj HH:MM, sol/luna y barra de progreso del día
-    this.createPanel(510, 6, 122, 52, 0xc0cbdc);
-    this.dayText = this.add.text(518, 11, `${uiText.hud.dayPrefix} 1`, {
+    // 3. Arriba derecha: DÍA N, reloj HH:MM, sol/luna y barra de progreso del día (tocar pausa)
+    const clockPanel = this.createPanel(510, 6, 122, 50, 0xc0cbdc).setInteractive({
+      useHandCursor: true,
+    });
+    clockPanel.on('pointerdown', () => {
+      const paused = Clock.togglePause(gameStore.state);
+      bus.emit('clock:pauseChanged', { paused });
+    });
+    this.dayText = this.add.text(518, 10, `${uiText.hud.dayPrefix} 1`, {
       fontFamily: 'PixelifySans, monospace',
       resolution: 2,
-      fontSize: '16px',
+      fontSize: '15px',
       color: '#181425',
     });
-    this.skyIcon = this.add.image(616, 19, 'icon_sun').setScale(2);
+    this.skyIcon = this.add.image(616, 18, 'icon_sun').setScale(2);
 
-    this.timeText = this.add.text(518, 34, '09:00', {
+    this.timeText = this.add.text(518, 32, '09:00', {
       fontFamily: 'PixelifySans, monospace',
       resolution: 2,
-      fontSize: '14px',
+      fontSize: '13px',
       color: '#181425',
     });
 
     this.add
-      .rectangle(566, 42, 58, 8, 0x3a4466)
+      .rectangle(566, 40, 58, 8, 0x3a4466)
       .setOrigin(0, 0.5)
       .setStrokeStyle(1, 0x181425);
     this.dayBarFill = this.add
-      .rectangle(567, 42, 0, 6, 0xfee761)
+      .rectangle(567, 40, 0, 6, 0xfee761)
       .setOrigin(0, 0.5);
 
     // 4. Panel del astronauta
@@ -143,7 +153,12 @@ export class HUD extends Phaser.Scene {
       .rectangle(31, panelY + 33, 36, 46, 0x262b44)
       .setOrigin(0.5)
       .setStrokeStyle(1, 0x181425);
-    this.add.image(31, panelY + 34, 'astronaut_mini_hair1').setScale(2);
+    const hudMiniKey = AstronautAppearance.getMiniTextureKey(
+      this,
+      gameStore.state.customization.hair,
+      gameStore.state.customization.suit
+    );
+    this.add.image(31, panelY + 34, hudMiniKey).setScale(2);
     this.add
       .text(31, panelY + 64, uiText.hud.youLabel, {
         fontFamily: 'PixelifySans, monospace',
@@ -298,29 +313,72 @@ export class HUD extends Phaser.Scene {
       .setVisible(false)
       .setDepth(50);
 
-    // 9. Cartel de pausa
+    // 9. Cartel de pausa con botón de Silencio y Créditos NASA
     const pauseDim = this.add
       .rectangle(320, 180, 640, 360, 0x181425, 0.65)
       .setInteractive();
     const pauseBox = this.add
-      .rectangle(320, 180, 300, 84, 0x262b44, 0.98)
+      .rectangle(320, 180, 316, 128, 0x262b44, 0.98)
       .setStrokeStyle(2, 0xfee761);
     const pauseTitle = this.add
-      .text(320, 164, uiText.hud.pausedTitle, {
+      .text(320, 134, uiText.hud.pausedTitle, {
         fontFamily: 'PixelifySans, monospace',
         resolution: 2,
-        fontSize: '20px',
+        fontSize: '18px',
         color: '#fee761',
       })
       .setOrigin(0.5);
     const pauseHint = this.add
-      .text(320, 194, uiText.hud.pausedHint, {
+      .text(320, 158, uiText.hud.pausedHint, {
         fontFamily: 'PixelifySans, monospace',
         resolution: 2,
-        fontSize: '13px',
+        fontSize: '11px',
         color: '#ead4aa',
       })
       .setOrigin(0.5);
+
+    const muteBtn = this.add
+      .rectangle(242, 198, 134, 26, 0x3a4466)
+      .setStrokeStyle(2, 0x181425)
+      .setInteractive({ useHandCursor: true });
+    const muteBtnText = this.add
+      .text(
+        242,
+        198,
+        AudioSystem.isMuted() ? 'Sonido: SILENCIO' : 'Sonido: ACTIVO',
+        {
+          fontFamily: 'PixelifySans, monospace',
+          resolution: 2,
+          fontSize: '11px',
+          color: '#ffffff',
+        }
+      )
+      .setOrigin(0.5);
+    muteBtn.on('pointerdown', () => {
+      const muted = AudioSystem.toggleMute();
+      muteBtnText.setText(muted ? 'Sonido: SILENCIO' : 'Sonido: ACTIVO');
+    });
+
+    const creditsBtn = this.add
+      .rectangle(398, 198, 134, 26, 0x124e89)
+      .setStrokeStyle(2, 0x181425)
+      .setInteractive({ useHandCursor: true });
+    const creditsBtnText = this.add
+      .text(398, 198, 'Fuentes NASA', {
+        fontFamily: 'PixelifySans, monospace',
+        resolution: 2,
+        fontSize: '11px',
+        color: '#fee761',
+      })
+      .setOrigin(0.5);
+    creditsBtn.on('pointerdown', () => {
+      const returnScene = gameStore.state.location === 'mundo' ? 'Mundo' : 'Base';
+      this.scene.stop('HUD');
+      this.scene.stop('Dialogo');
+      this.scene.stop('Tormenta');
+      this.scene.stop(returnScene);
+      this.scene.start('Creditos', { returnScene });
+    });
 
     pauseDim.on('pointerdown', () => {
       Clock.setPaused(gameStore.state, false);
@@ -328,7 +386,16 @@ export class HUD extends Phaser.Scene {
     });
 
     this.pauseContainer = this.add
-      .container(0, 0, [pauseDim, pauseBox, pauseTitle, pauseHint])
+      .container(0, 0, [
+        pauseDim,
+        pauseBox,
+        pauseTitle,
+        pauseHint,
+        muteBtn,
+        muteBtnText,
+        creditsBtn,
+        creditsBtnText,
+      ])
       .setVisible(false)
       .setDepth(100);
 
@@ -348,9 +415,11 @@ export class HUD extends Phaser.Scene {
         this.showRadioMessage(uiText.hud.radioCurfew17);
       }),
       bus.on('vitals:o2Warn40', () => {
+        AudioSystem.play('o2Beep');
         this.showRadioMessage(uiText.hud.radioO2Warn40);
       }),
       bus.on('vitals:o2Danger20', () => {
+        AudioSystem.play('o2Beep');
         this.showRadioMessage(uiText.hud.radioO2Danger20);
       }),
       bus.on('interact:prompt', ({ text }) => {
@@ -383,6 +452,7 @@ export class HUD extends Phaser.Scene {
 
     const stormActive = Events.getActiveStorm() !== null;
     this.missionsContainer.setVisible(state.location === 'mundo' && !stormActive);
+    this.zoneContainer.setVisible(!stormActive);
 
     // Actualizar texto y casillas de MISIONES DEL DÍA según la cuota y eventos activos
     const dynamicMissions: { label: string; done: boolean }[] = [];

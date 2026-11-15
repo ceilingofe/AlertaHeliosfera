@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import uiText from '../../content/ui_text.json';
 import { bus } from '../state/bus';
 import { gameStore } from '../state/GameState';
+import { AudioSystem } from '../systems/Audio';
 import { Clock } from '../systems/Clock';
 import type { MinigameInput, MinigameResult } from '../types';
 
@@ -98,6 +99,9 @@ export abstract class MinigameBase extends Phaser.Scene {
   }
 
   protected setActiveStep(activeIndex: number): void {
+    if (activeIndex > 0) {
+      AudioSystem.play('scanClick');
+    }
     this.stepBgs.forEach((bg, idx) => {
       const txt = this.stepTexts[idx];
       if (idx < activeIndex) {
@@ -118,6 +122,9 @@ export abstract class MinigameBase extends Phaser.Scene {
   }
 
   protected completeMinigame(result: MinigameResult): void {
+    if (result.ok) {
+      AudioSystem.play('seal');
+    }
     Clock.setPaused(gameStore.state, false);
     bus.emit('minigame:finished', result);
     this.scene.stop();

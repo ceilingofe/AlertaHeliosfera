@@ -4,13 +4,16 @@ import uiText from '../../content/ui_text.json';
 import { bus } from '../state/bus';
 import { gameStore } from '../state/GameState';
 import { Save } from '../state/Save';
+import { AudioSystem } from '../systems/Audio';
 import { BaseSystem } from '../systems/BaseSystem';
 import { Clock } from '../systems/Clock';
 import { Events } from '../systems/Events';
 import { Vitals } from '../systems/Vitals';
 import { resetPlayerMotion, updatePlayerMotion } from '../systems/PlayerMotion';
 import type { SampleType } from '../types';
+import { AstronautAppearance } from '../ui/AstronautAppearance';
 import { getSharedJoystickVector } from '../ui/Joystick';
+import { StaticEffect } from '../ui/StaticEffect';
 
 interface InteractPoint {
   kind: 'door' | 'panel' | 'antenna' | 'moxie' | 'refuge' | 'sample' | 'threeForks';
@@ -65,6 +68,7 @@ export class Mundo extends Phaser.Scene {
   private currentZoneName = '';
   private lastToolIndex = 0;
   private rescueTriggered = false;
+  private staticEffect!: StaticEffect;
   private unsubscribers: (() => void)[] = [];
 
   constructor() {
@@ -260,9 +264,12 @@ export class Mundo extends Phaser.Scene {
       { name: 'Octavia E. Butler Landing', bounds: new Phaser.Geom.Rectangle(440, 340, 360, 300) },
     ];
 
-    // 4. Astronauta mini (14×23 px)
-    const hairKey =
-      state.customization.hair === 2 ? 'astronaut_mini_hair2' : 'astronaut_mini_hair1';
+    // 4. Astronauta mini (14×23 px) con su color de traje y peinado actuales
+    const hairKey = AstronautAppearance.getMiniTextureKey(
+      this,
+      state.customization.hair,
+      state.customization.suit
+    );
     this.player = this.physics.add.sprite(
       state.astronaut.pos.x,
       state.astronaut.pos.y,
@@ -350,6 +357,13 @@ export class Mundo extends Phaser.Scene {
       })
     );
 
+    this.staticEffect = new StaticEffect(this, {
+      intervalMs: 4200,
+      burstDurationMs: 240,
+      maxAlpha: 0.14,
+    });
+    this.staticEffect.setEnabled(!state.base.antennaOk, false);
+
     if (!this.scene.isActive('HUD')) {
       this.scene.launch('HUD');
     }
@@ -365,6 +379,7 @@ export class Mundo extends Phaser.Scene {
         unsub();
       }
       this.unsubscribers = [];
+      this.staticEffect?.destroy();
     });
   }
 
@@ -374,6 +389,7 @@ export class Mundo extends Phaser.Scene {
 
   private refreshEquipmentVisuals(): void {
     const state = gameStore.state;
+    this.staticEffect?.setEnabled(!state.base.antennaOk, false);
     for (const pt of this.interactPoints) {
       if (pt.kind === 'panel' && pt.panelId) {
         const pData = state.base.panels.find((p) => p.id === pt.panelId);
@@ -400,7 +416,7 @@ export class Mundo extends Phaser.Scene {
     }
   }
 
-  update(_time: number, delta: number): void {
+  update(time: number, delta: number): void {
     const state = gameStore.state;
     if (this.rescueTriggered) {
       return;
@@ -416,6 +432,7 @@ export class Mundo extends Phaser.Scene {
       return;
     }
 
+    this.staticEffect?.update(time);
     const dt = delta / 1000;
 
     // 1. Movimiento en 4/8 direcciones con WASD, flechas o joystick virtual
@@ -448,6 +465,29 @@ export class Mundo extends Phaser.Scene {
       balance.player.speed
     );
     this.walkBobTime = motion.bobTime;
+    const moving = vx !== 0 || vy !== 0;
+    if (moving) {
+      AudioSystem.play('step');
+      const len = Math.hypot(vx, vy);
+      const speed = balance.player.speed;
+      this.player.setVelocity((vx / len) * speed, (vy / len) * speed);
+      if (vx < 0) {
+        this.player.setFlipX(true);
+      } else if (vx > 0) {
+        this.player.setFlipX(false);
+      }
+    } else {
+      this.player.setVelocity(0, 0);
+    }
+
+    if (moving) {
+      this.walkBobTime += delta;
+      const bob = Math.sin(this.walkBobTime * 0.018) * 0.8;
+      this.player.setDisplayOrigin(this.player.displayOriginX, this.playerOriginY + bob);
+    } else {
+      this.walkBobTime = 0;
+      this.player.setDisplayOrigin(this.player.displayOriginX, this.playerOriginY);
+    }
 
     state.astronaut.pos.x = Math.round(this.player.x);
     state.astronaut.pos.y = Math.round(this.player.y);
