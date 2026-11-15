@@ -1,5 +1,5 @@
 {
-  "label": "ARCHIVO REAL",
+  "label": "SIMULADO",
   "source": "JPL Horizons (distancia Tierra–Marte)",
   "sourceUrl": "https://ssd.jpl.nasa.gov/horizons/",
   "delays": [

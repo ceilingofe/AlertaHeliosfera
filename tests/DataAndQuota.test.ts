@@ -48,7 +48,7 @@ describe('Sistemas Data y Quota (Fase 3)', () => {
     const alertDay1 = Data.getSolarAlert(1);
     expect(alertDay1.hasAlert).toBe(true);
     expect(alertDay1.activityId).toContain('TODO_DATO');
-    expect(alertDay1.label).toBe('ARCHIVO REAL');
+    expect(alertDay1.label).toBe('SIMULADO');
     expect(alertDay1.source).toBe('DONKI');
 
     // Si se inyecta un archivo real sin TODO_DATO, cambia a ARCHIVO REAL

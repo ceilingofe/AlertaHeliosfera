@@ -1,0 +1,205 @@
+AUDITORIA PRIORIZADA DE ERRORES Y DEUDA TECNICA
+Proyecto: Alerta Heliosfera
+Contexto: NASA Space Apps Challenge / entregable para juez
+Fecha: 2026-11-14
+
+CRITERIO DE PRIORIZACION
+
+La prioridad no representa solamente gravedad técnica. Se pondera, en este orden:
+1. Riesgo de que la demo falle, se bloquee o pierda progreso.
+2. Impacto visible en la experiencia que verá el juez.
+3. Claridad del vínculo con el reto de NASA Space Apps: datos reales,
+   comunicación científica, decisiones y supervivencia.
+4. Facilidad de corregir antes de la presentación.
+5. Calidad técnica que puede abordarse después del hackatón.
+
+ESTADO DE VALIDACION
+
+- npm test: 6 archivos, 25 pruebas, todas pasan.
+- npm run build: pasa TypeScript y Vite.
+- El build muestra advertencias sobre fuentes y tamaño del bundle.
+- No existe script de lint.
+- No hay pruebas de integración de escenas ni de los minijuegos.
+
+P0 - BLOQUEADORES DEL ENTREGABLE Y DE LA DEMO
+
+Estos problemas deben resolverse antes de presentar. Pueden hacer que el juez
+vea una demo inconsistente, pierda progreso o concluya que una mecánica central
+no funciona.
+
+1. Reanudación incorrecta de partidas
+   Archivos: src/scenes/Preload.ts, src/scenes/Transmision.ts
+   Si un guardado tiene location "mundo", Preload siempre abre Transmision en vez
+   de volver a Mundo. Transmision reinicia los eventos del día, puede borrar el
+   estado de una tormenta y presenta una pantalla incorrecta al jugador.
+   Impacto para el juez: una recarga durante la demo puede cambiar el flujo o
+   eliminar el contexto de la partida.
+
+2. Las acciones recientes no siempre se guardan
+   Archivo: src/scenes/Mundo.ts
+   Al completar una muestra o reparar paneles, MOXIE o antena, el listener de
+   minigame:finished actualiza el estado pero no llama a Save.save. Una recarga
+   puede restaurar la muestra o el sistema como si nunca se hubiera reparado.
+   Impacto para el juez: el progreso mostrado durante la presentación no es fiable.
+
+3. El estado de tormentas no es persistente
+   Archivos: src/systems/Events.ts, src/state/Save.ts
+   Events mantiene activeStorm, firedToday y currentDayTracked en propiedades
+   estáticas que no forman parte de GameState. Una recarga durante una tormenta
+   pierde la cuenta regresiva, el impacto y los eventos disparados.
+   Impacto para el juez: se rompe una de las mecánicas narrativas principales.
+
+4. Validación insuficiente de localStorage
+   Archivo: src/state/Save.ts
+   Save.isValidGameState solo valida una fracción del objeto. No valida location,
+   posición, arrays internos, tipos de tubos, cuotas, eventos, desbloqueos,
+   estadísticas ni rangos numéricos. Un guardado parcialmente corrupto puede
+   pasar la validación y fallar después dentro de una escena.
+   Impacto para el juez: una partida inválida puede producir una pantalla rota.
+
+P1 - IMPACTO DIRECTO EN LA EVALUACION
+
+Estos problemas no necesariamente rompen la demo, pero afectan la calidad del
+producto que el juez experimenta: profundidad, decisiones, coherencia científica
+y percepción de acabado.
+
+5. No existe un trade-off real
+    La cuota solo cambia la reserva de O2 del siguiente día. No hay una decisión
+    donde el jugador tenga que escoger entre dos beneficios incompatibles.
+    Prioridad de diseño: implementar una decisión visible y explicable, por
+    ejemplo, dedicar batería/tiempo a reparar un sistema o conservar recursos
+    para completar la cuota.
+
+6. Las acciones de mantenimiento no tienen coste temporal real
+    Los minijuegos pausan el reloj. Reparar sistemas y recolectar muestras no
+    compiten por tiempo, O2, batería ni radiación, por lo que la presión de
+    supervivencia desaparece durante las tareas.
+    Impacto para el juez: la gestión de recursos parece decorativa.
+
+7. quality no tiene efecto
+    MinigameResult incluye quality, pero todos los éxitos entregan 3 y todos los
+    fallos 0; ningún sistema usa la calidad para modificar recompensas.
+
+8. No hay recompensa o castigo por calidad de muestra
+    Una muestra perfecta y una interacción que apenas cumple producen el mismo
+    resultado. El resultado booleano solo decide si se mete el tubo.
+
+9. La penalización de fin de jornada se sobrescribe
+    Archivos: src/scenes/Mundo.ts, src/systems/BaseSystem.ts
+    Al llegar a las 20:00 se asigna supplyBonus = "menos", pero al dormir se
+    vuelve a calcular la cuota y ese valor puede quedar sin efecto.
+
+10. La alerta visual no comunica siempre el resultado real
+    Archivo: src/scenes/Tormenta.ts
+    Tormenta siempre muestra el mismo estado inicial aunque el evento sea una
+    falsa alarma o un impacto diferente. Esto mezcla presentación, simulación y
+    reglas, haciendo difícil explicar el resultado al juez.
+
+P2 - FLUJO, DATOS Y ROBUSTEZ
+
+Importan para una versión sólida, pero deben abordarse después de estabilizar la
+demo y las mecánicas que el juez verá.
+
+11. durationSec de days.json se ignora
+    Archivos: content/days.json, src/systems/Clock.ts
+    Clock usa siempre balance.dayClock.day1Sec o daySec. Cambiar durationSec de
+    un día no modifica la duración real de ese día.
+
+12. endHook y corviIntro no se consumen
+    Archivos: content/days.json, src/systems/Data.ts
+    Los campos están definidos en los datos y tipos, pero no participan en el
+    flujo del juego.
+
+13. La misión dinámica puede ocultar objetivos
+    Archivo: src/scenes/HUD.ts
+    El HUD solo tiene tres filas. Si coinciden tres objetivos de cuota con polvo
+    o MOXIE dañado, algunos objetivos no se muestran.
+
+14. Eventos y APIs duplicadas
+    Events.applyFullStormDose y Vitals.applyStormImpact existen, pero el flujo
+    principal usa otra lógica de impacto progresivo. Esto aumenta el riesgo de
+    corregir una implementación mientras la otra sigue divergente.
+
+15. Eventos estáticos dificultan reinicios y pruebas
+    Events conserva estado fuera de GameState. Reiniciar gameStore no reinicia
+    necesariamente firedToday, activeStorm y currentDayTracked.
+
+16. Errores de almacenamiento ignorados silenciosamente
+    src/state/Save.ts captura cualquier error y devuelve false/null sin informar
+    al usuario ni registrar la causa.
+
+17. Sin manejo explícito de errores de carga
+    Preload no presenta una pantalla ni mensaje para fallos de imágenes o JSON.
+    Un recurso faltante puede producir una escena incompleta sin explicación.
+
+P3 - DEUDA TECNICA Y MEJORAS POST-HACKATON
+
+No deberían desplazar correcciones visibles del entregable salvo que ya exista
+tiempo suficiente antes de la presentación.
+
+18. Escenas monolíticas
+    Mundo.ts y Base.ts concentran renderizado, input, movimiento, persistencia,
+    eventos, reglas y navegación. Son difíciles de probar y modificar sin
+    efectos secundarios.
+
+19. Parche global de Phaser
+    src/ui/installTextDefaults.ts modifica
+    GameObjectFactory.prototype.text globalmente para imponer resolution=4.
+    Es frágil y puede afectar escenas o dependencias que no esperan ese cambio.
+
+20. Casts innecesarios en el bus de eventos
+    src/state/bus.ts usa Handler<never> y varios casts para almacenar handlers.
+    Se pierde parte de la seguridad de tipos del sistema de eventos.
+
+21. Cobertura de pruebas incompleta
+    Las pruebas cubren sistemas puros, pero no escenas Phaser, guardado de
+    reanudación, minijuegos, entradas táctiles, colisiones ni transiciones.
+
+22. Bundle grande
+    Vite reporta un bundle principal de aproximadamente 1.6 MB, por encima de
+    500 kB. Phaser y todos los minijuegos se cargan juntos.
+
+23. Advertencias de fuentes en build
+    Vite avisa que las fuentes no se resuelven durante el build, aunque se
+    copian desde public y aparecen en dist. Conviene verificar el despliegue
+    final en GitHub Pages.
+
+24. Archivo no rastreado
+    git status muestra "?? leet.py". No parece parte del proyecto y debe
+    revisarse antes de incluir cambios en un commit.
+
+ORDEN DE TRABAJO PARA LLEGAR A LA PRESENTACION
+
+Fase 1 - Asegurar la demo
+1. Corregir la reanudación de partidas y guardar cada resultado de minijuego.
+2. Persistir tormentas y endurecer la validación/versionado del guardado.
+3. Verificar una partida completa desde el inicio hasta la pantalla final, con
+   recarga manual en puntos críticos.
+
+Fase 2 - Hacer que la propuesta sea evaluable
+4. Implementar un trade-off visible entre cuota, tiempo, batería, O2 y reparaciones.
+5. Hacer que la calidad de las muestras afecte la recompensa.
+
+Fase 3 - Pulir la presentación
+6. Corregir objetivos ocultos y verificar el flujo de carga inicial.
+7. Verificar fuentes y GitHub Pages.
+8. Preparar una ruta de demo controlada: dato NASA -> alerta -> decisión ->
+    minijuego -> consecuencia visible -> aprendizaje científico.
+
+Fase 4 - Después del hackatón
+9. Extraer sistemas compartidos de las escenas.
+10. Eliminar APIs duplicadas y estado estático fuera de GameState.
+11. Añadir integración de escenas y pruebas de minijuegos.
+12. Reducir el bundle y optimizar la carga de recursos.
+
+CRITERIO DE ACEPTACION PARA EL ENTREGABLE
+
+La versión presentable debe permitir que un juez:
+- Entienda en menos de un minuto qué fenómeno solar se está simulando.
+- Vea una fuente o etiqueta de datos claramente distinguida entre real y simulado.
+- Tome al menos una decisión con coste y beneficio explícitos.
+- Compruebe una consecuencia visible de esa decisión.
+- Complete la demo sin perder progreso, quedar en una escena incorrecta ni
+  encontrar contradicciones entre el texto y el estado del juego.
+- Observe que el juego enseña algo sobre la operación de una misión en Marte,
+  no solamente que contiene una estética espacial.

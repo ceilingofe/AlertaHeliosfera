@@ -409,7 +409,7 @@ export class MinijuegoMinerales extends MinigameBase {
         Phaser.Input.Keyboard.JustDown(this.keySpace) ||
         Phaser.Input.Keyboard.JustDown(this.keyE)
       ) {
-        this.buildSealStep();
+        this.setInstruction(uiText.minigameMinerals.instExtract);
         return;
       }
 

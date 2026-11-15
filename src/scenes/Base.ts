@@ -12,6 +12,7 @@ import { Vitals } from '../systems/Vitals';
 import { AstronautAppearance } from '../ui/AstronautAppearance';
 import { DialogBox } from '../ui/DialogBox';
 import { getSharedJoystickVector } from '../ui/Joystick';
+import { resetPlayerMotion, updatePlayerMotion } from '../systems/PlayerMotion';
 
 interface BaseStation {
   id: 'bed' | 'corvi' | 'console' | 'table' | 'refugeDoor' | 'exitDoor';
@@ -401,9 +402,12 @@ export class Base extends Phaser.Scene {
     this.moxieBarFill.width = Math.round((162 * reserve) / 100);
 
     if (state.clock.paused) {
-      this.player.setVelocity(0, 0);
-      this.walkBobTime = 0;
-      this.player.setDisplayOrigin(this.player.displayOriginX, this.playerOriginY);
+      const motion = {
+        originY: this.playerOriginY,
+        bobTime: this.walkBobTime,
+      };
+      resetPlayerMotion(this.player, motion);
+      this.walkBobTime = motion.bobTime;
       return;
     }
 
@@ -425,25 +429,19 @@ export class Base extends Phaser.Scene {
       vy = joy.y;
     }
 
-    const moving = vx !== 0 || vy !== 0;
-    if (moving) {
-      const len = Math.hypot(vx, vy);
-      const speed = balance.player.speed * 1.6;
-      this.player.setVelocity((vx / len) * speed, (vy / len) * speed);
-      if (vx < 0) this.player.setFlipX(true);
-      else if (vx > 0) this.player.setFlipX(false);
-    } else {
-      this.player.setVelocity(0, 0);
-    }
-
-    if (moving) {
-      this.walkBobTime += delta;
-      const bob = Math.sin(this.walkBobTime * 0.018) * 0.8;
-      this.player.setDisplayOrigin(this.player.displayOriginX, this.playerOriginY + bob);
-    } else {
-      this.walkBobTime = 0;
-      this.player.setDisplayOrigin(this.player.displayOriginX, this.playerOriginY);
-    }
+    const motion = {
+      originY: this.playerOriginY,
+      bobTime: this.walkBobTime,
+    };
+    updatePlayerMotion(
+      this.player,
+      motion,
+      vx,
+      vy,
+      delta,
+      balance.player.speed * 1.6
+    );
+    this.walkBobTime = motion.bobTime;
 
     // 2. Recarga continua de oxígeno y calefactor cuando están activas
     if (this.activeRefill) {

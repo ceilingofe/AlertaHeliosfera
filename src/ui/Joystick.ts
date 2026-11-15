@@ -71,6 +71,8 @@ export class TouchControls {
       this.actionBg.setFillStyle(0xf77622, 0.88);
     });
 
+    // The singleton is used by scenes to read the currently mounted controls.
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
     activeControls = this;
   }
 

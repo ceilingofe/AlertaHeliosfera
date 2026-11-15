@@ -1,7 +1,7 @@
 {
   "dayClock": { "startMin": 540, "curfewMin": 1020, "warnMin": 960, "endMin": 1200, "day1Sec": 150, "daySec": 300 },
-  "o2": { "drainPerSec": 0.8333, "coldMultiplier": 3, "refillPerSec": 25, "reserveCostPerPoint": 0.5, "warnAt": 40, "dangerAt": 20 },
-  "heater": { "drainPerSec": 0.4, "nightMultiplier": 3, "coldNightMultiplier": 4, "rechargePerSec": 20, "comfortMinC": 18, "comfortMaxC": 24, "suitC": 21, "coolPerSec": 1, "minC": 5 },
+  "o2": { "drainPerSec": 0.8333, "coldMultiplier": 3, "refillPerSec": 25, "reserveCostPerPoint": 0.5, "energyCostPerSec": 0.5, "warnAt": 40, "dangerAt": 20 },
+  "heater": { "drainPerSec": 0.4, "nightMultiplier": 3, "coldNightMultiplier": 4, "rechargePerSec": 20, "energyCostPerSec": 0.5, "comfortMinC": 18, "comfortMaxC": 24, "suitC": 21, "coolPerSec": 1, "minC": 5 },
   "radiation": { "outsidePerSec": 0.004587, "stormHitSeconds": 30, "stormOutside": 38, "stormBase": 10, "stormRefuge": 2, "doseLimit": 150, "shelterCountdownSec": 120 },
   "base": { "panelRecoverPerSec": 5, "nightEnergyLossPerGameMin": 0.0333, "moxieFillPerGameHour": 4, "moxieMinEnergy": 20, "moxieGramsPerGameHour": 12 },
   "supplies": { "extra": { "reserve": 100, "batteryBonus": 30 }, "normal": { "reserve": 80 }, "menos": { "reserve": 50 } },
