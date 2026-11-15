@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import uiText from '../../content/ui_text.json';
+import { AudioSystem } from '../systems/Audio';
 import type { Label, Mood } from '../types';
 
 export interface DialogBoxConfig {
@@ -59,6 +60,7 @@ export class DialogBox {
       this.buildSmallDialog(config);
     }
 
+    AudioSystem.play('corviChirrup');
     this.startTypewriter();
   }
 

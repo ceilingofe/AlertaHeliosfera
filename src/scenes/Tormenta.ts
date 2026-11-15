@@ -1,22 +1,26 @@
 import Phaser from 'phaser';
 import uiText from '../../content/ui_text.json';
 import { bus } from '../state/bus';
+import { AudioSystem } from '../systems/Audio';
 import { Events } from '../systems/Events';
+import { StaticEffect } from '../ui/StaticEffect';
 
 /**
  * Escena en paralelo Tormenta (fiel al storyboard s10_tormenta.png):
- * Muestra la doble señal (cielo ocre #feae34 alpha 0.27 y estática en la antena),
- * la barra superior de peligro con cuenta regresiva de 120 s reales (y luego 30 s de impacto),
- * el recuadro "SEÑALES DE AVISO", la etiqueta con el ID de DONKI y partículas solares.
+ * Muestra la doble señal:
+ * 1) Cielo ocre (#feae34 con alpha 0.27) y partículas solares diagonales,
+ * 2) Interferencia suave de señal tipo TV en toda la pantalla cada ciertos segundos (StaticEffect),
+ * junto con el cartel central de cuenta regresiva (120 s reales + 30 s de impacto) y el ID de DONKI,
+ * ubicado en la franja central superior (x = 214..502) para no empalmarse con ningún panel del HUD ni de la Base.
  */
 export class Tormenta extends Phaser.Scene {
   private rootContainer!: Phaser.GameObjects.Container;
   private ochreOverlay!: Phaser.GameObjects.Rectangle;
   private bannerText!: Phaser.GameObjects.Text;
+  private signalsText!: Phaser.GameObjects.Text;
   private honestyTagText!: Phaser.GameObjects.Text;
-  private honestyTagBg!: Phaser.GameObjects.Rectangle;
-  private staticBars: Phaser.GameObjects.Rectangle[] = [];
   private particlesGraphic!: Phaser.GameObjects.Graphics;
+  private staticEffect!: StaticEffect;
 
   private lastAnnouncedStormId: string | null = null;
 
@@ -25,7 +29,6 @@ export class Tormenta extends Phaser.Scene {
   }
 
   create(): void {
-    this.staticBars = [];
     this.lastAnnouncedStormId = null;
 
     // 1. Cielo ocre (#feae34 con alpha 0.27, sección 9.2 y s10_tormenta.png)
@@ -35,86 +38,64 @@ export class Tormenta extends Phaser.Scene {
 
     this.particlesGraphic = this.add.graphics().setDepth(6);
 
-    // 2. Barra superior con franjas rojas/naranjas de alerta y cartel central (s10_tormenta.png)
+    // 2. Efecto suave de estática tipo TV en toda la pantalla cada ~3.8 s
+    this.staticEffect = new StaticEffect(this, {
+      intervalMs: 3800,
+      burstDurationMs: 260,
+      maxAlpha: 0.16,
+    });
+
+    // 3. Tarjeta central superior (x = 212..504, centro x = 358) libre de colisión con paneles laterales
+    const centerX = 358;
+    const cardW = 288;
+
     const hazardGraphics = this.add.graphics();
-    for (let x = -20; x < 660; x += 18) {
+    const startX = centerX - cardW / 2;
+    const endX = centerX + cardW / 2;
+    for (let x = startX; x < endX - 8; x += 16) {
       hazardGraphics.fillStyle(0xe43b44, 1);
-      hazardGraphics.fillPoints(
-        [
-          new Phaser.Geom.Point(x, 0),
-          new Phaser.Geom.Point(x + 9, 0),
-          new Phaser.Geom.Point(x + 17, 18),
-          new Phaser.Geom.Point(x + 8, 18),
-        ],
-        true
-      );
+      hazardGraphics.fillRect(x, 6, 8, 20);
       hazardGraphics.fillStyle(0xd77643, 1);
-      hazardGraphics.fillPoints(
-        [
-          new Phaser.Geom.Point(x + 9, 0),
-          new Phaser.Geom.Point(x + 18, 0),
-          new Phaser.Geom.Point(x + 26, 18),
-          new Phaser.Geom.Point(x + 17, 18),
-        ],
-        true
-      );
+      hazardGraphics.fillRect(x + 8, 6, 8, 20);
     }
 
     const bannerBox = this.add
-      .rectangle(320, 10, 348, 18, 0x181425)
+      .rectangle(centerX, 16, cardW - 8, 18, 0x181425)
       .setOrigin(0.5);
     this.bannerText = this.add
-      .text(320, 10, '', {
+      .text(centerX, 16, '', {
         fontFamily: 'PixelifySans, monospace',
-        fontSize: '12px',
-        color: '#ffffff',
+        resolution: 2,
+        fontSize: '11px',
+        color: '#fee761',
       })
       .setOrigin(0.5);
 
-    // 3. Recuadro superior izquierdo "SEÑALES DE AVISO" + etiqueta DONKI (s10_tormenta.png)
-    const signalsBox = this.add
-      .rectangle(6, 26, 222, 58, 0x181425, 0.96)
-      .setOrigin(0, 0)
-      .setStrokeStyle(2, 0x3a4466);
-    const sigTitle = this.add.text(16, 33, uiText.storm.signalsTitle, {
-      fontFamily: 'PixelifySans, monospace',
-      fontSize: '11px',
-      color: '#fee761',
-    });
-    const sig1 = this.add.text(16, 49, uiText.storm.signalSky, {
-      fontFamily: 'PixelifySans, monospace',
-      fontSize: '11px',
-      color: '#ffffff',
-    });
-    const sig2 = this.add.text(16, 64, uiText.storm.signalAntenna, {
-      fontFamily: 'PixelifySans, monospace',
-      fontSize: '11px',
-      color: '#ffffff',
-    });
-
-    this.honestyTagBg = this.add
-      .rectangle(6, 90, 238, 16, 0xffffff)
-      .setOrigin(0, 0)
+    const infoCard = this.add
+      .rectangle(centerX, 43, cardW, 30, 0x181425, 0.94)
+      .setOrigin(0.5)
       .setStrokeStyle(1, 0x5a6988);
-    this.honestyTagText = this.add.text(12, 92, '', {
-      fontFamily: 'PixelifySans, monospace',
-      fontSize: '9px',
-      color: '#262b44',
-    });
 
-    // 4. Indicador de estática de la antena arriba al centro-derecha (s10_tormenta.png)
-    const staticBox = this.add
-      .rectangle(417, 38, 44, 18, 0x181425)
-      .setStrokeStyle(2, 0x262b44);
-    for (let i = 0; i < 5; i++) {
-      const bar = this.add.rectangle(401 + i * 8, 38, 4, 12, 0xc0cbdc);
-      this.staticBars.push(bar);
-    }
-    const staticLabel = this.add
-      .text(417, 56, uiText.storm.staticLabel, {
+    this.signalsText = this.add
+      .text(
+        centerX,
+        36,
+        `${uiText.storm.signalsTitle}: cielo ocre + interferencia de señal`,
+        {
+          fontFamily: 'PixelifySans, monospace',
+          resolution: 2,
+          fontSize: '9px',
+          color: '#ead4aa',
+        }
+      )
+      .setOrigin(0.5);
+
+    this.honestyTagText = this.add
+      .text(centerX, 49, '', {
         fontFamily: 'PixelifySans, monospace',
-        fontSize: '10px',
-        color: '#181425',
+        resolution: 2,
+        fontSize: '9px',
+        color: '#2ce8f5',
       })
       .setOrigin(0.5);
 
@@ -125,18 +106,16 @@ export class Tormenta extends Phaser.Scene {
         hazardGraphics,
         bannerBox,
         this.bannerText,
-        signalsBox,
-        sigTitle,
-        sig1,
-        sig2,
-        this.honestyTagBg,
+        infoCard,
+        this.signalsText,
         this.honestyTagText,
-        staticBox,
-        ...this.staticBars,
-        staticLabel,
       ])
       .setDepth(60)
       .setVisible(false);
+
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.staticEffect?.destroy();
+    });
   }
 
   update(time: number): void {
@@ -151,15 +130,18 @@ export class Tormenta extends Phaser.Scene {
 
     if (!storm || storm.phase === 'resolved' || inMinigame) {
       this.rootContainer.setVisible(false);
+      this.staticEffect.setEnabled(false);
       return;
     }
 
     this.rootContainer.setVisible(true);
 
-    // Disparar diálogo grande de Corvi con alerta la primera vez que arranca esta tormenta
+    // Disparar diálogo grande de Corvi y primera ráfaga suave de TV al comenzar la tormenta
     const stormKey = `${storm.eventId}:${storm.type}`;
     if (this.lastAnnouncedStormId !== stormKey) {
       this.lastAnnouncedStormId = stormKey;
+      AudioSystem.play('stormAlarm');
+      this.staticEffect.setEnabled(true, true);
       bus.emit('dialog:open', {
         mode: 'big',
         mood: 'alert',
@@ -167,7 +149,11 @@ export class Tormenta extends Phaser.Scene {
         source: uiText.storm.sealSource,
         label: 'ARCHIVO REAL',
       });
+    } else {
+      this.staticEffect.setEnabled(true, false);
     }
+
+    this.staticEffect.update(time);
 
     if (storm.phase === 'countdown') {
       const secs = Math.ceil(storm.countdownSec);
@@ -187,20 +173,13 @@ export class Tormenta extends Phaser.Scene {
     const shortId = storm.donkiActivityID.startsWith('TODO_DATO')
       ? 'TODO_DATO (CME mayo 2024)'
       : storm.donkiActivityID;
-    this.honestyTagText.setText(`▪ ARCHIVO REAL · DONKI · ${shortId}`);
-    this.honestyTagBg.width = Math.max(238, Math.round(this.honestyTagText.width + 14));
-
-    // Parpadeo de las barras de estática de la antena
-    this.staticBars.forEach((bar, idx) => {
-      const on = Math.floor(time / 120 + idx) % 2 === 0;
-      bar.setFillStyle(on ? 0xffffff : 0x5a6988);
-    });
+    this.honestyTagText.setText(`★ ARCHIVO REAL · DONKI · ${shortId}`);
 
     // Trazos diagonales blancos de partículas solares (s10_tormenta.png)
     this.particlesGraphic.clear();
-    this.particlesGraphic.fillStyle(0xffffff, 0.9);
+    this.particlesGraphic.fillStyle(0xffffff, 0.85);
     const offset = Math.floor(time * 0.08) % 180;
-    for (let i = 0; i < 16; i++) {
+    for (let i = 0; i < 14; i++) {
       const px = ((i * 67 + offset) % 620) + 10;
       const py = ((i * 53 + offset) % 280) + 24;
       this.particlesGraphic.fillRect(px, py, 3, 2);

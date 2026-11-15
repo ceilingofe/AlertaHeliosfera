@@ -34,7 +34,7 @@ export class Despegue extends Phaser.Scene {
     horizon.fillStyle(0xb86f50, 1);
     horizon.fillEllipse(310, 340, 680, 156);
 
-    // 2. Título superior "DÍA 1 · BIENVENIDA A JEZERO"
+    // 2. Título superior "DÍA 1 · BIENVENIDA A JEZERO" y botón de Fuentes NASA
     this.add
       .text(320, 22, uiText.despegue.header, {
         fontFamily: 'PixelifySans, monospace',
@@ -43,6 +43,24 @@ export class Despegue extends Phaser.Scene {
         color: '#ffffff',
       })
       .setOrigin(0.5);
+
+    const creditsBtn = this.add
+      .rectangle(64, 22, 108, 22, 0x262b44)
+      .setStrokeStyle(1, 0x5a6988)
+      .setInteractive({ useHandCursor: true });
+    this.add
+      .text(64, 22, '★ Fuentes NASA', {
+        fontFamily: 'PixelifySans, monospace',
+        resolution: 2,
+        fontSize: '10px',
+        color: '#fee761',
+      })
+      .setOrigin(0.5);
+    creditsBtn.on('pointerdown', () => {
+      this.dialogBox?.destroy();
+      this.dialogBox = null;
+      this.scene.start('Creditos', { returnScene: 'Despegue' });
+    });
 
     // 3. Cohete aterrizado y astronauta a escala entera ×3 con su traje/accesorio actual
     this.add.image(226, 206, 'rocket').setScale(1.8);

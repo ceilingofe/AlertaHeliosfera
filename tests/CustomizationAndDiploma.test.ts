@@ -3,12 +3,26 @@ import corviQaJson from '../content/corvi_qa.json';
 import factsJson from '../content/facts.json';
 import uiTextJson from '../content/ui_text.json';
 import { createInitialGameState } from '../src/state/GameState';
+import { AudioSystem } from '../src/systems/Audio';
 import { BaseSystem } from '../src/systems/BaseSystem';
 import { Customization, SUIT_PALETTES } from '../src/systems/Customization';
 import { Events } from '../src/systems/Events';
 import { Vitals } from '../src/systems/Vitals';
 
-describe('Fase 5 · Final, Diploma, Personalización y Días 6+', () => {
+describe('Fase 5 y 6 · Final, Diploma, Personalización, Audio y Créditos NASA', () => {
+  it('alterna y recuerda el estado de silencio (mute) en AudioSystem e incluye el aviso legal NASA en ui_text.json', () => {
+    const initialMute = AudioSystem.isMuted();
+    const toggled = AudioSystem.toggleMute();
+    expect(toggled).toBe(!initialMute);
+    expect(AudioSystem.isMuted()).toBe(!initialMute);
+    AudioSystem.setMuted(false);
+    expect(AudioSystem.isMuted()).toBe(false);
+
+    expect(uiTextJson.honestyNotice).toBe(
+      'Este juego usa datos abiertos de la NASA. No está avalado por la NASA.'
+    );
+  });
+
   it('alcanzar el límite de radiación (150 DR) dispara rescate con causa radiacion', () => {
     const state = createInitialGameState();
     state.location = 'mundo';

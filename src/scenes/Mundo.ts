@@ -4,6 +4,7 @@ import uiText from '../../content/ui_text.json';
 import { bus } from '../state/bus';
 import { gameStore } from '../state/GameState';
 import { Save } from '../state/Save';
+import { AudioSystem } from '../systems/Audio';
 import { BaseSystem } from '../systems/BaseSystem';
 import { Clock } from '../systems/Clock';
 import { Events } from '../systems/Events';
@@ -11,6 +12,7 @@ import { Vitals } from '../systems/Vitals';
 import type { SampleType } from '../types';
 import { AstronautAppearance } from '../ui/AstronautAppearance';
 import { getSharedJoystickVector } from '../ui/Joystick';
+import { StaticEffect } from '../ui/StaticEffect';
 
 interface InteractPoint {
   kind: 'door' | 'panel' | 'antenna' | 'moxie' | 'refuge' | 'sample' | 'threeForks';
@@ -65,6 +67,7 @@ export class Mundo extends Phaser.Scene {
   private currentZoneName = '';
   private lastToolIndex = 0;
   private rescueTriggered = false;
+  private staticEffect!: StaticEffect;
   private unsubscribers: (() => void)[] = [];
 
   constructor() {
@@ -353,6 +356,13 @@ export class Mundo extends Phaser.Scene {
       })
     );
 
+    this.staticEffect = new StaticEffect(this, {
+      intervalMs: 4200,
+      burstDurationMs: 240,
+      maxAlpha: 0.14,
+    });
+    this.staticEffect.setEnabled(!state.base.antennaOk, false);
+
     if (!this.scene.isActive('HUD')) {
       this.scene.launch('HUD');
     }
@@ -368,6 +378,7 @@ export class Mundo extends Phaser.Scene {
         unsub();
       }
       this.unsubscribers = [];
+      this.staticEffect?.destroy();
     });
   }
 
@@ -377,6 +388,7 @@ export class Mundo extends Phaser.Scene {
 
   private refreshEquipmentVisuals(): void {
     const state = gameStore.state;
+    this.staticEffect?.setEnabled(!state.base.antennaOk, false);
     for (const pt of this.interactPoints) {
       if (pt.kind === 'panel' && pt.panelId) {
         const pData = state.base.panels.find((p) => p.id === pt.panelId);
@@ -403,7 +415,7 @@ export class Mundo extends Phaser.Scene {
     }
   }
 
-  update(_time: number, delta: number): void {
+  update(time: number, delta: number): void {
     const state = gameStore.state;
     if (this.rescueTriggered) {
       return;
@@ -416,6 +428,7 @@ export class Mundo extends Phaser.Scene {
       return;
     }
 
+    this.staticEffect?.update(time);
     const dt = delta / 1000;
 
     // 1. Movimiento en 4/8 direcciones con WASD, flechas o joystick virtual
@@ -437,6 +450,7 @@ export class Mundo extends Phaser.Scene {
 
     const moving = vx !== 0 || vy !== 0;
     if (moving) {
+      AudioSystem.play('step');
       const len = Math.hypot(vx, vy);
       const speed = balance.player.speed;
       this.player.setVelocity((vx / len) * speed, (vy / len) * speed);

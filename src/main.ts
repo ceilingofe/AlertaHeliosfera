@@ -7,6 +7,7 @@ import { MinijuegoSuelo } from './minigames/MinijuegoSuelo';
 import { MinijuegoTuberias } from './minigames/MinijuegoTuberias';
 import { Base } from './scenes/Base';
 import { Boot } from './scenes/Boot';
+import { Creditos } from './scenes/Creditos';
 import { Despegue } from './scenes/Despegue';
 import { Dialogo } from './scenes/Dialogo';
 import { Diploma } from './scenes/Diploma';
@@ -39,6 +40,7 @@ const config: Phaser.Types.Core.GameConfig = {
     Boot,
     Preload,
     Despegue,
+    Creditos,
     Personaliza,
     Transmision,
     Mundo,
