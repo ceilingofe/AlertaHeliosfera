@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import uiText from '../../content/ui_text.json';
 import { bus } from '../state/bus';
+import { gameStore } from '../state/GameState';
 import { AudioSystem } from '../systems/Audio';
 import { Events } from '../systems/Events';
 import { StaticEffect } from '../ui/StaticEffect';
@@ -8,8 +9,8 @@ import { StaticEffect } from '../ui/StaticEffect';
 /**
  * Escena en paralelo Tormenta (fiel al storyboard s10_tormenta.png):
  * Muestra la doble señal:
- * 1) Cielo ocre (#feae34 con alpha 0.27) y partículas solares diagonales,
- * 2) Interferencia suave de señal tipo TV en toda la pantalla cada ciertos segundos (StaticEffect),
+ * 1) Cielo ocre (#feae34 con alpha 0.27) y partículas solares diagonales (solo afuera en el Mundo),
+ * 2) Interferencia suave de señal tipo TV en toda la pantalla cada ciertos segundos (StaticEffect, solo afuera),
  * junto con el cartel central de cuenta regresiva (120 s reales + 30 s de impacto) y el ID de DONKI,
  * ubicado en la franja central superior (x = 214..502) para no empalmarse con ningún panel del HUD ni de la Base.
  * En el Día 5 (cme_miss), anuncia primero como vigilancia preventiva (corviAlertWatch) antes de confirmar la falsa alarma.
@@ -133,14 +134,18 @@ export class Tormenta extends Phaser.Scene {
       return;
     }
 
+    const insideHabitat = gameStore.state.location !== 'mundo';
     this.rootContainer.setVisible(true);
+    this.ochreOverlay.setVisible(!insideHabitat);
+    this.particlesGraphic.setVisible(!insideHabitat);
 
     // Disparar diálogo grande de Corvi y primera ráfaga suave de TV al comenzar la tormenta
     const stormKey = `${storm.eventId}:${storm.type}`;
-    if (this.lastAnnouncedStormId !== stormKey) {
+    const justStarted = this.lastAnnouncedStormId !== stormKey;
+    if (justStarted) {
       this.lastAnnouncedStormId = stormKey;
       AudioSystem.play('stormAlarm');
-      this.staticEffect.setEnabled(true, true);
+      this.staticEffect.setEnabled(!insideHabitat, !insideHabitat);
       const alertText =
         storm.type === 'cme_miss'
           ? uiText.storm.corviAlertWatch
@@ -153,10 +158,12 @@ export class Tormenta extends Phaser.Scene {
         label: 'ARCHIVO REAL',
       });
     } else {
-      this.staticEffect.setEnabled(true, false);
+      this.staticEffect.setEnabled(!insideHabitat, false);
     }
 
-    this.staticEffect.update(time);
+    if (!insideHabitat) {
+      this.staticEffect.update(time);
+    }
 
     if (storm.phase === 'countdown') {
       const secs = Math.ceil(storm.countdownSec);
@@ -174,18 +181,23 @@ export class Tormenta extends Phaser.Scene {
     }
 
     this.honestyTagText.setText(`★ ARCHIVO REAL · NASA · ${storm.donkiActivityID}`);
-    if (storm.phase === 'impact') AudioSystem.startLoop('storm', 'rumble', 0.6);
-    else AudioSystem.stopLoop('storm');
+    if (storm.phase === 'impact') {
+      AudioSystem.startLoop('storm', 'rumble', insideHabitat ? 0.25 : 0.6);
+    } else {
+      AudioSystem.stopLoop('storm');
+    }
 
-    // Trazos diagonales blancos de partículas solares (s10_tormenta.png)
+    // Trazos diagonales blancos de partículas solares: nunca visibles dentro de la base o refugio
     this.particlesGraphic.clear();
-    this.particlesGraphic.fillStyle(0xffffff, 0.85);
-    const offset = Math.floor(time * 0.08) % 180;
-    for (let i = 0; i < 14; i++) {
-      const px = ((i * 67 + offset) % 620) + 10;
-      const py = ((i * 53 + offset) % 280) + 24;
-      this.particlesGraphic.fillRect(px, py, 3, 2);
-      this.particlesGraphic.fillRect(px + 2, py + 2, 3, 2);
+    if (!insideHabitat) {
+      this.particlesGraphic.fillStyle(0xffffff, 0.85);
+      const offset = Math.floor(time * 0.08) % 180;
+      for (let i = 0; i < 14; i++) {
+        const px = ((i * 67 + offset) % 620) + 10;
+        const py = ((i * 53 + offset) % 280) + 24;
+        this.particlesGraphic.fillRect(px, py, 3, 2);
+        this.particlesGraphic.fillRect(px + 2, py + 2, 3, 2);
+      }
     }
   }
 }

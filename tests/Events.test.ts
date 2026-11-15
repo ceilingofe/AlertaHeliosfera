@@ -137,4 +137,33 @@ describe('Fase 4 · Eventos de los días 2 a 5, tormenta solar y preguntas de Co
     expect(Data.getUnlockedCorviQA(3).length).toBe(8);
     expect(Data.getUnlockedCorviQA(5).length).toBe(10);
   });
+
+  it('mantiene las misiones de eventos completadas todo el día y las reinicia al dormir', () => {
+    const state = createInitialGameState();
+    state.day = 3;
+    Events.initDay(state);
+
+    Events.triggerEvent(state, { type: 'moxie_pipes', at: '10:30' });
+    expect(state.missionsToday).toContain('fix_moxie');
+    expect(state.completedMissionsToday).not.toContain('fix_moxie');
+
+    Events.resolveMaintenanceEvent(state, 'moxie_pipes');
+    expect(state.missionsToday).toContain('fix_moxie');
+    expect(state.completedMissionsToday).toContain('fix_moxie');
+
+    // Tormenta CME hit: entrar al refugio marca 'shelter' y permanece completada aunque acabe o salga
+    state.clock.minutes = 13 * 60;
+    Events.tick(state, 0.1);
+    state.location = 'refugio';
+    Events.tick(state, 0.1);
+    expect(state.completedMissionsToday).toContain('shelter');
+    state.location = 'base';
+    Events.tick(state, 120);
+    Events.tick(state, 30);
+    expect(state.completedMissionsToday).toContain('shelter');
+    expect(state.missionsToday).toContain('fix_antenna');
+
+    BaseSystem.sleepToNextDay(state);
+    expect(state.completedMissionsToday).toEqual([]);
+  });
 });

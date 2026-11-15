@@ -17,6 +17,7 @@ export interface MinigameResult {
   ok: boolean;
   quality: 0 | 1 | 2 | 3;
   factId?: string;
+  aborted?: boolean;
 }
 
 export interface DialogMessage {
@@ -56,7 +57,7 @@ export interface GameState {
   corviSeen: string[];
   customization: {
     suit: SuitColor;
-    hair: 1 | 2;
+    hair: 1 | 2 | 3;
     accessory: Accessory | null;
     patch: string;
   };
@@ -83,4 +84,10 @@ export interface GameState {
   journal: string[];
   /** Último día en que se presentó el examen de Control de Misión. */
   triviaDoneDay: number;
+  /** Misiones secundarias o de evento activadas hoy (permanecen visibles al completarse). */
+  missionsToday?: string[];
+  /** Misiones completadas hoy (permanecen marcadas el resto del día). */
+  completedMissionsToday?: string[];
+  /** Sitios de muestra de reemplazo generados hoy tras abortar un minijuego. */
+  extraSitesToday?: { id: string; type: SampleType; x: number; y: number }[];
 }

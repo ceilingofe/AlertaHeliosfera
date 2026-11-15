@@ -45,6 +45,9 @@ export class Save {
       if (!Save.isValidGameState(parsed)) {
         return null;
       }
+      parsed.missionsToday ??= [];
+      parsed.completedMissionsToday ??= [];
+      parsed.extraSitesToday ??= [];
       return parsed;
     } catch {
       return null;
@@ -84,6 +87,9 @@ export class Save {
       sitesUsedToday: [],
       journal: [],
       triviaDoneDay: 0,
+      missionsToday: [],
+      completedMissionsToday: [],
+      extraSitesToday: [],
     };
   }
 

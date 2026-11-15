@@ -9,7 +9,7 @@ import { AudioSystem } from '../systems/Audio';
 import { BaseSystem } from '../systems/BaseSystem';
 import { Clock } from '../systems/Clock';
 import { Events } from '../systems/Events';
-import { generateSampleSites, type SampleSite } from '../systems/SampleSites';
+import { createReplacementSampleSite, generateSampleSites, type SampleSite } from '../systems/SampleSites';
 import { Vitals } from '../systems/Vitals';
 import type { SampleType } from '../types';
 import { AstronautAppearance, type AstronautDirection } from '../ui/AstronautAppearance';
@@ -38,6 +38,29 @@ interface ZoneRect {
 interface Footprint {
   img: Phaser.GameObjects.Image;
   born: number;
+}
+
+interface DustMote {
+  img: Phaser.GameObjects.Image;
+  speed: number;
+  wavePhase: number;
+}
+
+interface WindStreak {
+  ox: number;
+  oy: number;
+  len: number;
+  speed: number;
+  color: number;
+}
+
+interface NightStar {
+  ox: number;
+  oy: number;
+  r: number;
+  color: number;
+  speed: number;
+  phase: number;
 }
 
 export const MINIGAME_KEYS = [
@@ -79,6 +102,9 @@ export class Mundo extends Phaser.Scene {
   private sceneEnteredAt = 0;
 
   private nightOverlay!: Phaser.GameObjects.Rectangle;
+  private nightCosmosGfx!: Phaser.GameObjects.Graphics;
+  private playerLightGfx!: Phaser.GameObjects.Graphics;
+  private windGfx!: Phaser.GameObjects.Graphics;
   private interactPoints: InteractPoint[] = [];
   private activeSamplePoint: InteractPoint | null = null;
   private zones: ZoneRect[] = [];
@@ -91,7 +117,18 @@ export class Mundo extends Phaser.Scene {
   private footprints: Footprint[] = [];
   private lastFootAt = 0;
   private footSide = 0;
-  private dustMotes: Phaser.GameObjects.Image[] = [];
+  private dustMotes: DustMote[] = [];
+  private windStreaks: WindStreak[] = [];
+  private nightStars: NightStar[] = [];
+  private meteorState = {
+    active: false,
+    nextAt: 2500,
+    startedAt: 0,
+    sx: 0,
+    sy: 0,
+    dx: 0,
+    dy: 0,
+  };
   private wasInMinigame = false;
 
   constructor() {
@@ -111,6 +148,9 @@ export class Mundo extends Phaser.Scene {
     this.unsubscribers = [];
     this.footprints = [];
     this.dustMotes = [];
+    this.windStreaks = [];
+    this.nightStars = [];
+    this.meteorState = { active: false, nextAt: this.time.now + 2400, startedAt: 0, sx: 0, sy: 0, dx: 0, dy: 0 };
     this.lastToolIndex = -1;
     this.lastPromptText = null;
     this.wasInMinigame = false;
@@ -238,7 +278,10 @@ export class Mundo extends Phaser.Scene {
     this.interactPoints.push(depotPt);
 
     // 3. Sitios de muestra del día (cambian cada día y no reaparecen al volver a salir)
-    const sites = generateSampleSites(state.day, state.quotaToday);
+    const sites = [
+      ...generateSampleSites(state.day, state.quotaToday),
+      ...(state.extraSitesToday ?? []),
+    ];
     for (const site of sites) {
       this.spawnSampleSite(site, state.sitesUsedToday.includes(site.id));
     }
@@ -266,17 +309,50 @@ export class Mundo extends Phaser.Scene {
     body.setOffset(2, 13);
     this.physics.add.collider(this.player, obstacles);
 
-    // 5. Polvo que arrastra el viento
-    for (let i = 0; i < 26; i++) {
+    // 5. Polvo dinámico y ráfagas de viento marciano
+    const moteColors = [0xead4aa, 0xe4a672, 0xd77643];
+    for (let i = 0; i < 46; i++) {
       const m = this.add
         .image(Phaser.Math.Between(0, mapWidth), Phaser.Math.Between(0, mapHeight), 'dust_mote')
-        .setAlpha(0.5)
+        .setTint(moteColors[i % moteColors.length])
+        .setScale(0.65 + (i % 4) * 0.25)
+        .setAlpha(0.35 + (i % 3) * 0.16)
         .setDepth(25);
-      this.dustMotes.push(m);
+      this.dustMotes.push({
+        img: m,
+        speed: 42 + (i % 7) * 14,
+        wavePhase: i * 0.7,
+      });
+    }
+    this.windGfx = this.add.graphics().setDepth(26);
+    const streakColors = [0xead4aa, 0xe4a672, 0xb86f50];
+    for (let i = 0; i < 42; i++) {
+      this.windStreaks.push({
+        ox: (i * 53) % 340,
+        oy: (i * 37) % 190,
+        len: 7 + (i % 5) * 4,
+        speed: 110 + (i % 6) * 28,
+        color: streakColors[i % streakColors.length],
+      });
     }
 
-    // 6. Atardecer y noche: el cielo se oscurece poco a poco desde las 16:00
-    this.nightOverlay = this.add.rectangle(0, 0, mapWidth, mapHeight, 0x124e89, 0).setOrigin(0, 0).setDepth(30);
+    // 6. Atardecer y noche estrellada: cielo nocturno con estrellas, Vía Láctea, Fobos/Deimos y halo del traje
+    this.nightOverlay = this.add.rectangle(0, 0, mapWidth, mapHeight, 0x0b1026, 0).setOrigin(0, 0).setDepth(30);
+    this.nightCosmosGfx = this.add.graphics().setDepth(31);
+    this.playerLightGfx = this.add.graphics().setDepth(32);
+
+    const starPalette = [0xffffff, 0xc0cbdc, 0x2ce8f5, 0xfee761, 0xf4b4b4];
+    const starRnd = new Phaser.Math.RandomDataGenerator(['jezero-cosmos-stars']);
+    for (let i = 0; i < 84; i++) {
+      this.nightStars.push({
+        ox: starRnd.realInRange(0, 420),
+        oy: starRnd.realInRange(2, 60),
+        r: i % 9 === 0 ? 1.25 : i % 3 === 0 ? 0.85 : 0.55,
+        color: starPalette[i % starPalette.length],
+        speed: starRnd.realInRange(0.0018, 0.0052),
+        phase: starRnd.realInRange(0, Math.PI * 2),
+      });
+    }
 
     // 7. Cámara
     this.cameras.main.setBounds(0, 0, mapWidth, mapHeight);
@@ -483,7 +559,12 @@ export class Mundo extends Phaser.Scene {
     this.publishMarkers();
   }
 
-  private onMinigameFinished(res: { ok: boolean; quality: 0 | 1 | 2 | 3; factId?: string }): void {
+  private onMinigameFinished(res: {
+    ok: boolean;
+    quality: 0 | 1 | 2 | 3;
+    factId?: string;
+    aborted?: boolean;
+  }): void {
     const state = gameStore.state;
     const pt = this.activeSamplePoint;
     this.activeSamplePoint = null;
@@ -498,6 +579,24 @@ export class Mundo extends Phaser.Scene {
         AudioSystem.play('pickup');
         bus.emit('interact:prompt', { text: uiText.hud.radioSamplePicked });
         bus.emit('toast', { text: `+${pts} ${uiText.hud.sciencePointsShort}`, color: '#fee761' });
+      } else if (res.aborted) {
+        // Misión abortada: ese sitio se pierde y aparece un punto nuevo del mismo tipo en otra zona
+        this.markSiteUsed(pt, true);
+        const sType = pt.sampleType ?? 'roca';
+        const existingCoords = this.interactPoints.map((p) => ({ x: p.x, y: p.y }));
+        state.extraSitesToday ??= [];
+        const replId = `d${state.day}-${sType}-re-${state.extraSitesToday.length + 1}`;
+        const newSite = createReplacementSampleSite(
+          sType,
+          existingCoords,
+          replId,
+          state.day * 997 + this.interactPoints.length * 41 + state.extraSitesToday.length * 17
+        );
+        state.extraSitesToday.push(newSite);
+        this.spawnSampleSite(newSite, false);
+        this.publishMarkers();
+        AudioSystem.play('ui_close');
+        bus.emit('interact:prompt', { text: uiText.hud.radioSampleAborted });
       } else {
         state.stats.minigamesFailed += 1;
         this.markSiteUsed(pt, true);
@@ -505,9 +604,13 @@ export class Mundo extends Phaser.Scene {
         bus.emit('interact:prompt', { text: uiText.hud.radioSampleLost });
       }
     } else if (pt && !res.ok) {
-      state.stats.minigamesFailed += 1;
-      AudioSystem.play('fail');
-      bus.emit('interact:prompt', { text: uiText.hud.radioRepairFailed });
+      if (res.aborted) {
+        AudioSystem.play('ui_close');
+      } else {
+        state.stats.minigamesFailed += 1;
+        AudioSystem.play('fail');
+        bus.emit('interact:prompt', { text: uiText.hud.radioRepairFailed });
+      }
     } else if (pt && res.ok) {
       state.sciencePoints += 5;
       bus.emit('toast', { text: `+5 ${uiText.hud.sciencePointsShort}`, color: '#fee761' });
@@ -601,7 +704,8 @@ export class Mundo extends Phaser.Scene {
 
     mapMarkers.player.x = this.player.x;
     mapMarkers.player.y = this.player.y;
-    this.updateDust(delta);
+    this.updateDust(delta, time);
+    this.updateNightSky(time, state.clock.minutes);
 
     const inMinigame = this.isAnyMinigameActive();
     if (inMinigame !== this.wasInMinigame) {
@@ -701,14 +805,9 @@ export class Mundo extends Phaser.Scene {
       return;
     }
 
-    // Tinte del cielo: atardecer desde las 16:00, noche a las 17:00
+    // Tinte del cielo: atardecer desde las 16:00, noche estrellada desde las 17:00
     const m = state.clock.minutes;
-    const dusk = Phaser.Math.Clamp(
-      (m - balance.dayClock.warnMin) / (balance.dayClock.curfewMin - balance.dayClock.warnMin),
-      0,
-      1
-    );
-    this.nightOverlay.setAlpha(Clock.isNight(m) ? 0.42 : dusk * 0.25);
+    this.updateNightSky(time, m);
     AudioSystem.startLoop('ambient', 'wind_loop', Clock.isNight(m) ? 1.1 : 0.8);
 
     // 3. Eventos diarios y tormenta solar
@@ -755,19 +854,202 @@ export class Mundo extends Phaser.Scene {
     }
   }
 
-  private updateDust(delta: number): void {
+  private updateNightSky(time: number, minutes: number): void {
+    const state = gameStore.state;
+    const dusk = Phaser.Math.Clamp(
+      (minutes - balance.dayClock.warnMin) / (balance.dayClock.curfewMin - balance.dayClock.warnMin),
+      0,
+      1
+    );
+    const night = Clock.isNight(minutes);
+    const skyBlend = night ? 1 : dusk * 0.65;
+
+    // Color de atardecer azulado-violáceo en Marte -> noche estelar profunda (#0b1026)
+    this.nightOverlay.setFillStyle(night ? 0x0b1026 : 0x1c2559, night ? 0.44 : dusk * 0.24);
+
+    const cg = this.nightCosmosGfx;
+    const lg = this.playerLightGfx;
+    cg.clear();
+    lg.clear();
+    if (skyBlend <= 0.02) return;
+
     const view = this.cameras.main.worldView;
+    const camCx = view.centerX;
+
+    // 1. Bóveda celeste superior con gradiente suave hacia el horizonte marciano
+    const canopyH = 56;
+    const bands = 7;
+    const bandH = canopyH / bands;
+    for (let b = 0; b < bands; b++) {
+      const bandAlpha = (1 - b / bands) * 0.66 * skyBlend;
+      cg.fillStyle(b < 3 ? 0x060919 : 0x0f1636, bandAlpha);
+      cg.fillRect(view.left - 4, view.top + b * bandH, view.width + 8, bandH + 0.5);
+    }
+
+    // 2. Banda luminosa de la Vía Láctea cruzando en diagonal la bóveda
+    const mwShift = ((camCx * 0.1) % 320);
+    for (let i = 0; i < 12; i++) {
+      const mx = view.left + ((i * 28 - mwShift + 640) % 340) - 10;
+      const my = view.top + 38 - i * 2.4 + Math.sin(i * 0.7) * 3;
+      cg.fillStyle(i % 2 === 0 ? 0x3b4d8f : 0x6c4c8f, 0.13 * skyBlend);
+      cg.fillEllipse(mx, my, 42, 16);
+    }
+
+    // 3. Estrellas multicolores con paralaje suave y parpadeo natural
+    const parallaxX = camCx * 0.16;
+    for (const s of this.nightStars) {
+      const sx = view.left + (((s.ox - parallaxX) % 330) + 330) % 330 - 5;
+      const sy = view.top + s.oy;
+      const horizonFade = s.oy < 42 ? 1 : Phaser.Math.Clamp(1 - (s.oy - 42) / 18, 0, 1);
+      const twinkle = 0.45 + 0.55 * Math.sin(time * s.speed + s.phase);
+      const alpha = horizonFade * twinkle * skyBlend;
+      if (alpha <= 0.04) continue;
+      cg.fillStyle(s.color, alpha);
+      cg.fillCircle(sx, sy, s.r);
+      if (s.r >= 1.2) {
+        cg.fillStyle(s.color, alpha * 0.35);
+        cg.fillRect(sx - 2, sy - 0.3, 4, 0.6);
+        cg.fillRect(sx - 0.3, sy - 2, 0.6, 4);
+      }
+    }
+
+    // 4. Auroras marcianas discretas cuando una CME roza el planeta (aurora_tonight)
+    if (night && state.activeEvents.includes('aurora_tonight')) {
+      for (let i = 0; i < 16; i++) {
+        const ax = view.left + 12 + i * 20;
+        const wave = Math.sin(time * 0.0022 + i * 0.55);
+        const ay = view.top + 14 + wave * 5;
+        const ah = 14 + Math.cos(time * 0.0017 + i) * 5;
+        cg.fillStyle(i % 3 === 0 ? 0xb55088 : 0x63c74d, (0.22 + wave * 0.08) * skyBlend);
+        cg.fillRect(ax, ay, 8, ah);
+      }
+    }
+
+    // 5. Fobos (grande e irregular, con cráteres) y Deimos (brillante punto lejano)
+    const phobosX = view.left + 252 - (camCx * 0.03) % 40;
+    const phobosY = view.top + 15;
+    cg.fillStyle(0xead4aa, 0.16 * skyBlend);
+    cg.fillCircle(phobosX, phobosY, 9);
+    cg.fillStyle(0xead4aa, 0.92 * skyBlend);
+    cg.fillCircle(phobosX - 1, phobosY, 4.2);
+    cg.fillCircle(phobosX + 2.5, phobosY + 0.8, 2.8);
+    cg.fillStyle(0xb86f50, 0.7 * skyBlend);
+    cg.fillCircle(phobosX - 2, phobosY - 1, 1.1);
+    cg.fillCircle(phobosX + 1.5, phobosY + 1.2, 0.8);
+
+    const deimosX = view.left + 84 - (camCx * 0.02) % 30;
+    const deimosY = view.top + 20;
+    cg.fillStyle(0xc0cbdc, 0.2 * skyBlend);
+    cg.fillCircle(deimosX, deimosY, 4.5);
+    cg.fillStyle(0xffffff, 0.95 * skyBlend);
+    cg.fillCircle(deimosX, deimosY, 1.5);
+
+    // 6. Estrellas fugaces ocasionales durante la noche
+    if (night) {
+      if (!this.meteorState.active && time >= this.meteorState.nextAt) {
+        this.meteorState.active = true;
+        this.meteorState.startedAt = time;
+        this.meteorState.sx = Phaser.Math.Between(35, 280);
+        this.meteorState.sy = Phaser.Math.Between(4, 24);
+        this.meteorState.dx = Phaser.Math.Between(-58, -32);
+        this.meteorState.dy = Phaser.Math.Between(14, 24);
+      }
+      if (this.meteorState.active) {
+        const p = (time - this.meteorState.startedAt) / 520;
+        if (p >= 1) {
+          this.meteorState.active = false;
+          this.meteorState.nextAt = time + Phaser.Math.Between(3200, 6400);
+        } else {
+          const hx = view.left + this.meteorState.sx + this.meteorState.dx * p;
+          const hy = view.top + this.meteorState.sy + this.meteorState.dy * p;
+          const tail = Math.max(0, p - 0.22);
+          const tx = view.left + this.meteorState.sx + this.meteorState.dx * tail;
+          const ty = view.top + this.meteorState.sy + this.meteorState.dy * tail;
+          cg.lineStyle(1.4, 0x2ce8f5, (1 - p) * 0.85);
+          cg.lineBetween(tx, ty, hx, hy);
+          cg.fillStyle(0xffffff, 1 - p * 0.7);
+          cg.fillCircle(hx, hy, 1.3);
+        }
+      }
+    }
+
+    // 7. Luz del visor del astronauta y faros cálidos en la Base, Refugio y Depósito
+    const px = this.player.x;
+    const py = this.player.y;
+    lg.fillStyle(0xfee761, 0.055 * skyBlend);
+    lg.fillCircle(px, py, 32);
+    lg.fillStyle(0xead4aa, 0.08 * skyBlend);
+    lg.fillCircle(px, py, 19);
+    const dirVec =
+      this.facingDir === 'left'
+        ? [-14, 0]
+        : this.facingDir === 'right'
+          ? [14, 0]
+          : this.facingDir === 'up'
+            ? [0, -14]
+            : [0, 14];
+    lg.fillStyle(0x2ce8f5, 0.085 * skyBlend);
+    lg.fillCircle(px + dirVec[0], py + dirVec[1], 14);
+
+    const beacons: [number, number, number][] = [
+      [640, 480, 0xfee761],
+      [748, 514, 0x63c74d],
+      [940, 490, 0x2ce8f5],
+    ];
+    for (const [bx, by, col] of beacons) {
+      lg.fillStyle(col, 0.08 * skyBlend);
+      lg.fillCircle(bx, by, 24);
+      lg.fillStyle(col, 0.12 * skyBlend);
+      lg.fillCircle(bx, by, 11);
+    }
+  }
+
+  private updateDust(delta: number, time: number): void {
+    const view = this.cameras.main.worldView;
+    const dt = delta / 1000;
+    const hasDustEvent = gameStore.state.activeEvents.includes('dust');
+    const gustWave = 0.55 + 0.35 * Math.sin(time * 0.0014) + 0.25 * Math.sin(time * 0.0033);
+    const intensity = gustWave * (hasDustEvent ? 1.85 : 1.0);
+
     for (const m of this.dustMotes) {
-      m.x += delta * 0.03;
-      m.y += Math.sin((m.x + m.y) * 0.05) * delta * 0.004;
-      if (m.x > view.right + 10) {
-        m.x = view.left - 10;
-        m.y = Phaser.Math.Between(Math.floor(view.top), Math.floor(view.bottom));
+      m.img.x += dt * m.speed * (0.75 + intensity * 0.65);
+      m.img.y += dt * (9 * intensity) + Math.sin(time * 0.004 + m.wavePhase) * 0.12;
+      if (m.img.x > view.right + 12) {
+        m.img.x = view.left - 10;
+        m.img.y = Phaser.Math.Between(Math.floor(view.top), Math.floor(view.bottom));
       }
-      if (m.x < view.left - 20 || m.y < view.top - 20 || m.y > view.bottom + 20) {
-        m.x = Phaser.Math.Between(Math.floor(view.left), Math.floor(view.right));
-        m.y = Phaser.Math.Between(Math.floor(view.top), Math.floor(view.bottom));
+      if (m.img.x < view.left - 24 || m.img.y < view.top - 20 || m.img.y > view.bottom + 20) {
+        m.img.x = Phaser.Math.Between(Math.floor(view.left), Math.floor(view.right));
+        m.img.y = Phaser.Math.Between(Math.floor(view.top), Math.floor(view.bottom));
       }
+    }
+
+    // Ráfagas dinámicas y velos móviles de arena por toda la cámara visible
+    const wg = this.windGfx;
+    wg.clear();
+
+    const cloudCount = hasDustEvent ? 6 : 3;
+    for (let c = 0; c < cloudCount; c++) {
+      const cx = view.left + (((time * (0.045 + c * 0.012) + c * 95) % (view.width + 120)) - 60);
+      const cy = view.top + 22 + ((c * 31) % Math.max(40, view.height - 30)) + Math.sin(time * 0.0016 + c) * 8;
+      const cw = 72 + (c % 3) * 26;
+      const ch = 16 + (c % 2) * 8;
+      wg.fillStyle(c % 2 === 0 ? 0xe4a672 : 0xb86f50, Math.min(0.24, (0.06 + intensity * 0.055)));
+      wg.fillEllipse(cx, cy, cw, ch);
+    }
+
+    const activeStreaks = hasDustEvent ? this.windStreaks.length : 22;
+    const viewW = Math.max(1, view.width + 40);
+    const viewH = Math.max(1, view.height + 20);
+    for (let i = 0; i < activeStreaks; i++) {
+      const st = this.windStreaks[i];
+      st.ox = (st.ox + dt * st.speed * (0.8 + intensity * 0.65)) % viewW;
+      st.oy = (st.oy + dt * 16 * intensity) % viewH;
+      const sx = view.left - 20 + st.ox;
+      const sy = view.top - 10 + st.oy;
+      const len = st.len * (0.7 + intensity * 0.5);
+      wg.lineStyle(1, st.color, Math.min(0.55, 0.16 + intensity * 0.16));
+      wg.lineBetween(sx, sy, sx + len, sy + len * 0.22);
     }
   }
 

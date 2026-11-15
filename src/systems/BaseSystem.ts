@@ -107,8 +107,17 @@ export class BaseSystem {
     return deliveredCount;
   }
 
-  static canExitToWorld(state: GameState): boolean {
-    return state.clock.minutes < balance.dayClock.curfewMin;
+  /**
+   * La puerta siempre se puede abrir: de noche se permite salir a ver el cielo marciano,
+   * pero el traje gasta oxígeno y batería del calefactor mucho más rápido (ver Vitals).
+   */
+  static canExitToWorld(_state: GameState): boolean {
+    return true;
+  }
+
+  /** ¿Salir ahora sería una caminata nocturna (después de las 17:00)? */
+  static isNightExit(state: GameState): boolean {
+    return state.clock.minutes >= balance.dayClock.curfewMin;
   }
 
   static evaluateDailyQuota(state: GameState): 'menos' | 'normal' | 'extra' {
@@ -155,11 +164,19 @@ export class BaseSystem {
     for (const p of state.base.panels) {
       p.dust = Math.min(1, p.dust + balance.dust.dailyAccumulation);
     }
-    if (
-      state.base.panels.some((p) => p.dust > balance.dust.dirtyThreshold) &&
-      !state.activeEvents.includes('dust')
-    ) {
-      state.activeEvents.push('dust');
+    if (state.base.panels.some((p) => p.dust > balance.dust.dirtyThreshold)) {
+      if (!state.activeEvents.includes('dust')) {
+        state.activeEvents.push('dust');
+      }
+      state.missionsToday ??= [];
+      if (!state.missionsToday.includes('clean_panels')) {
+        state.missionsToday.push('clean_panels');
+      }
+      if (state.completedMissionsToday) {
+        state.completedMissionsToday = state.completedMissionsToday.filter(
+          (m) => m !== 'clean_panels'
+        );
+      }
     }
   }
 
@@ -200,6 +217,7 @@ export class BaseSystem {
     Events.initDay(state);
     BaseSystem.accumulateDailyDust(state);
     state.sitesUsedToday = [];
+    state.extraSitesToday = [];
     state.tubes = state.tubes.map(() => null);
 
     if (bonus === 'extra') {

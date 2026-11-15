@@ -170,7 +170,7 @@ export class HUD extends Phaser.Scene {
     }
     this.o2ValueText = this.label(184, 10, '100 %', 11, '#181425').setOrigin(1, 0);
     this.tempValueText = this.label(184, 29, '21 °C', 11, '#181425').setOrigin(1, 0);
-    this.radValueText = this.label(184, 48, '0 %', 11, '#181425').setOrigin(1, 0);
+    this.radValueText = this.label(184, 49, '0.00 DR · 0.0 %', 10, '#181425').setOrigin(1, 0);
 
     const bar = (y: number, color: number): Phaser.GameObjects.Rectangle => {
       this.add.rectangle(27, y, 157, 5, 0x3a4466).setOrigin(0, 0.5);
@@ -403,6 +403,43 @@ export class HUD extends Phaser.Scene {
 
   private updateMissions(): void {
     const state = gameStore.state;
+    state.missionsToday ??= [];
+    state.completedMissionsToday ??= [];
+
+    const hasDirtyPanel = state.base.panels.some((p) => p.dust > balance.dust.dirtyThreshold);
+    if (hasDirtyPanel) {
+      Events.ensureMissionToday(state, 'clean_panels');
+      Events.unmarkMissionCompleted(state, 'clean_panels');
+    } else if (state.missionsToday.includes('clean_panels')) {
+      Events.markMissionCompleted(state, 'clean_panels');
+    }
+
+    if (!state.base.moxieOk) {
+      Events.ensureMissionToday(state, 'fix_moxie');
+      Events.unmarkMissionCompleted(state, 'fix_moxie');
+    } else if (state.missionsToday.includes('fix_moxie')) {
+      Events.markMissionCompleted(state, 'fix_moxie');
+    }
+
+    if (!state.base.antennaOk) {
+      Events.ensureMissionToday(state, 'fix_antenna');
+      Events.unmarkMissionCompleted(state, 'fix_antenna');
+    } else if (state.missionsToday.includes('fix_antenna')) {
+      Events.markMissionCompleted(state, 'fix_antenna');
+    }
+
+    const storm = Events.getActiveStorm();
+    if (storm && storm.phase !== 'resolved' && storm.type === 'cme_hit') {
+      Events.ensureMissionToday(state, 'shelter');
+      if (state.location === 'refugio') {
+        Events.markMissionCompleted(state, 'shelter');
+      }
+    }
+
+    if (state.clock.minutes >= balance.dayClock.curfewMin && state.location !== 'mundo') {
+      Events.markMissionCompleted(state, 'return_safe');
+    }
+
     const missions: { label: string; done: boolean }[] = [];
     const names: Record<SampleType, string> = {
       roca: uiText.hud.missionRockUnit,
@@ -421,19 +458,40 @@ export class HUD extends Phaser.Scene {
         });
       }
     }
-    if (state.base.panels.some((p) => p.dust > balance.dust.dirtyThreshold)) {
-      missions.push({ label: uiText.hud.missionCleanPanel, done: false });
+
+    const completed = state.completedMissionsToday;
+    if (state.missionsToday.includes('clean_panels')) {
+      missions.push({
+        label: uiText.hud.missionCleanPanel,
+        done: completed.includes('clean_panels') && !hasDirtyPanel,
+      });
     }
-    if (!state.base.moxieOk) missions.push({ label: uiText.hud.missionFixMoxie, done: false });
-    if (!state.base.antennaOk) missions.push({ label: uiText.hud.missionFixAntenna, done: false });
-    const storm = Events.getActiveStorm();
-    if (storm && storm.phase !== 'resolved' && storm.type === 'cme_hit') {
-      missions.push({ label: uiText.hud.missionStormShelter, done: state.location === 'refugio' });
+    if (state.missionsToday.includes('fix_moxie')) {
+      missions.push({
+        label: uiText.hud.missionFixMoxie,
+        done: completed.includes('fix_moxie') && state.base.moxieOk,
+      });
     }
+    if (state.missionsToday.includes('fix_antenna')) {
+      missions.push({
+        label: uiText.hud.missionFixAntenna,
+        done: completed.includes('fix_antenna') && state.base.antennaOk,
+      });
+    }
+    if (state.missionsToday.includes('shelter')) {
+      missions.push({
+        label: uiText.hud.missionStormShelter,
+        done: completed.includes('shelter'),
+      });
+    }
+
     if (missions.length < 6) {
+      const returnDone =
+        completed.includes('return_safe') ||
+        (state.location !== 'mundo' && state.clock.minutes < balance.dayClock.curfewMin);
       missions.push({
         label: uiText.hud.defaultMissionReturn,
-        done: state.location !== 'mundo' && state.clock.minutes < balance.dayClock.curfewMin,
+        done: returnDone,
       });
     }
 
@@ -476,7 +534,11 @@ export class HUD extends Phaser.Scene {
     this.tempBarFill.setFillStyle(state.astronaut.suitTempC >= balance.heater.comfortMinC ? 0xf77622 : 0x2ce8f5);
 
     const radPct = Math.min(100, (state.astronaut.doseTotal / balance.radiation.doseLimit) * 100);
-    this.radValueText.setText(`${radPct.toFixed(radPct < 10 ? 1 : 0)} %`);
+    const radToday = state.astronaut.doseToday;
+    const pctStr = radPct < 10 ? radPct.toFixed(1) : radPct.toFixed(0);
+    const activeOutside = state.location === 'mundo' && !state.clock.paused;
+    this.radValueText.setText(`${radToday.toFixed(2)} DR · ${pctStr} %`);
+    this.radValueText.setColor(activeOutside && Math.floor(time / 650) % 2 === 0 ? '#733e39' : '#181425');
     this.radBarFill.width = Math.max(state.astronaut.doseTotal > 0 ? 2 : 0, Math.round((157 * radPct) / 100));
     this.radBarFill.setFillStyle(radPct >= 66 ? 0xe43b44 : radPct >= 33 ? 0xf77622 : 0xfeae34);
 

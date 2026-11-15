@@ -78,6 +78,9 @@ export function createInitialGameState(): GameState {
     sitesUsedToday: [],
     journal: [],
     triviaDoneDay: 0,
+    missionsToday: [],
+    completedMissionsToday: [],
+    extraSitesToday: [],
   };
 }
 

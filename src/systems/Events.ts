@@ -80,6 +80,26 @@ export class Events {
     return selected;
   }
 
+  static ensureMissionToday(state: GameState, missionId: string): void {
+    state.missionsToday ??= [];
+    if (!state.missionsToday.includes(missionId)) {
+      state.missionsToday.push(missionId);
+    }
+  }
+
+  static markMissionCompleted(state: GameState, missionId: string): void {
+    Events.ensureMissionToday(state, missionId);
+    state.completedMissionsToday ??= [];
+    if (!state.completedMissionsToday.includes(missionId)) {
+      state.completedMissionsToday.push(missionId);
+    }
+  }
+
+  static unmarkMissionCompleted(state: GameState, missionId: string): void {
+    if (!state.completedMissionsToday) return;
+    state.completedMissionsToday = state.completedMissionsToday.filter((m) => m !== missionId);
+  }
+
   /**
    * Reinicia el seguimiento de eventos al comenzar un nuevo día.
    */
@@ -88,6 +108,13 @@ export class Events {
     Events.firedToday.clear();
     Events.activeStorm = null;
     state.activeEvents = [];
+    state.missionsToday = [];
+    state.completedMissionsToday = [];
+    if (!state.base.moxieOk) Events.ensureMissionToday(state, 'fix_moxie');
+    if (!state.base.antennaOk) Events.ensureMissionToday(state, 'fix_antenna');
+    if (state.base.panels.some((p) => p.dust > balance.dust.dirtyThreshold)) {
+      Events.ensureMissionToday(state, 'clean_panels');
+    }
 
     // Disparar eventos de inicio de día (sin hora 'at', como cold_night)
     const scheduled = Events.getScheduledEventsForDay(state.day);
@@ -155,14 +182,20 @@ export class Events {
             panel.dust = 0.55;
           }
         }
+        Events.ensureMissionToday(state, 'clean_panels');
+        Events.unmarkMissionCompleted(state, 'clean_panels');
         return null;
       }
       case 'moxie_pipes': {
         state.base.moxieOk = false;
+        Events.ensureMissionToday(state, 'fix_moxie');
+        Events.unmarkMissionCompleted(state, 'fix_moxie');
         return null;
       }
       case 'antenna': {
         state.base.antennaOk = false;
+        Events.ensureMissionToday(state, 'fix_antenna');
+        Events.unmarkMissionCompleted(state, 'fix_antenna');
         return null;
       }
       case 'cold_night': {
@@ -170,6 +203,10 @@ export class Events {
       }
       case 'cme_hit':
       case 'cme_miss': {
+        if (ev.type === 'cme_hit') {
+          Events.ensureMissionToday(state, 'shelter');
+          Events.unmarkMissionCompleted(state, 'shelter');
+        }
         const eventId =
           ev.eventId ?? (ev.type === 'cme_miss' ? 'cme_falsa_alarma' : 'cme_mayo_2024');
         const donki = Data.getDonkiEventById(eventId);
@@ -204,10 +241,13 @@ export class Events {
       if (state.base.panels.some((p) => p.dust > balance.dust.dirtyThreshold)) {
         return;
       }
+      Events.markMissionCompleted(state, 'clean_panels');
     } else if (type === 'moxie_pipes') {
       state.base.moxieOk = true;
+      Events.markMissionCompleted(state, 'fix_moxie');
     } else if (type === 'antenna') {
       state.base.antennaOk = true;
+      Events.markMissionCompleted(state, 'fix_antenna');
     }
     state.activeEvents = state.activeEvents.filter((e) => e !== type);
   }
@@ -255,6 +295,10 @@ export class Events {
     const storm = Events.activeStorm;
     if (!storm || storm.phase === 'resolved') {
       return result;
+    }
+
+    if (storm.type === 'cme_hit' && state.location === 'refugio') {
+      Events.markMissionCompleted(state, 'shelter');
     }
 
     if (storm.phase === 'countdown') {
@@ -310,6 +354,8 @@ export class Events {
         if (state.base.antennaOk) {
           state.base.antennaOk = false;
           if (!state.activeEvents.includes('antenna')) state.activeEvents.push('antenna');
+          Events.ensureMissionToday(state, 'fix_antenna');
+          Events.unmarkMissionCompleted(state, 'fix_antenna');
           result.antennaDamaged = true;
         }
         result.stormFinished = true;
