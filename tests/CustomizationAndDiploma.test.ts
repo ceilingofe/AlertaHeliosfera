@@ -122,7 +122,8 @@ describe('Fase 5 y 6 · Final, Diploma, Personalización, Audio y Créditos NASA
     );
 
     expect(Customization.setSuitColor(state, 'azul')).toBe(true);
-    expect(Customization.setHair(state, 2)).toBe(true);
+    expect(Customization.setCharacter(state, 'boy2')).toBe(true);
+    expect(state.customization.character).toBe('boy2');
     expect(Customization.setAccessory(state, 'audifonos')).toBe(true);
     expect(Customization.setPatch(state, 'HELIOSFERA')).toBe(true);
 

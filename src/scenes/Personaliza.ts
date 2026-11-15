@@ -5,12 +5,13 @@ import { Save } from '../state/Save';
 import {
   ACCESSORY_ORDER,
   ACCESSORY_UNLOCK_DAY,
+  CHARACTER_ORDER,
   Customization,
   PATCH_OPTIONS,
   SUIT_COLOR_ORDER,
   SUIT_PALETTES,
 } from '../systems/Customization';
-import type { Accessory, SuitColor } from '../types';
+import type { Accessory, CharacterId, SuitColor } from '../types';
 import { AstronautAppearance } from '../ui/AstronautAppearance';
 
 interface PersonalizaInitData {
@@ -20,7 +21,8 @@ interface PersonalizaInitData {
 /**
  * Escena Personaliza (sección 9.6):
  * Permite elegir color de traje (blanco, naranja, azul, verde, rosa),
- * peinado (1 o 2), accesorio desbloqueado por día y parche de misión.
+ * personaje (chica, chico 1 o chico 2), accesorio desbloqueado por día y
+ * parche de misión.
  */
 export class Personaliza extends Phaser.Scene {
   private nextScene = 'Transmision';
@@ -64,7 +66,15 @@ export class Personaliza extends Phaser.Scene {
 
     this.previewContainer = this.add.container(136, 168);
     this.miniPreviewImg = this.add
-      .image(204, 232, 'astronaut_mini_hair1')
+      .image(
+        204,
+        232,
+        AstronautAppearance.getMiniTextureKey(
+          this,
+          state.customization.character,
+          state.customization.suit
+        )
+      )
       .setScale(2);
 
     this.patchLabelText = this.add
@@ -78,9 +88,9 @@ export class Personaliza extends Phaser.Scene {
 
     this.refreshPreview();
 
-    // 3. Columna derecha: Controles de color, peinado, accesorio y parche
+    // 3. Columna derecha: Controles de color, personaje, accesorio y parche
     this.drawSuitColorSection(262, 54);
-    this.drawHairSection(262, 118);
+    this.drawCharacterSection(262, 118);
     this.drawAccessoriesSection(262, 174);
     this.drawPatchSection(262, 254);
 
@@ -124,7 +134,7 @@ export class Personaliza extends Phaser.Scene {
 
     const miniKey = AstronautAppearance.getMiniTextureKey(
       this,
-      state.customization.hair,
+      state.customization.character,
       state.customization.suit
     );
     this.miniPreviewImg.setTexture(miniKey);
@@ -170,29 +180,33 @@ export class Personaliza extends Phaser.Scene {
     });
   }
 
-  private drawHairSection(x: number, y: number): void {
+  private drawCharacterSection(x: number, y: number): void {
     const state = gameStore.state;
-    this.add.text(x, y, uiText.personaliza.hairTitle, {
+    this.add.text(x, y, uiText.personaliza.characterTitle, {
       fontFamily: 'PixelifySans, monospace',
       resolution: 2,
       fontSize: '11px',
       color: '#ead4aa',
     });
 
-    const hairs: (1 | 2)[] = [1, 2];
-    hairs.forEach((hairNum, idx) => {
-      const bx = x + 72 + idx * 164;
+    const labels: Record<CharacterId, string> = {
+      girl: uiText.personaliza.characterGirlLabel,
+      boy1: uiText.personaliza.characterBoy1Label,
+      boy2: uiText.personaliza.characterBoy2Label,
+    };
+
+    CHARACTER_ORDER.forEach((characterId, idx) => {
+      const bx = x + 58 + idx * 108;
       const by = y + 28;
-      const isSelected = state.customization.hair === hairNum;
-      const unlocked = state.unlocks.customization || hairNum === 1;
+      const isSelected = state.customization.character === characterId;
+      const unlocked = state.unlocks.customization || characterId === 'girl';
 
       const btn = this.add
-        .rectangle(bx, by, 144, 26, isSelected ? 0x5a6988 : 0x3a4466)
+        .rectangle(bx, by, 100, 26, isSelected ? 0x5a6988 : 0x3a4466)
         .setStrokeStyle(2, isSelected ? 0xfee761 : 0x181425)
         .setInteractive({ useHandCursor: unlocked });
 
-      const label =
-        hairNum === 1 ? uiText.personaliza.hair1Label : uiText.personaliza.hair2Label;
+      const label = labels[characterId];
       this.add
         .text(bx, by, unlocked ? label : `${label} 🔒`, {
           fontFamily: 'PixelifySans, monospace',
@@ -203,7 +217,7 @@ export class Personaliza extends Phaser.Scene {
         .setOrigin(0.5);
 
       btn.on('pointerdown', () => {
-        if (Customization.setHair(state, hairNum)) {
+        if (Customization.setCharacter(state, characterId)) {
           Save.save(state);
           this.scene.restart({ nextScene: this.nextScene });
         }
@@ -244,7 +258,15 @@ export class Personaliza extends Phaser.Scene {
           .setOrigin(0.5);
       } else {
         this.add
-          .image(bx, by + 4, 'astronaut_mini_hair1')
+          .image(
+            bx,
+            by + 4,
+            AstronautAppearance.getMiniTextureKey(
+              this,
+              state.customization.character,
+              state.customization.suit
+            )
+          )
           .setScale(1.3)
           .setAlpha(unlocked ? 1 : 0.4);
         this.add

@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import uiText from '../../content/ui_text.json';
+import { gameStore } from '../state/GameState';
 import { bus } from '../state/bus';
 import { AudioSystem } from '../systems/Audio';
 import { Events } from '../systems/Events';
@@ -119,7 +120,7 @@ export class Tormenta extends Phaser.Scene {
   }
 
   update(time: number): void {
-    const storm = Events.getActiveStorm();
+    const storm = Events.getActiveStorm(gameStore.state);
     const inMinigame =
       this.scene.isActive('MinijuegoRoca') ||
       this.scene.isActive('MinijuegoSuelo') ||
@@ -184,14 +185,6 @@ export class Tormenta extends Phaser.Scene {
       : 'ARCHIVO REAL';
     const source = storm.type === 'cme_miss' ? 'DONKI WSA-Enlil' : 'DONKI';
     this.honestyTagText.setText(`▪ ${label} · ${source} · ${shortId}`);
-    this.honestyTagBg.width = Math.max(238, Math.round(this.honestyTagText.width + 14));
-
-    // Parpadeo de las barras de estática de la antena
-    this.staticBars.forEach((bar, idx) => {
-      const on = Math.floor(time / 120 + idx) % 2 === 0;
-      bar.setFillStyle(on ? 0xffffff : 0x5a6988);
-    });
-    this.honestyTagText.setText(`★ ARCHIVO REAL · DONKI · ${shortId}`);
 
     // Trazos diagonales blancos de partículas solares (s10_tormenta.png)
     this.particlesGraphic.clear();

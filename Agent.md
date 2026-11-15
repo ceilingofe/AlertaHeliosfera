@@ -104,6 +104,8 @@ El inventario completo está en `ERRORES_DETECTADOS.txt`.
 
 ## Convenciones para cambios
 
+- Actualizar `ERRORES_DETECTADOS.txt` después de cada cambio: marcar el hallazgo
+  como RESUELTO, indicar cómo se verificó y ajustar el estado de validación.
 - Hacer cambios quirúrgicos y conservar el comportamiento no relacionado.
 - Revisar primero los datos y helpers existentes antes de duplicar reglas.
 - Mantener tipos estrictos; evitar `as any` y `as unknown as`.

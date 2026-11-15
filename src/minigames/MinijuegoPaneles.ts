@@ -4,6 +4,7 @@ import { gameStore } from '../state/GameState';
 import { Data } from '../systems/Data';
 import { Events } from '../systems/Events';
 import { DialogBox } from '../ui/DialogBox';
+import { AstronautAppearance } from '../ui/AstronautAppearance';
 import { MinigameBase } from './MinigameBase';
 
 /**
@@ -70,12 +71,13 @@ export class MinijuegoPaneles extends MinigameBase {
     // 3. Panel solar derecho (con parches de polvo marciano para barrer, s09_polvo.png)
     this.drawSolarPanelStructure(382, 118, true);
 
-    // 4. Astronauta con brocha junto al panel derecho (s09_polvo.png)
-    const hairKey =
-      gameStore.state.customization.hair === 2
-        ? 'astronaut_mini_hair2'
-        : 'astronaut_mini_hair1';
-    this.add.image(356, 186, hairKey).setScale(2);
+    // 4. Personaje con brocha junto al panel derecho (s09_polvo.png)
+    const characterKey = AstronautAppearance.getMiniTextureKey(
+      this,
+      gameStore.state.customization.character,
+      gameStore.state.customization.suit
+    );
+    this.add.image(356, 186, characterKey).setScale(2);
     this.add.image(374, 178, 'icon_brush').setScale(2.5);
 
     // 5. Diálogo grande de Corvi con sello NASA (s09_polvo.png)

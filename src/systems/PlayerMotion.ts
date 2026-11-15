@@ -17,8 +17,6 @@ export function updatePlayerMotion(
   if (moving) {
     const length = Math.hypot(vx, vy);
     player.setVelocity((vx / length) * speed, (vy / length) * speed);
-    if (vx < 0) player.setFlipX(true);
-    else if (vx > 0) player.setFlipX(false);
 
     motion.bobTime += delta;
     const bob = Math.sin(motion.bobTime * 0.018) * 0.8;

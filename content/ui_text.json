@@ -212,7 +212,8 @@
     "interactSoil": "E: usar la pala (regolito)",
     "interactMinerals": "E: escanear minerales",
     "interactAir": "E: tomar muestra de aire",
-    "interactThreeForks": "E: dejar tubos en Three Forks (×2)"
+    "interactThreeForks": "E: dejar tubos en Three Forks (×2)",
+    "minigameLoadError": "No se pudo cargar el minijuego. Intenta de nuevo."
   },
   "base": {
     "zoneName": "Interior de la Base",
@@ -274,9 +275,10 @@
   "personaliza": {
     "header": "PERSONALIZACIÓN · TRAJE Y EQUIPO DE LUNA-7",
     "suitColorTitle": "COLOR DEL TRAJE",
-    "hairTitle": "PEINADO",
-    "hair1Label": "Peinado 1",
-    "hair2Label": "Peinado 2",
+    "characterTitle": "PERSONAJE",
+    "characterGirlLabel": "Chica",
+    "characterBoy1Label": "Chico 1",
+    "characterBoy2Label": "Chico 2",
     "accessoryTitle": "ACCESORIOS DESBLOQUEADOS",
     "noAccessory": "Sin accesorio",
     "accDiadema": "Diadema (Día 1)",

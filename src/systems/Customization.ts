@@ -1,5 +1,12 @@
 import balance from '../../content/balance.json';
-import type { Accessory, GameState, RescueCause, SampleType, SuitColor } from '../types';
+import type {
+  Accessory,
+  CharacterId,
+  GameState,
+  RescueCause,
+  SampleType,
+  SuitColor,
+} from '../types';
 import { Data, type FactEntry } from './Data';
 
 export interface SuitColorPalette {
@@ -68,6 +75,8 @@ export const SUIT_PALETTES: Record<SuitColor, SuitColorPalette> = {
 
 export const SUIT_COLOR_ORDER: SuitColor[] = ['blanco', 'naranja', 'azul', 'verde', 'rosa'];
 
+export const CHARACTER_ORDER: CharacterId[] = ['girl', 'boy1', 'boy2'];
+
 export const ACCESSORY_ORDER: Accessory[] = [
   'diadema',
   'mono',
@@ -124,11 +133,11 @@ export class Customization {
     return true;
   }
 
-  static setHair(state: GameState, hair: 1 | 2): boolean {
-    if (!state.unlocks.customization && hair !== 1) {
+  static setCharacter(state: GameState, character: CharacterId): boolean {
+    if (!state.unlocks.customization && character !== 'girl') {
       return false;
     }
-    state.customization.hair = hair;
+    state.customization.character = character;
     return true;
   }
 

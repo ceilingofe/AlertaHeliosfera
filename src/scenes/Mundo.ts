@@ -1,6 +1,11 @@
 import Phaser from 'phaser';
 import balance from '../../content/balance.json';
 import uiText from '../../content/ui_text.json';
+import {
+  MINIGAME_KEYS,
+  loadMinigame,
+  type MinigameKey,
+} from '../minigames/launch';
 import { bus } from '../state/bus';
 import { gameStore } from '../state/GameState';
 import { Save } from '../state/Save';
@@ -8,11 +13,10 @@ import { AudioSystem } from '../systems/Audio';
 import { BaseSystem } from '../systems/BaseSystem';
 import { Clock } from '../systems/Clock';
 import { Events } from '../systems/Events';
+import { PlayerController } from '../systems/PlayerController';
 import { Vitals } from '../systems/Vitals';
-import { resetPlayerMotion, updatePlayerMotion } from '../systems/PlayerMotion';
 import type { SampleType } from '../types';
 import { AstronautAppearance } from '../ui/AstronautAppearance';
-import { getSharedJoystickVector } from '../ui/Joystick';
 import { StaticEffect } from '../ui/StaticEffect';
 
 interface InteractPoint {
@@ -32,31 +36,14 @@ interface ZoneRect {
   bounds: Phaser.Geom.Rectangle;
 }
 
-const MINIGAME_KEYS = [
-  'MinijuegoRoca',
-  'MinijuegoSuelo',
-  'MinijuegoMinerales',
-  'MinijuegoAire',
-  'MinijuegoPaneles',
-  'MinijuegoTuberias',
-] as const;
-
 /**
  * Escena exterior en el cráter Jezero (1280×960 px, zoom ×2 sobre 640×360).
  * Conecta movimiento, zonas reales, los 6 minijuegos, eventos diarios, tormenta solar y signos vitales.
  */
 export class Mundo extends Phaser.Scene {
   private player!: Phaser.Physics.Arcade.Sprite;
-  private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
-  private keyW!: Phaser.Input.Keyboard.Key;
-  private keyA!: Phaser.Input.Keyboard.Key;
-  private keyS!: Phaser.Input.Keyboard.Key;
-  private keyD!: Phaser.Input.Keyboard.Key;
-  private keyE!: Phaser.Input.Keyboard.Key;
-  private keySpace!: Phaser.Input.Keyboard.Key;
-  private keyEsc!: Phaser.Input.Keyboard.Key;
-  private playerOriginY = 0;
-  private walkBobTime = 0;
+  private playerController!: PlayerController;
+  private minigameLoading = false;
 
   private nightOverlay!: Phaser.GameObjects.Rectangle;
   private promptContainer!: Phaser.GameObjects.Container;
@@ -264,22 +251,21 @@ export class Mundo extends Phaser.Scene {
       { name: 'Octavia E. Butler Landing', bounds: new Phaser.Geom.Rectangle(440, 340, 360, 300) },
     ];
 
-    // 4. Astronauta mini (14×23 px) con su color de traje y peinado actuales
-    const hairKey = AstronautAppearance.getMiniTextureKey(
+    // 4. Personaje mini (12×28 px) con su personaje y color de traje actuales
+    const miniKey = AstronautAppearance.getMiniTextureKey(
       this,
-      state.customization.hair,
+      state.customization.character,
       state.customization.suit
     );
     this.player = this.physics.add.sprite(
       state.astronaut.pos.x,
       state.astronaut.pos.y,
-      hairKey
+      miniKey
     );
     this.player.setCollideWorldBounds(true);
-    this.playerOriginY = this.player.displayOriginY;
     const body = this.player.body as Phaser.Physics.Arcade.Body;
-    body.setSize(10, 10);
-    body.setOffset(2, 13);
+    body.setSize(8, 8);
+    body.setOffset(2, 19);
 
     this.physics.add.collider(this.player, obstacles);
 
@@ -312,26 +298,21 @@ export class Mundo extends Phaser.Scene {
     this.cameras.main.startFollow(this.player, true);
     this.physics.world.setBounds(0, 0, mapWidth, mapHeight);
 
-    // 8. Controles de teclado
-    const keyboard = this.input.keyboard;
-    if (keyboard) {
-      this.cursors = keyboard.createCursorKeys();
-      this.keyW = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W);
-      this.keyA = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
-      this.keyS = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S);
-      this.keyD = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
-      this.keyE = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
-      this.keySpace = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-      this.keyEsc = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
-
-      this.keyE.on('down', () => this.handleInteraction());
-      this.keySpace.on('down', () => this.handleInteraction());
-      this.keyEsc.on('down', () => {
+    // 8. Controles de teclado y movimiento compartidos con Base
+    this.playerController = new PlayerController({
+      scene: this,
+      player: this.player,
+      speed: balance.player.speed,
+      character: state.customization.character,
+      suit: state.customization.suit,
+      onInteract: () => this.handleInteraction(),
+      onAction: () => this.handleInteraction(),
+      onPause: () => {
         if (this.isAnyMinigameActive()) return;
         const paused = Clock.togglePause(gameStore.state);
         bus.emit('clock:pauseChanged', { paused });
-      });
-    }
+      },
+    });
 
     this.unsubscribers.push(
       bus.on('input:action', () => {
@@ -352,6 +333,8 @@ export class Mundo extends Phaser.Scene {
             state.learnedToday.push(res.factId);
           }
         }
+        // Guardar el resultado (muestra recogida o sistema reparado) para que una recarga no lo pierda.
+        Save.save(state);
         this.activeSamplePoint = null;
         this.refreshEquipmentVisuals();
       })
@@ -423,70 +406,16 @@ export class Mundo extends Phaser.Scene {
     }
 
     if (state.clock.paused || this.isAnyMinigameActive()) {
-      const motion = {
-        originY: this.playerOriginY,
-        bobTime: this.walkBobTime,
-      };
-      resetPlayerMotion(this.player, motion);
-      this.walkBobTime = motion.bobTime;
+      this.playerController.stop();
       return;
     }
 
     this.staticEffect?.update(time);
     const dt = delta / 1000;
 
-    // 1. Movimiento en 4/8 direcciones con WASD, flechas o joystick virtual
-    let vx = 0;
-    let vy = 0;
-
-    if (this.cursors) {
-      if (this.cursors.left.isDown || this.keyA.isDown) vx -= 1;
-      if (this.cursors.right.isDown || this.keyD.isDown) vx += 1;
-      if (this.cursors.up.isDown || this.keyW.isDown) vy -= 1;
-      if (this.cursors.down.isDown || this.keyS.isDown) vy += 1;
-    }
-
-    const joy = getSharedJoystickVector();
-    if (vx === 0 && vy === 0) {
-      vx = joy.x;
-      vy = joy.y;
-    }
-
-    const motion = {
-      originY: this.playerOriginY,
-      bobTime: this.walkBobTime,
-    };
-    updatePlayerMotion(
-      this.player,
-      motion,
-      vx,
-      vy,
-      delta,
-      balance.player.speed
-    );
-    this.walkBobTime = motion.bobTime;
-    const moving = vx !== 0 || vy !== 0;
-    if (moving) {
+    // 1. Movimiento en 8 direcciones con WASD, flechas o joystick virtual
+    if (this.playerController.update(delta)) {
       AudioSystem.play('step');
-      const len = Math.hypot(vx, vy);
-      const speed = balance.player.speed;
-      this.player.setVelocity((vx / len) * speed, (vy / len) * speed);
-      if (vx < 0) {
-        this.player.setFlipX(true);
-      } else if (vx > 0) {
-        this.player.setFlipX(false);
-      }
-    } else {
-      this.player.setVelocity(0, 0);
-    }
-
-    if (moving) {
-      this.walkBobTime += delta;
-      const bob = Math.sin(this.walkBobTime * 0.018) * 0.8;
-      this.player.setDisplayOrigin(this.player.displayOriginX, this.playerOriginY + bob);
-    } else {
-      this.walkBobTime = 0;
-      this.player.setDisplayOrigin(this.player.displayOriginX, this.playerOriginY);
     }
 
     state.astronaut.pos.x = Math.round(this.player.x);
@@ -604,7 +533,9 @@ export class Mundo extends Phaser.Scene {
     };
 
     const onDirectClick = (): void => {
-      if (pt.collected || this.isAnyMinigameActive()) return;
+      if (pt.collected || this.minigameLoading || this.isAnyMinigameActive()) {
+        return;
+      }
       this.activatePoint(pt);
     };
 
@@ -683,6 +614,7 @@ export class Mundo extends Phaser.Scene {
     if (
       state.clock.paused ||
       this.rescueTriggered ||
+      this.minigameLoading ||
       this.isAnyMinigameActive()
     ) {
       return;
@@ -696,7 +628,7 @@ export class Mundo extends Phaser.Scene {
 
   private activatePoint(pt: InteractPoint): void {
     const state = gameStore.state;
-    if (this.isAnyMinigameActive()) return;
+    if (this.minigameLoading || this.isAnyMinigameActive()) return;
     const distance = Phaser.Math.Distance.Between(this.player.x, this.player.y, pt.x, pt.y);
     if (distance > balance.player.interactRadius + 6) return;
 
@@ -726,8 +658,7 @@ export class Mundo extends Phaser.Scene {
           return;
         }
         this.activeSamplePoint = pt;
-        this.player.setVelocity(0, 0);
-        this.scene.launch('MinijuegoPaneles', {
+        void this.launchMinigame('MinijuegoPaneles', {
           type: 'panel',
           day: state.day,
           difficulty: state.day <= 3 ? 1 : state.day <= 9 ? 2 : 3,
@@ -741,8 +672,7 @@ export class Mundo extends Phaser.Scene {
           return;
         }
         this.activeSamplePoint = pt;
-        this.player.setVelocity(0, 0);
-        this.scene.launch('MinijuegoTuberias', {
+        void this.launchMinigame('MinijuegoTuberias', {
           type: 'moxie_pipes',
           day: state.day,
           difficulty: state.day <= 3 ? 1 : state.day <= 9 ? 2 : 3,
@@ -752,8 +682,7 @@ export class Mundo extends Phaser.Scene {
       case 'antenna': {
         if (!state.base.antennaOk) {
           this.activeSamplePoint = pt;
-          this.player.setVelocity(0, 0);
-          this.scene.launch('MinijuegoTuberias', {
+          void this.launchMinigame('MinijuegoTuberias', {
             type: 'antenna',
             day: state.day,
             difficulty: state.day <= 3 ? 1 : state.day <= 9 ? 2 : 3,
@@ -778,24 +707,43 @@ export class Mundo extends Phaser.Scene {
     }
 
     this.activeSamplePoint = pt;
-    this.player.setVelocity(0, 0);
+    this.playerController.stop();
     this.promptContainer.setVisible(false);
 
     const difficulty: 1 | 2 | 3 = state.day <= 3 ? 1 : state.day <= 9 ? 2 : 3;
-    const sceneMap: Record<SampleType, string> = {
+    const sceneMap: Record<SampleType, MinigameKey> = {
       roca: 'MinijuegoRoca',
       suelo: 'MinijuegoSuelo',
       minerales: 'MinijuegoMinerales',
       aire: 'MinijuegoAire',
     };
 
-    const targetScene = sceneMap[pt.sampleType ?? 'roca'];
-    this.scene.launch(targetScene, {
+    void this.launchMinigame(sceneMap[pt.sampleType ?? 'roca'], {
       type: pt.sampleType ?? 'roca',
       day: state.day,
       difficulty,
       zone: this.currentZoneName,
     });
+  }
+
+  private async launchMinigame(
+    key: MinigameKey,
+    data: object
+  ): Promise<void> {
+    if (this.minigameLoading) return;
+    this.minigameLoading = true;
+    this.playerController.stop();
+
+    try {
+      await loadMinigame(this, key);
+      this.scene.launch(key, data);
+    } catch (error) {
+      console.error(`No se pudo cargar el minijuego ${key}`, error);
+      this.activeSamplePoint = null;
+      bus.emit('interact:prompt', { text: uiText.hud.minigameLoadError });
+    } finally {
+      this.minigameLoading = false;
+    }
   }
 
   private enterBase(targetLocation: 'base' | 'refugio'): void {

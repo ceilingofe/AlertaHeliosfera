@@ -18,15 +18,15 @@ export function getSharedJoystickVector(): JoystickVector {
 }
 
 /**
- * Control táctil con VirtualJoystick (phaser3-rex-plugins) abajo a la izquierda
- * y botón de acción abajo a la derecha. Funciona con dedo y con ratón.
+ * Control táctil con VirtualJoystick (phaser3-rex-plugins) encima del panel del astronauta
+ * a la izquierda y botón de acción abajo a la derecha. Funciona con dedo y con ratón.
  */
 export class TouchControls {
   private joyStick: VirtualJoyStick;
   private actionBg: Phaser.GameObjects.Arc;
   private actionText: Phaser.GameObjects.Text;
 
-  constructor(scene: Phaser.Scene, x = 44, y = 316, actionX = 598, actionY = 316) {
+  constructor(scene: Phaser.Scene, x = 44, y = 238, actionX = 598, actionY = 316) {
     const base = scene.add.circle(0, 0, 26, 0x262b44, 0.78).setStrokeStyle(2, 0x181425);
     const thumb = scene.add.circle(0, 0, 12, 0xfee761, 0.92).setStrokeStyle(2, 0x181425);
 

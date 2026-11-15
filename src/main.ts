@@ -1,10 +1,4 @@
 import Phaser from 'phaser';
-import { MinijuegoAire } from './minigames/MinijuegoAire';
-import { MinijuegoMinerales } from './minigames/MinijuegoMinerales';
-import { MinijuegoPaneles } from './minigames/MinijuegoPaneles';
-import { MinijuegoRoca } from './minigames/MinijuegoRoca';
-import { MinijuegoSuelo } from './minigames/MinijuegoSuelo';
-import { MinijuegoTuberias } from './minigames/MinijuegoTuberias';
 import { Base } from './scenes/Base';
 import { Boot } from './scenes/Boot';
 import { Creditos } from './scenes/Creditos';
@@ -19,7 +13,7 @@ import { Preload } from './scenes/Preload';
 import { Rescate } from './scenes/Rescate';
 import { Tormenta } from './scenes/Tormenta';
 import { Transmision } from './scenes/Transmision';
-import './ui/installTextDefaults';
+import { TextResolutionPlugin } from './ui/TextResolutionPlugin';
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -36,6 +30,15 @@ const config: Phaser.Types.Core.GameConfig = {
     autoRound: true,
   },
   input: { activePointers: 3 },
+  plugins: {
+    scene: [
+      {
+        key: 'TextResolutionPlugin',
+        plugin: TextResolutionPlugin,
+        mapping: 'textResolution',
+      },
+    ],
+  },
   scene: [
     Boot,
     Preload,
@@ -48,12 +51,6 @@ const config: Phaser.Types.Core.GameConfig = {
     HUD,
     Dialogo,
     Tormenta,
-    MinijuegoRoca,
-    MinijuegoSuelo,
-    MinijuegoMinerales,
-    MinijuegoAire,
-    MinijuegoPaneles,
-    MinijuegoTuberias,
     Noche,
     Rescate,
     Diploma,

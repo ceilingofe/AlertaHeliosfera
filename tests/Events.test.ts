@@ -112,7 +112,7 @@ describe('Fase 4 · Eventos de los días 2 a 5, tormenta solar y preguntas de Co
     const resolved = Events.tick(state, 60);
     expect(resolved.stormFalseAlarmResolved).toBe(true);
     expect(state.activeEvents).toContain('aurora_tonight');
-    expect(Events.getActiveStorm()).toBeNull();
+    expect(Events.getActiveStorm(state)).toBeNull();
   });
 
   it('no cumplir la cuota solo cambia el suministro del día siguiente a menos (reserva 50 %) y permite avanzar días 1 a 5', () => {
@@ -130,6 +130,29 @@ describe('Fase 4 · Eventos de los días 2 a 5, tormenta solar y preguntas de Co
     expect(state.unlocks.accessories).toEqual(
       expect.arrayContaining(['diadema', 'mono', 'antena'])
     );
+  });
+
+  it('guarda la tormenta y los eventos disparados dentro del GameState para sobrevivir a una recarga', () => {
+    const state = createInitialGameState();
+    state.day = 3;
+    state.clock.minutes = 13 * 60; // 13:00
+    Events.initDay(state);
+
+    const started = Events.tick(state, 0.1);
+    expect(started.stormStarted).not.toBeNull();
+
+    // Simula guardar y recargar: el estado por sí solo conserva tormenta y eventos disparados
+    const reloaded = JSON.parse(JSON.stringify(state)) as typeof state;
+    expect(Events.getActiveStorm(reloaded)?.phase).toBe('countdown');
+    expect(reloaded.events.fired).toContain('cme_hit@13:00');
+
+    // ensureDay no reinicia un día ya inicializado, así que no borra la cuenta regresiva
+    Events.ensureDay(reloaded);
+    expect(Events.getActiveStorm(reloaded)).not.toBeNull();
+
+    const before = Events.getActiveStorm(reloaded)?.countdownSec ?? 0;
+    Events.tick(reloaded, 10);
+    expect(Events.getActiveStorm(reloaded)?.countdownSec).toBeCloseTo(before - 10, 4);
   });
 
   it('desbloquea progresivamente las 10 preguntas de Corvi del día 1 al día 5', () => {

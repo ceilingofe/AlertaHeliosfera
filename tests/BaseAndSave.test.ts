@@ -120,4 +120,67 @@ describe('Sistemas BaseSystem y Save (Fase 2)', () => {
     mem.setItem(SAVE_STORAGE_KEY, '{json_roto');
     expect(Save.load(mem)).toBeNull();
   });
+
+  it('rechaza guardados incompletos o corruptos en lugar de cargarlos a medias', () => {
+    const mem = new MemoryStorage();
+    const base = createInitialGameState();
+
+    const corruptos: Record<string, unknown> = {
+      'ubicación inválida': { ...base, location: 'orbita' },
+      'tubo con tipo desconocido': { ...base, tubes: ['roca', 'lava', null, null, null, null] },
+      'oxígeno fuera de rango': { ...base, astronaut: { ...base.astronaut, o2: 250 } },
+      'posición inválida': { ...base, astronaut: { ...base.astronaut, pos: { x: 'a', y: 1 } } },
+      'eventos corruptos': {
+        ...base,
+        events: { dayTracked: 2, fired: [], storm: { type: 'otra' } },
+      },
+      'paneles corruptos': { ...base, base: { ...base.base, panels: [{ id: 'p1', dust: 'mucho' }] } },
+      'cuota incompleta': { ...base, quotaToday: { roca: 1 } },
+      'accesorio desconocido': {
+        ...base,
+        customization: { ...base.customization, accessory: 'sombrero' },
+      },
+      'personaje desconocido': {
+        ...base,
+        customization: { ...base.customization, character: 'alien' },
+      },
+    };
+
+    for (const [nombre, value] of Object.entries(corruptos)) {
+      mem.setItem(SAVE_STORAGE_KEY, JSON.stringify(value));
+      expect(Save.load(mem), nombre).toBeNull();
+    }
+  });
+
+  it('migra guardados anteriores sin estado de eventos en lugar de descartar la partida', () => {
+    const mem = new MemoryStorage();
+    const legacy = { ...createInitialGameState(), day: 3 } as Record<string, unknown>;
+    delete legacy.events;
+
+    mem.setItem(SAVE_STORAGE_KEY, JSON.stringify(legacy));
+
+    const loaded = Save.load(mem);
+    expect(loaded?.day).toBe(3);
+    expect(loaded?.events).toEqual({ dayTracked: 3, fired: [], storm: null });
+  });
+
+  it('migra el peinado anterior al nuevo campo de personaje', () => {
+    const mem = new MemoryStorage();
+    const legacy = { ...createInitialGameState(), day: 2 } as Record<string, unknown>;
+    legacy.customization = {
+      suit: 'azul',
+      hair: 2,
+      accessory: null,
+      patch: 'LUNA-7',
+    };
+
+    mem.setItem(SAVE_STORAGE_KEY, JSON.stringify(legacy));
+
+    const loaded = Save.load(mem);
+    expect(loaded?.customization.character).toBe('boy1');
+    expect(loaded?.customization.suit).toBe('azul');
+    expect(
+      (loaded?.customization as unknown as Record<string, unknown>).hair
+    ).toBeUndefined();
+  });
 });

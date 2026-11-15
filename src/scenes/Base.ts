@@ -8,11 +8,10 @@ import { BaseSystem } from '../systems/BaseSystem';
 import { Clock } from '../systems/Clock';
 import { Data, type CorviQAEntry } from '../systems/Data';
 import { Events } from '../systems/Events';
+import { PlayerController } from '../systems/PlayerController';
 import { Vitals } from '../systems/Vitals';
 import { AstronautAppearance } from '../ui/AstronautAppearance';
 import { DialogBox } from '../ui/DialogBox';
-import { getSharedJoystickVector } from '../ui/Joystick';
-import { resetPlayerMotion, updatePlayerMotion } from '../systems/PlayerMotion';
 
 interface BaseStation {
   id: 'bed' | 'corvi' | 'console' | 'table' | 'refugeDoor' | 'exitDoor';
@@ -28,16 +27,7 @@ interface BaseStation {
  */
 export class Base extends Phaser.Scene {
   private player!: Phaser.Physics.Arcade.Sprite;
-  private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
-  private keyW!: Phaser.Input.Keyboard.Key;
-  private keyA!: Phaser.Input.Keyboard.Key;
-  private keyS!: Phaser.Input.Keyboard.Key;
-  private keyD!: Phaser.Input.Keyboard.Key;
-  private keyE!: Phaser.Input.Keyboard.Key;
-  private keySpace!: Phaser.Input.Keyboard.Key;
-  private keyEsc!: Phaser.Input.Keyboard.Key;
-  private playerOriginY = 0;
-  private walkBobTime = 0;
+  private playerController!: PlayerController;
 
   private energyText!: Phaser.GameObjects.Text;
   private energyBarFill!: Phaser.GameObjects.Rectangle;
@@ -292,17 +282,16 @@ export class Base extends Phaser.Scene {
       { id: 'exitDoor', x: 334, y: 262, prompt: uiText.base.interactExitDoor },
     ];
 
-    // 6. Astronauta en el interior (escala ×2) con su color de traje y peinado actuales
-    const hairKey = AstronautAppearance.getMiniTextureKey(
+    // 6. Personaje en el interior (escala ×2) con su personaje y color de traje actuales
+    const miniKey = AstronautAppearance.getMiniTextureKey(
       this,
-      state.customization.hair,
+      state.customization.character,
       state.customization.suit
     );
     this.player = this.physics.add
-      .sprite(300, 168, hairKey)
+      .sprite(300, 168, miniKey)
       .setScale(2)
       .setCollideWorldBounds(true);
-    this.playerOriginY = this.player.displayOriginY;
 
     this.physics.world.setBounds(16, 92, 608, 194);
     this.physics.add.collider(this.player, obstacles);
@@ -324,35 +313,30 @@ export class Base extends Phaser.Scene {
       .setDepth(30)
       .setVisible(false);
 
-    // 8. Teclado: WASD, flechas, E, Espacio y Esc
-    const keyboard = this.input.keyboard;
-    if (keyboard) {
-      this.cursors = keyboard.createCursorKeys();
-      this.keyW = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W);
-      this.keyA = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
-      this.keyS = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S);
-      this.keyD = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
-      this.keyE = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
-      this.keySpace = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-      this.keyEsc = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
-
-      this.keyE.on('down', () => this.handleStationInteraction());
-      this.keySpace.on('down', () => {
+    // 8. Controles de teclado y movimiento compartidos con Mundo
+    this.playerController = new PlayerController({
+      scene: this,
+      player: this.player,
+      speed: balance.player.speed * 1.6,
+      character: state.customization.character,
+      suit: state.customization.suit,
+      onInteract: () => this.handleStationInteraction(),
+      onAction: () => {
         if (this.activeQaDialog) {
           this.activeQaDialog.advanceOrFinish();
           return;
         }
         this.handleStationInteraction();
-      });
-      this.keyEsc.on('down', () => {
+      },
+      onPause: () => {
         if (this.faqContainer) {
           this.closeCorviFaqMenu();
           return;
         }
         const paused = Clock.togglePause(gameStore.state);
         bus.emit('clock:pauseChanged', { paused });
-      });
-    }
+      },
+    });
 
     this.unsubscribers.push(
       bus.on('input:action', () => {
@@ -402,46 +386,14 @@ export class Base extends Phaser.Scene {
     this.moxieBarFill.width = Math.round((162 * reserve) / 100);
 
     if (state.clock.paused) {
-      const motion = {
-        originY: this.playerOriginY,
-        bobTime: this.walkBobTime,
-      };
-      resetPlayerMotion(this.player, motion);
-      this.walkBobTime = motion.bobTime;
+      this.playerController.stop();
       return;
     }
 
     const dt = delta / 1000;
 
     // 1. Movimiento del astronauta dentro de la base
-    let vx = 0;
-    let vy = 0;
-    if (this.cursors) {
-      if (this.cursors.left.isDown || this.keyA.isDown) vx -= 1;
-      if (this.cursors.right.isDown || this.keyD.isDown) vx += 1;
-      if (this.cursors.up.isDown || this.keyW.isDown) vy -= 1;
-      if (this.cursors.down.isDown || this.keyS.isDown) vy += 1;
-    }
-
-    const joy = getSharedJoystickVector();
-    if (vx === 0 && vy === 0) {
-      vx = joy.x;
-      vy = joy.y;
-    }
-
-    const motion = {
-      originY: this.playerOriginY,
-      bobTime: this.walkBobTime,
-    };
-    updatePlayerMotion(
-      this.player,
-      motion,
-      vx,
-      vy,
-      delta,
-      balance.player.speed * 1.6
-    );
-    this.walkBobTime = motion.bobTime;
+    this.playerController.update(delta);
 
     // 2. Recarga continua de oxígeno y calefactor cuando están activas
     if (this.activeRefill) {

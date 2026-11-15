@@ -46,12 +46,17 @@ export function createInitialGameState(): GameState {
       aire: 0,
     },
     supplyBonus: 'normal',
+    events: {
+      dayTracked: -1,
+      fired: [],
+      storm: null,
+    },
     activeEvents: [],
     learnedToday: [],
     corviSeen: [],
     customization: {
       suit: 'blanco',
-      hair: 1,
+      character: 'girl',
       accessory: null,
       patch: 'LUNA-7',
     },

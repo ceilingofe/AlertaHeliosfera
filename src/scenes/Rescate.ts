@@ -80,7 +80,7 @@ export class Rescate extends Phaser.Scene {
     this.add.ellipse(254, 240, 40, 10, 0x3e2731);
     const miniKey = AstronautAppearance.getMiniTextureKey(
       this,
-      state.customization.hair,
+      state.customization.character,
       state.customization.suit
     );
     this.add.image(254, 214, miniKey).setScale(2);

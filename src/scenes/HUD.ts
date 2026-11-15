@@ -145,8 +145,8 @@ export class HUD extends Phaser.Scene {
       .rectangle(567, 40, 0, 6, 0xfee761)
       .setOrigin(0, 0.5);
 
-    // 4. Panel del astronauta
-    const panelY = 198;
+    // 4. Panel del astronauta (abajo a la izquierda, alineado con barra de herramientas)
+    const panelY = 276;
     this.createPanel(8, panelY, 236, 78, 0xc0cbdc);
 
     this.add
@@ -155,10 +155,10 @@ export class HUD extends Phaser.Scene {
       .setStrokeStyle(1, 0x181425);
     const hudMiniKey = AstronautAppearance.getMiniTextureKey(
       this,
-      gameStore.state.customization.hair,
+      gameStore.state.customization.character,
       gameStore.state.customization.suit
     );
-    this.add.image(31, panelY + 34, hudMiniKey).setScale(2);
+    this.add.image(31, panelY + 34, hudMiniKey).setScale(1.5);
     this.add
       .text(31, panelY + 64, uiText.hud.youLabel, {
         fontFamily: 'PixelifySans, monospace',
@@ -293,8 +293,8 @@ export class HUD extends Phaser.Scene {
       this.tubeSprites.push(tubeImg);
     }
 
-    // 7. Controles táctiles
-    this.touchControls = new TouchControls(this, 44, 316, 598, 316);
+    // 7. Controles táctiles (joystick encima del panel del astronauta)
+    this.touchControls = new TouchControls(this, 44, 238, 598, 316);
 
     // 8. Banner de radio de Corvi
     const radioBg = this.add
@@ -450,7 +450,7 @@ export class HUD extends Phaser.Scene {
     this.cameras.main.setVisible(!inMinigame);
     if (inMinigame) return;
 
-    const stormActive = Events.getActiveStorm() !== null;
+    const stormActive = Events.getActiveStorm(state) !== null;
     this.missionsContainer.setVisible(state.location === 'mundo' && !stormActive);
     this.zoneContainer.setVisible(!stormActive);
 

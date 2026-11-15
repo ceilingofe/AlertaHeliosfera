@@ -1,16 +1,8 @@
 import balance from '../../content/balance.json';
-import type { GameState, RescueCause } from '../types';
+import type { ActiveStormState, GameState, RescueCause } from '../types';
 import { Data, type DayEventScript } from './Data';
 
-export interface ActiveStormState {
-  type: 'cme_hit' | 'cme_miss';
-  eventId: string;
-  donkiActivityID: string;
-  phase: 'countdown' | 'impact' | 'resolved';
-  countdownSec: number;
-  impactRemainingSec: number;
-  falseAlarmAnnounced: boolean;
-}
+export type { ActiveStormState };
 
 export interface EventTickResult {
   triggeredEvents: DayEventScript[];
@@ -24,12 +16,9 @@ export interface EventTickResult {
 /**
  * Sistema de eventos diarios y tormentas solares (sección 7.4 y 9.2).
  * Escrito en TypeScript puro sin depender de Phaser.
+ * El progreso del día vive en state.events para sobrevivir a una recarga.
  */
 export class Events {
-  private static firedToday = new Set<string>();
-  private static currentDayTracked = -1;
-  private static activeStorm: ActiveStormState | null = null;
-
   /**
    * Convierte una cadena "HH:MM" en minutos desde las 00:00 (por defecto 09:00 = 540).
    */
@@ -81,9 +70,7 @@ export class Events {
    * Reinicia el seguimiento de eventos al comenzar un nuevo día.
    */
   static initDay(state: GameState): void {
-    Events.currentDayTracked = state.day;
-    Events.firedToday.clear();
-    Events.activeStorm = null;
+    state.events = { dayTracked: state.day, fired: [], storm: null };
     state.activeEvents = [];
 
     // Disparar eventos de inicio de día (sin hora 'at', como cold_night)
@@ -91,17 +78,27 @@ export class Events {
     for (const ev of scheduled) {
       if (!ev.at) {
         Events.triggerEvent(state, ev);
-        Events.firedToday.add(`${ev.type}@start`);
+        state.events.fired.push(`${ev.type}@start`);
       }
     }
   }
 
-  static getActiveStorm(): ActiveStormState | null {
-    return Events.activeStorm;
+  /**
+   * Inicializa el día solo si aún no se hizo, para no borrar una tormenta
+   * ni los eventos ya disparados al reanudar una partida.
+   */
+  static ensureDay(state: GameState): void {
+    if (state.events.dayTracked !== state.day) {
+      Events.initDay(state);
+    }
   }
 
-  static clearActiveStorm(): void {
-    Events.activeStorm = null;
+  static getActiveStorm(state: GameState): ActiveStormState | null {
+    return state.events.storm;
+  }
+
+  static clearActiveStorm(state: GameState): void {
+    state.events.storm = null;
   }
 
   /**
@@ -179,7 +176,7 @@ export class Events {
           impactRemainingSec: balance.radiation.stormHitSeconds,
           falseAlarmAnnounced: false,
         };
-        Events.activeStorm = storm;
+        state.events.storm = storm;
         return storm;
       }
     }
@@ -221,7 +218,7 @@ export class Events {
       rescueCause: null,
     };
 
-    if (Events.currentDayTracked !== state.day) {
+    if (state.events.dayTracked !== state.day) {
       Events.initDay(state);
     }
 
@@ -233,11 +230,11 @@ export class Events {
     const scheduled = Events.getScheduledEventsForDay(state.day);
     for (const ev of scheduled) {
       const key = `${ev.type}@${ev.at ?? 'start'}`;
-      if (Events.firedToday.has(key)) continue;
+      if (state.events.fired.includes(key)) continue;
 
       const triggerMin = Events.parseTimeMinutes(ev.at);
       if (state.clock.minutes >= triggerMin) {
-        Events.firedToday.add(key);
+        state.events.fired.push(key);
         const maybeStorm = Events.triggerEvent(state, ev);
         result.triggeredEvents.push(ev);
         if (maybeStorm) {
@@ -247,7 +244,7 @@ export class Events {
     }
 
     // 2. Avanzar la tormenta solar activa si existe
-    const storm = Events.activeStorm;
+    const storm = state.events.storm;
     if (!storm || storm.phase === 'resolved') {
       return result;
     }
@@ -268,7 +265,7 @@ export class Events {
           state.activeEvents.push('aurora_tonight');
         }
         result.stormFalseAlarmResolved = true;
-        Events.activeStorm = null;
+        state.events.storm = null;
         return result;
       }
 
@@ -301,7 +298,7 @@ export class Events {
         }
         state.activeEvents = state.activeEvents.filter((e) => e !== 'cme_hit');
         result.stormFinished = true;
-        Events.activeStorm = null;
+        state.events.storm = null;
       }
     }
 

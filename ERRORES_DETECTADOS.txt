@@ -1,7 +1,14 @@
 AUDITORIA PRIORIZADA DE ERRORES Y DEUDA TECNICA
 Proyecto: Alerta Heliosfera
 Contexto: NASA Space Apps Challenge / entregable para juez
-Fecha: 2026-11-14
+Fecha de auditoría: 2026-11-14
+Última actualización: 2026-11-14 (P3 18, 19, 22 y 23 resueltos; personajes y P0 previos)
+
+REGLA DE MANTENIMIENTO
+
+Actualizar este archivo después de cada cambio: marcar el hallazgo como
+RESUELTO con su verificación (prueba o comprobación manual) y ajustar el
+estado de validación. No borrar hallazgos resueltos: sirven de historial.
 
 CRITERIO DE PRIORIZACION
 
@@ -15,13 +22,20 @@ La prioridad no representa solamente gravedad técnica. Se pondera, en este orde
 
 ESTADO DE VALIDACION
 
-- npm test: 6 archivos, 25 pruebas, todas pasan.
-- npm run build: pasa TypeScript y Vite.
-- El build muestra advertencias sobre fuentes y tamaño del bundle.
-- No existe script de lint.
+- npm test: 7 archivos, 37 pruebas, todas pasan.
+- npm run build: pasa TypeScript y Vite (tras reparar Tormenta.ts, ver nota).
+- Build sin advertencias de fuentes. El chunk de Phaser (1.48 MB) sigue por
+  encima de 500 kB, pero está aislado como vendor; el código del juego queda
+  en 137.70 kB.
+- npm run lint (ESLint) pasa sin errores.
 - No hay pruebas de integración de escenas ni de los minijuegos.
 
+NOTA DE BUILD (2026-11-14): origin/main traía código muerto en Tormenta.ts
+(honestyTagBg y staticBars no existían) que rompía tsc. Se eliminó ese código
+y el build vuelve a pasar.
+
 P0 - BLOQUEADORES DEL ENTREGABLE Y DE LA DEMO
+Estado: RESUELTO (2026-11-14). Se conserva el texto original como historial.
 
 Estos problemas deben resolverse antes de presentar. Pueden hacer que el juez
 vea una demo inconsistente, pierda progreso o concluya que una mecánica central
@@ -34,6 +48,11 @@ no funciona.
    estado de una tormenta y presenta una pantalla incorrecta al jugador.
    Impacto para el juez: una recarga durante la demo puede cambiar el flujo o
    eliminar el contexto de la partida.
+   RESUELTO: Preload abre Mundo para location "mundo" y Base para base/refugio,
+   sin pasar por Transmision, y reanuda con clock.paused = false. Transmision usa
+   Events.ensureDay para no reiniciar un día ya inicializado.
+   Verificación: revisión del flujo y pruebas de estado (los selectores de escena
+   no están cubiertos por pruebas automáticas).
 
 2. Las acciones recientes no siempre se guardan
    Archivo: src/scenes/Mundo.ts
@@ -41,6 +60,10 @@ no funciona.
    minigame:finished actualiza el estado pero no llama a Save.save. Una recarga
    puede restaurar la muestra o el sistema como si nunca se hubiera reparado.
    Impacto para el juez: el progreso mostrado durante la presentación no es fiable.
+   RESUELTO: el listener de minigame:finished llama a Save.save(state) antes de
+   cerrar el minijuego.
+   Verificación: revisión de código (MinijuegoPaneles y MinijuegoTuberias
+   resuelven el mantenimiento antes de emitir el evento).
 
 3. El estado de tormentas no es persistente
    Archivos: src/systems/Events.ts, src/state/Save.ts
@@ -48,6 +71,12 @@ no funciona.
    estáticas que no forman parte de GameState. Una recarga durante una tormenta
    pierde la cuenta regresiva, el impacto y los eventos disparados.
    Impacto para el juez: se rompe una de las mecánicas narrativas principales.
+   RESUELTO: GameState incorpora state.events { dayTracked, fired, storm }.
+   Events ya no usa estado estático y getActiveStorm/clearActiveStorm reciben el
+   estado. Save.load migra los guardados anteriores sin events en lugar de
+   perderlos. Esto resuelve también el hallazgo 15.
+   Verificación: tests/Events.test.ts (tormenta y eventos disparados sobreviven a
+   guardar y recargar).
 
 4. Validación insuficiente de localStorage
    Archivo: src/state/Save.ts
@@ -56,6 +85,12 @@ no funciona.
    estadísticas ni rangos numéricos. Un guardado parcialmente corrupto puede
    pasar la validación y fallar después dentro de una escena.
    Impacto para el juez: una partida inválida puede producir una pantalla rota.
+   RESUELTO: la validación cubre versión, día, location, supplyBonus, reloj,
+   astronauta y posición, base y paneles, tubos, cuotas y entregas, arrays de
+   texto, personalización, desbloqueos, estadísticas y estado de eventos, con
+   rangos numéricos.
+   Verificación: tests/BaseAndSave.test.ts (8 guardados corruptos rechazados y
+   migración del formato anterior).
 
 P1 - IMPACTO DIRECTO EN LA EVALUACION
 
@@ -123,6 +158,9 @@ demo y las mecánicas que el juez verá.
 15. Eventos estáticos dificultan reinicios y pruebas
     Events conserva estado fuera de GameState. Reiniciar gameStore no reinicia
     necesariamente firedToday, activeStorm y currentDayTracked.
+    RESUELTO (2026-11-14, junto con el punto 3): el progreso vive en
+    state.events y se reinicia con gameStore.reset(). Verificado en
+    tests/Events.test.ts.
 
 16. Errores de almacenamiento ignorados silenciosamente
     src/state/Save.ts captura cualquier error y devuelve false/null sin informar
@@ -141,11 +179,25 @@ tiempo suficiente antes de la presentación.
     Mundo.ts y Base.ts concentran renderizado, input, movimiento, persistencia,
     eventos, reglas y navegación. Son difíciles de probar y modificar sin
     efectos secundarios.
+    RESUELTO (parcial, 2026-11-14): src/systems/PlayerController.ts concentra
+    teclas, joystick, movimiento, rebote y orientación del personaje. Mundo y
+    Base ya no duplican ese bloque ni los campos de entrada. Cada escena
+    conserva su renderizado, reglas, persistencia y navegación propios.
+    Verificación: tsc, build y lint en verde; la partida no se pudo probar en
+    navegador. Queda pendiente extraer el bucle de reloj/eventos/vitales, que
+    todavía vive en ambas escenas con diferencias deliberadas (por ejemplo,
+    el cierre a las 20:00 solo existe en Mundo).
 
 19. Parche global de Phaser
     src/ui/installTextDefaults.ts modifica
     GameObjectFactory.prototype.text globalmente para imponer resolution=4.
     Es frágil y puede afectar escenas o dependencias que no esperan ese cambio.
+    RESUELTO (2026-11-14): se eliminó installTextDefaults.ts. El nuevo
+    src/ui/TextResolutionPlugin.ts es un ScenePlugin que envuelve únicamente la
+    fábrica de la escena que lo instala, registrado en main.ts. Ya no se toca el
+    prototipo global de Phaser.
+    Verificación: el build sigue creando los textos y no hay referencias al
+    parche antiguo. Comparación visual pendiente en navegador.
 
 20. Casts innecesarios en el bus de eventos
     src/state/bus.ts usa Handler<never> y varios casts para almacenar handlers.
@@ -158,23 +210,44 @@ tiempo suficiente antes de la presentación.
 22. Bundle grande
     Vite reporta un bundle principal de aproximadamente 1.6 MB, por encima de
     500 kB. Phaser y todos los minijuegos se cargan juntos.
+    RESUELTO (2026-11-14): Phaser se separó como vendor con manualChunks y los
+    6 minijuegos se cargan con import() dinámico al abrirlos (launch.ts).
+    Resultado del build: app 137.70 kB (41.06 kB gzip), minijuegos entre 1.77
+    y 8.69 kB cada uno, Phaser 1.48 MB (339.68 kB gzip) aislado y cacheable.
+    Vite todavía avisa del tamaño del chunk de Phaser; es un vendor único que
+    no se puede dividir sin un build personalizado del motor.
 
 23. Advertencias de fuentes en build
     Vite avisa que las fuentes no se resuelven durante el build, aunque se
     copian desde public y aparecen en dist. Conviene verificar el despliegue
     final en GitHub Pages.
+    RESUELTO (2026-11-14): index.html usa url('/assets/fonts/...') en lugar de
+    %BASE_URL%. Vite reconoce los archivos de public, antepone la base
+    /AlertaHeliosfera/ y deja de advertir. dist/index.html contiene
+    /AlertaHeliosfera/assets/fonts/*.woff2 y las fuentes se copian a
+    dist/assets/fonts/. Verificación: build local e inspección de dist; falta
+    abrir la URL publicada de GitHub Pages, que no es accesible desde este
+    entorno.
 
 24. Archivo no rastreado
     git status muestra "?? leet.py". No parece parte del proyecto y debe
     revisarse antes de incluir cambios en un commit.
+    ACTUALIZACION (2026-11-14): leet.py ya está rastreado en main. Siguen sin
+    rastrear SKILL.md, los 7 PNG originales de 1024×1024 en
+    public/assets/sprites/, los derivados en public/assets/sprites/char/ y los
+    tres módulos nuevos de esta tanda: src/minigames/launch.ts,
+    src/systems/PlayerController.ts y src/ui/TextResolutionPlugin.ts.
+    src/ui/installTextDefaults.ts aparece como eliminado (reemplazado por el
+    plugin de escena).
 
 ORDEN DE TRABAJO PARA LLEGAR A LA PRESENTACION
 
-Fase 1 - Asegurar la demo
-1. Corregir la reanudación de partidas y guardar cada resultado de minijuego.
-2. Persistir tormentas y endurecer la validación/versionado del guardado.
-3. Verificar una partida completa desde el inicio hasta la pantalla final, con
-   recarga manual en puntos críticos.
+Fase 1 - Asegurar la demo  (puntos 1 y 2 HECHOS el 2026-11-14; falta el 3)
+1. [HECHO] Corregir la reanudación de partidas y guardar cada resultado de
+   minijuego.
+2. [HECHO] Persistir tormentas y endurecer la validación del guardado.
+3. [PENDIENTE] Verificar una partida completa desde el inicio hasta la pantalla
+   final, con recarga manual en puntos críticos. Requiere prueba en navegador.
 
 Fase 2 - Hacer que la propuesta sea evaluable
 4. Implementar un trade-off visible entre cuota, tiempo, batería, O2 y reparaciones.
@@ -187,10 +260,12 @@ Fase 3 - Pulir la presentación
     minijuego -> consecuencia visible -> aprendizaje científico.
 
 Fase 4 - Después del hackatón
-9. Extraer sistemas compartidos de las escenas.
+9. [PARCIAL 2026-11-14] Extraer sistemas compartidos de las escenas
+   (PlayerController para movimiento/entrada; falta el bucle de día).
 10. Eliminar APIs duplicadas y estado estático fuera de GameState.
 11. Añadir integración de escenas y pruebas de minijuegos.
-12. Reducir el bundle y optimizar la carga de recursos.
+12. [HECHO 2026-11-14] Reducir el bundle y optimizar la carga de recursos
+   (vendor de Phaser y minijuegos bajo demanda).
 
 CRITERIO DE ACEPTACION PARA EL ENTREGABLE
 
@@ -203,3 +278,52 @@ La versión presentable debe permitir que un juez:
   encontrar contradicciones entre el texto y el estado del juego.
 - Observe que el juego enseña algo sobre la operación de una misión en Marte,
   no solamente que contiene una estética espacial.
+
+HISTORIAL DE CAMBIOS
+
+2026-11-14 · P3 18/19/22/23 (rama bug-fixes)
+- 18: PlayerController comparte teclado, joystick, movimiento, rebote y
+  orientación entre Mundo y Base. Se eliminó el doble rebote que tenía Mundo
+  (ahora ambos usan el mismo cálculo de PlayerMotion).
+- 19: fuera el parche a GameObjectFactory.prototype.text; TextResolutionPlugin
+  aplica resolution=4 solo a la fábrica de cada escena.
+- 22: Phaser va en un chunk vendor y los 6 minijuegos se cargan al abrirlos.
+  La app baja de 1.65 MB a 137.70 kB; el motor queda en 1.48 MB cacheable.
+- 23: las fuentes se referencian como /assets/fonts/... y Vite antepone la base
+  de GitHub Pages; el build deja de advertir.
+- Verificación: 37 pruebas, tsc, lint y build en verde. Sin navegador no se
+  comprobó el aspecto del texto ni la carga diferida de cada minijuego.
+
+2026-11-14 · Personajes con orientación (rama bug-fixes)
+- Los 7 sprites nuevos (character_back, girl_front/side, boy1_front/side,
+  boy2_front/side) se procesaron a 24×56 y mini 12×28 en
+  public/assets/sprites/char/. El mini se genera con muestreo de punto para
+  conservar la paleta exacta que usa el recoloreado.
+- AstronautAppearance elige textura por personaje y orientación: front (abajo),
+  back (arriba) y side (izquierda); derecha es el mismo lado con flipX.
+  El traje se recolorea desde la fila 20 (24×56) y 10 (12×28) para no teñir
+  casco ni cara.
+- customization.hair (1|2) se reemplazó por customization.character
+  (girl|boy1|boy2). Save.load migra hair 2 -> boy1 y hair 1 -> girl; la
+  validación rechaza personajes desconocidos.
+- Personaliza muestra 3 personajes (los chicos requieren desbloqueo). Mundo y
+  Base actualizan la orientación al moverse; HUD, Rescate, Despegue, Diploma y
+  MinijuegoPaneles usan el personaje elegido.
+- Pruebas: 36 -> 37 (migración de peinado y personaje inválido). Build y
+  TypeScript en verde. La orientación y el recoloreado de texturas no tienen
+  prueba automática ni se verificaron aún en navegador.
+- Nota: los PNG antiguos astronaut_hair1/2 y astronaut_mini_hair1/2 quedan en
+  disco sin uso; se pueden borrar en un cambio aparte.
+
+2026-11-14 · P0 (1-4) resuelto en la rama bug-fixes
+- Preload reanuda en Mundo/Base según location y sin quedar en pausa.
+- Transmision usa Events.ensureDay y ya no reinicia el día.
+- Mundo guarda el resultado de cada minijuego.
+- state.events persiste tormenta y eventos disparados; migración de guardados.
+- Save.isValidGameState valida el estado completo con rangos.
+- Tormenta.ts: eliminado código muerto que rompía `npm run build`.
+- Pruebas: 25 -> 36 (7 archivos). Build y TypeScript en verde.
+
+2026-11-14 · UI del HUD
+- El panel de información del personaje bajó a la esquina inferior izquierda
+  (y = 276) y el joystick quedó encima (y = 238).

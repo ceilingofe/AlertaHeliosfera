@@ -134,7 +134,17 @@ export class Despegue extends Phaser.Scene {
       this.add
         .rectangle(ax, 202, 42, 46, 0x8b9bb4)
         .setStrokeStyle(2, 0x3a4466);
-      this.add.image(ax, 206, 'astronaut_mini_hair1').setScale(1.6);
+      this.add
+        .image(
+          ax,
+          206,
+          AstronautAppearance.getMiniTextureKey(
+            this,
+            state.customization.character,
+            state.customization.suit
+          )
+        )
+        .setScale(1.4);
       this.add.image(ax, 198, accKey).setScale(0.75);
     });
 

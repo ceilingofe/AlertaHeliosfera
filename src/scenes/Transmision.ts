@@ -28,7 +28,7 @@ export class Transmision extends Phaser.Scene {
     const state = gameStore.state;
     Clock.setPaused(state, true);
     Quota.applyDailyQuota(state);
-    Events.initDay(state);
+    Events.ensureDay(state);
 
     // 1. Marco general de la consola de transmisión (s02_transmision.png)
     this.add.rectangle(320, 180, 640, 360, 0x262b44);

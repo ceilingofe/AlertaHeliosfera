@@ -13,10 +13,6 @@ const SPRITE_KEYS = [
   'acc_mono',
   'antenna',
   'antenna_broken',
-  'astronaut_hair1',
-  'astronaut_hair2',
-  'astronaut_mini_hair1',
-  'astronaut_mini_hair2',
   'base_exterior',
   'corvi_alert',
   'corvi_blink',
@@ -40,6 +36,24 @@ const SPRITE_KEYS = [
   'solar_panel_dusty',
   'tube_empty',
   'tube_full',
+] as const;
+
+/** Los personajes viven en assets/sprites/char/ con versión completa y mini. */
+const CHARACTER_SPRITE_KEYS = [
+  'character_back',
+  'character_back_mini',
+  'girl_front',
+  'girl_front_mini',
+  'girl_side',
+  'girl_side_mini',
+  'boy1_front',
+  'boy1_front_mini',
+  'boy1_side',
+  'boy1_side_mini',
+  'boy2_front',
+  'boy2_front_mini',
+  'boy2_side',
+  'boy2_side_mini',
 ] as const;
 
 const UI_ICON_KEYS = [
@@ -98,6 +112,10 @@ export class Preload extends Phaser.Scene {
       this.load.image(key, `assets/sprites/${key}.png`);
     }
 
+    for (const key of CHARACTER_SPRITE_KEYS) {
+      this.load.image(key, `assets/sprites/char/${key}.png`);
+    }
+
     for (const key of UI_ICON_KEYS) {
       this.load.image(key, `assets/ui/${key}.png`);
     }
@@ -118,12 +136,14 @@ export class Preload extends Phaser.Scene {
     const saved = Save.load();
     if (saved) {
       gameStore.reset(saved);
-      Quota.applyDailyQuota(gameStore.state);
-      if (saved.location === 'base' || saved.location === 'refugio') {
-        this.scene.start('Base');
+      // Reanudar sin quedar congelado en pausa.
+      gameStore.state.clock.paused = false;
+      // Reanudar exactamente donde quedó la partida: afuera va a Mundo, dentro a Base/refugio.
+      if (saved.location === 'mundo') {
+        this.scene.start('Mundo');
         return;
       }
-      this.scene.start('Transmision');
+      this.scene.start('Base');
       return;
     }
 
