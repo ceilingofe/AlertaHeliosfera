@@ -1,39 +1,56 @@
 import Phaser from 'phaser';
-import uiText from '../../content/ui_text.json';
-import { Data } from '../systems/Data';
-import { DialogBox } from '../ui/DialogBox';
+import MG from '../../content/minigames.json';
+import { AudioSystem } from '../systems/Audio';
 import { MinigameBase } from './MinigameBase';
+import { TimingBar, button, panel, shuffle, txt } from './widgets';
 
-type RockPhase = 'scan' | 'drill' | 'seal' | 'done';
+type RockKind = 'leopard' | 'sandstone' | 'volcanic' | 'sparkle';
+type Phase = 'scan' | 'drill' | 'seal' | 'done';
+
+interface RockSlot {
+  kind: RockKind;
+  img: Phaser.GameObjects.Image;
+  scan: number; // 0..1
+  read: Phaser.GameObjects.Text;
+  frame: Phaser.GameObjects.Rectangle;
+}
+
+const T = MG.roca;
+const TEX: Record<RockKind, string> = {
+  leopard: 'rock_leopard',
+  sandstone: 'rock_sandstone',
+  volcanic: 'rock_volcanic',
+  sparkle: 'rock_sparkle',
+};
 
 /**
- * Minijuego de muestra de roca (fiel al storyboard s05_roca.png):
- * Paso 1 (Escanear): elegir la roca con capas y manchas de leopardo (Cheyava Falls).
- * Paso 2 (Perforar): mantener presionado sube profundidad y temperatura de la broca;
- *   soltar enfría; si llega al rojo (100 %) se rompe (1 reintento permitido).
- * Paso 3 (Sellar): tocar a tiempo en la zona verde para sellar el núcleo en el tubo.
+ * Núcleo de roca.
+ * 1) Escanear: las rocas están cubiertas de polvo; hay que pasar el escáner para leerlas.
+ *    Sólo la sedimentaria con capas responde la pregunta científica. Elegir mal = error.
+ * 2) Perforar: hay capas duras al azar que calientan la broca. Pasarse = error y retroceso.
+ * 3) Sellar: barra de tiempo con zona angosta que cambia de lugar (2 sellos en dificultad 3).
  */
 export class MinijuegoRoca extends MinigameBase {
-  private phase: RockPhase = 'scan';
-  private stageContainer!: Phaser.GameObjects.Container;
-  private activeDialog: DialogBox | null = null;
+  private phase: Phase = 'scan';
+  private stage!: Phaser.GameObjects.Container;
+  private rocks: RockSlot[] = [];
+  private selected: RockSlot | null = null;
+  private scanner!: Phaser.GameObjects.Container;
 
-  // Variables del Paso 2 (Perforar)
-  private isDrilling = false;
-  private drillDepth = 0;
-  private drillHeat = 0;
-  private depthBarFill?: Phaser.GameObjects.Rectangle;
-  private heatBarFill?: Phaser.GameObjects.Rectangle;
-  private drillBitGraphic?: Phaser.GameObjects.Rectangle;
-  private statusLabel?: Phaser.GameObjects.Text;
+  private drilling = false;
+  private depth = 0;
+  private heat = 0;
+  private safeDepth = 0;
+  private hardLayers: { from: number; to: number }[] = [];
+  private depthFill!: Phaser.GameObjects.Rectangle;
+  private heatFill!: Phaser.GameObjects.Rectangle;
+  private bit!: Phaser.GameObjects.Rectangle;
+  private drillStatus!: Phaser.GameObjects.Text;
 
-  // Variables del Paso 3 (Sellar)
-  private sealMarkerPos = 0;
-  private sealMarkerDir = 1;
-  private sealMarkerRect?: Phaser.GameObjects.Rectangle;
-
-  private keySpace!: Phaser.Input.Keyboard.Key;
-  private keyE!: Phaser.Input.Keyboard.Key;
+  private bar: TimingBar | null = null;
+  private sealsNeeded = 1;
+  private sealsDone = 0;
+  private sealStatus!: Phaser.GameObjects.Text;
 
   constructor() {
     super('MinijuegoRoca');
@@ -41,492 +58,269 @@ export class MinijuegoRoca extends MinigameBase {
 
   create(): void {
     this.phase = 'scan';
-    this.isDrilling = false;
-    this.drillDepth = 0;
-    this.drillHeat = 0;
-
-    this.drawHeader(
-      uiText.minigameRock.title,
-      [
-        uiText.minigameRock.step1,
-        uiText.minigameRock.step2,
-        uiText.minigameRock.step3,
-      ],
-      uiText.minigameRock.instScan
-    );
-
-    this.stageContainer = this.add.container(0, 0);
-
-    if (this.input.keyboard) {
-      this.keySpace = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-      this.keyE = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
-    }
-
-    this.buildScanStep();
+    this.rocks = [];
+    this.selected = null;
+    this.drawHeader(T.title, T.steps, T.instScan);
+    this.stage = this.add.container(0, 0);
+    this.buildScan();
   }
 
-  private buildScanStep(): void {
+  // ------------------------------------------------------------------ 1. escanear
+
+  private buildScan(): void {
     this.phase = 'scan';
     this.setActiveStep(0);
-    this.setInstruction(uiText.minigameRock.instScan);
-    this.stageContainer.removeAll(true);
-    this.activeDialog?.destroy();
-    this.activeDialog = null;
+    this.stage.removeAll(true);
+    this.stage.add(txt(this, 14, 72, T.objective, 11, '#fee761', 612));
 
-    // 1. Roca izquierda: Volcánica · lisa (escala ×6)
-    const rockLeft = this.add
-      .image(112, 168, 'rock_volcanic')
-      .setScale(9)
-      .setInteractive({ useHandCursor: true });
-    const tagLeftBg = this.add
-      .rectangle(104, 240, 128, 22, 0x262b44)
-      .setStrokeStyle(1, 0x181425);
-    const tagLeftTxt = this.add
-      .text(104, 240, uiText.minigameRock.rockVolcanic, {
-        fontFamily: 'PixelifySans, monospace',
-        fontSize: '11px',
-        color: '#ffffff',
-      })
-      .setOrigin(0.5);
+    const d = this.inputData.difficulty;
+    const distractors = shuffle<RockKind>(['sandstone', 'volcanic', 'sparkle']).slice(0, d === 1 ? 2 : 3);
+    const kinds = shuffle<RockKind>(['leopard', ...distractors]);
+    const spacing = 600 / kinds.length;
 
-    // 2. Roca central: Con capas y manchas (lupa del escáner como en s05_roca.png)
-    const scannerLensOuter = this.add
-      .circle(312, 162, 58, 0xb86f50)
-      .setStrokeStyle(6, 0x181425)
-      .setInteractive({ useHandCursor: true });
-    const scannerHandle = this.add.graphics();
-    scannerHandle.lineStyle(5, 0x8b9bb4, 1);
-    scannerHandle.lineBetween(356, 204, 396, 246);
-
-    const rockCenter = this.add
-      .image(312, 162, 'rock_leopard')
-      .setScale(8)
-      .setInteractive({ useHandCursor: true });
-
-    const tagCenterBg = this.add
-      .rectangle(312, 240, 142, 28, 0x262b44)
-      .setStrokeStyle(2, 0xfee761);
-    const tagCenterTxt = this.add
-      .text(312, 240, uiText.minigameRock.rockLeopard, {
-        fontFamily: 'PixelifySans, monospace',
-        fontSize: '11px',
-        color: '#ffffff',
-      })
-      .setOrigin(0.5);
-
-    // 3. Roca derecha: Arenisca · sin capas (escala ×6)
-    const rockRight = this.add
-      .image(502, 168, 'rock_sandstone')
-      .setScale(9)
-      .setInteractive({ useHandCursor: true });
-    const tagRightBg = this.add
-      .rectangle(502, 240, 134, 22, 0x262b44)
-      .setStrokeStyle(1, 0x181425);
-    const tagRightTxt = this.add
-      .text(502, 240, uiText.minigameRock.rockSandstone, {
-        fontFamily: 'PixelifySans, monospace',
-        fontSize: '11px',
-        color: '#ffffff',
-      })
-      .setOrigin(0.5);
-
-    // 4. Botón "Perforar esta roca" abajo a la derecha (s05_roca.png)
-    const drillBtnBg = this.add
-      .rectangle(542, 326, 176, 34, 0x181425)
-      .setStrokeStyle(2, 0xe4a672)
-      .setInteractive({ useHandCursor: true });
-    const drillBtnTxt = this.add
-      .text(542, 326, uiText.minigameRock.drillButton, {
-        fontFamily: 'PixelifySans, monospace',
-        fontSize: '14px',
-        color: '#ffffff',
-      })
-      .setOrigin(0.5);
-
-    this.stageContainer.add([
-      rockLeft,
-      tagLeftBg,
-      tagLeftTxt,
-      scannerHandle,
-      scannerLensOuter,
-      rockCenter,
-      tagCenterBg,
-      tagCenterTxt,
-      rockRight,
-      tagRightBg,
-      tagRightTxt,
-      drillBtnBg,
-      drillBtnTxt,
-    ]);
-
-    // Diálogo grande de Corvi con placa de nombre y sello NASA (s05_roca.png)
-    this.activeDialog = new DialogBox(this, {
-      mode: 'big',
-      mood: 'alert',
-      text: uiText.minigameRock.corviFoundLeopard,
-      source: 'Perseverance (2024)',
-      label: 'ARCHIVO REAL',
+    kinds.forEach((kind, i) => {
+      const x = 20 + spacing * (i + 0.5);
+      const frame = this.add.rectangle(x, 160, spacing - 18, 112, 0x181425, 0.35).setStrokeStyle(2, 0x3a4466);
+      const img = this.add.image(x, 156, TEX[kind]).setScale(7).setTint(0x733e39).setInteractive({ useHandCursor: true });
+      const read = txt(this, x, 226, '???', 10, '#c0cbdc', spacing - 24).setOrigin(0.5, 0).setAlign('center');
+      const slot: RockSlot = { kind, img, scan: 0, read, frame };
+      img.on('pointerdown', () => this.selectRock(slot));
+      this.rocks.push(slot);
+      this.stage.add([frame, img, read]);
     });
 
-    const showWrongRock = (): void => {
-      this.activeDialog?.destroy();
-      this.activeDialog = new DialogBox(this, {
-        mode: 'big',
-        mood: 'think',
-        text: uiText.minigameRock.wrongRockMsg,
-      });
-    };
-
-    const selectLeopardRock = (): void => {
-      this.buildDrillStep();
-    };
-
-    rockLeft.on('pointerdown', showWrongRock);
-    rockRight.on('pointerdown', showWrongRock);
-    rockCenter.on('pointerdown', selectLeopardRock);
-    scannerLensOuter.on('pointerdown', selectLeopardRock);
-    drillBtnBg.on('pointerdown', selectLeopardRock);
-  }
-
-  private buildDrillStep(): void {
-    this.phase = 'drill';
-    this.setActiveStep(1);
-    this.setInstruction(uiText.minigameRock.instDrill);
-    this.stageContainer.removeAll(true);
-    this.activeDialog?.destroy();
-    this.activeDialog = null;
-
-    this.drillDepth = 0;
-    this.drillHeat = 0;
-    this.isDrilling = false;
-
-    // Roca objetivo al centro con broca encima
-    const rockImg = this.add
-      .image(206, 198, 'rock_leopard')
-      .setScale(10)
-      .setInteractive({ useHandCursor: true });
-
-    this.drillBitGraphic = this.add
-      .rectangle(206, 122, 14, 46, 0xc0cbdc)
-      .setStrokeStyle(2, 0x181425);
-
-    const drillIcon = this.add.image(206, 92, 'icon_drill').setScale(3);
-
-    // Panel derecho con barras de Profundidad y Temperatura de la broca
-    const panel = this.add
-      .rectangle(448, 184, 310, 152, 0x262b44)
-      .setStrokeStyle(2, 0x181425);
-
-    const depthTitle = this.add.text(308, 122, uiText.minigameRock.depthLabel, {
-      fontFamily: 'PixelifySans, monospace',
-      fontSize: '12px',
-      color: '#ead4aa',
+    // Escáner arrastrable (lupa)
+    const g = this.add.graphics();
+    g.lineStyle(4, 0x181425).strokeCircle(0, 0, 22);
+    g.lineStyle(2, 0x2ce8f5).strokeCircle(0, 0, 20);
+    g.fillStyle(0x2ce8f5, 0.12).fillCircle(0, 0, 20);
+    g.lineStyle(5, 0x8b9bb4).lineBetween(15, 15, 32, 32);
+    this.scanner = this.add.container(320, 300, [g]).setSize(48, 48).setDepth(40);
+    this.scanner.setInteractive({ draggable: true, useHandCursor: true });
+    this.input.setDraggable(this.scanner);
+    this.scanner.on('drag', (_p: Phaser.Input.Pointer, x: number, y: number) => {
+      this.scanner.setPosition(Phaser.Math.Clamp(x, 10, 630), Phaser.Math.Clamp(y, 70, 350));
     });
-    const depthBg = this.add
-      .rectangle(308, 148, 280, 16, 0x3a4466)
-      .setOrigin(0, 0.5)
-      .setStrokeStyle(2, 0x181425);
-    this.depthBarFill = this.add
-      .rectangle(310, 148, 0, 12, 0x63c74d)
-      .setOrigin(0, 0.5);
+    this.stage.add(this.scanner);
 
-    const heatTitle = this.add.text(308, 174, uiText.minigameRock.heatLabel, {
-      fontFamily: 'PixelifySans, monospace',
-      fontSize: '12px',
-      color: '#fee761',
-    });
-    const heatBg = this.add
-      .rectangle(308, 200, 280, 16, 0x3a4466)
-      .setOrigin(0, 0.5)
-      .setStrokeStyle(2, 0x181425);
-    // Zona roja de peligro al final de la barra de calor
-    const redZone = this.add
-      .rectangle(532, 200, 54, 12, 0xa22633)
-      .setOrigin(0, 0.5);
-    this.heatBarFill = this.add
-      .rectangle(310, 200, 0, 12, 0xfeae34)
-      .setOrigin(0, 0.5);
-
-    this.statusLabel = this.add.text(308, 224, '', {
-      fontFamily: 'PixelifySans, monospace',
-      fontSize: '11px',
-      color: '#fee761',
-      wordWrap: { width: 280 },
-    });
-
-    // Botón táctil grande para mantener presionado al perforar
-    const holdBtn = this.add
-      .rectangle(448, 304, 240, 38, 0xf77622)
-      .setStrokeStyle(2, 0x181425)
-      .setInteractive({ useHandCursor: true });
-    const holdTxt = this.add
-      .text(448, 304, uiText.minigameRock.drillButton, {
-        fontFamily: 'PixelifySans, monospace',
-        fontSize: '15px',
-        color: '#ffffff',
-      })
-      .setOrigin(0.5);
-
-    const startHold = (): void => {
-      this.isDrilling = true;
-    };
-    const endHold = (): void => {
-      this.isDrilling = false;
-    };
-
-    holdBtn.on('pointerdown', startHold);
-    holdBtn.on('pointerup', endHold);
-    holdBtn.on('pointerout', endHold);
-    rockImg.on('pointerdown', startHold);
-    rockImg.on('pointerup', endHold);
-    this.input.on('pointerup', endHold);
-
-    this.stageContainer.add([
-      rockImg,
-      this.drillBitGraphic,
-      drillIcon,
-      panel,
-      depthTitle,
-      depthBg,
-      this.depthBarFill,
-      heatTitle,
-      heatBg,
-      redZone,
-      this.heatBarFill,
-      this.statusLabel,
-      holdBtn,
-      holdTxt,
-    ]);
+    const b = button(this, 520, 330, 196, 30, T.chooseButton, () => this.confirmRock());
+    this.stage.add([b.bg, b.label]);
   }
 
-  private buildSealStep(): void {
-    this.phase = 'seal';
-    this.setActiveStep(2);
-    this.setInstruction(uiText.minigameRock.instSeal);
-    this.stageContainer.removeAll(true);
-
-    this.sealMarkerPos = 10;
-    this.sealMarkerDir = 1;
-
-    const tubePreview = this.add.image(180, 186, 'tube_full').setScale(8);
-
-    const barPanel = this.add
-      .rectangle(410, 186, 320, 120, 0x262b44)
-      .setStrokeStyle(2, 0x181425);
-
-    const zoneTitle = this.add
-      .text(410, 146, uiText.minigameRock.sealZoneLabel, {
-        fontFamily: 'PixelifySans, monospace',
-        fontSize: '13px',
-        color: '#ead4aa',
-      })
-      .setOrigin(0.5);
-
-    const barTrack = this.add
-      .rectangle(270, 186, 280, 22, 0x3a4466)
-      .setOrigin(0, 0.5)
-      .setStrokeStyle(2, 0x181425);
-
-    // Zona verde central (32 % a 68 % del recorrido)
-    const greenZone = this.add
-      .rectangle(270 + 280 * 0.32, 186, 280 * 0.36, 18, 0x63c74d)
-      .setOrigin(0, 0.5);
-
-    this.sealMarkerRect = this.add
-      .rectangle(270, 186, 8, 28, 0xfee761)
-      .setOrigin(0.5)
-      .setStrokeStyle(1, 0x181425);
-
-    this.statusLabel = this.add
-      .text(410, 224, '', {
-        fontFamily: 'PixelifySans, monospace',
-        fontSize: '11px',
-        color: '#fee761',
-      })
-      .setOrigin(0.5);
-
-    const sealBtn = this.add
-      .rectangle(410, 294, 220, 38, 0x63c74d)
-      .setStrokeStyle(2, 0x181425)
-      .setInteractive({ useHandCursor: true });
-    const sealBtnTxt = this.add
-      .text(410, 294, uiText.minigameRock.sealActionButton, {
-        fontFamily: 'PixelifySans, monospace',
-        fontSize: '16px',
-        color: '#181425',
-      })
-      .setOrigin(0.5);
-
-    sealBtn.on('pointerdown', () => this.trySealTube());
-
-    this.stageContainer.add([
-      tubePreview,
-      barPanel,
-      zoneTitle,
-      barTrack,
-      greenZone,
-      this.sealMarkerRect,
-      this.statusLabel,
-      sealBtn,
-      sealBtnTxt,
-    ]);
+  private selectRock(slot: RockSlot): void {
+    if (this.phase !== 'scan' || this.finished) return;
+    AudioSystem.play('ui_select', { volume: 0.6 });
+    this.selected = slot;
+    for (const r of this.rocks) r.frame.setStrokeStyle(2, r === slot ? 0xfee761 : 0x3a4466);
   }
 
-  private trySealTube(): void {
-    if (this.phase !== 'seal') return;
-
-    if (this.sealMarkerPos >= 32 && this.sealMarkerPos <= 68) {
-      this.phase = 'done';
-      this.spawnSuccessParticles();
-
-      const cheyavaFact = Data.getFactById('cheyava');
-      this.activeDialog?.destroy();
-      this.activeDialog = new DialogBox(this, {
-        mode: 'small',
-        mood: 'proud',
-        text: cheyavaFact.text,
-        source: cheyavaFact.source,
-        label: cheyavaFact.label,
-        autoCloseMs: 2200,
-        onComplete: () => {
-          this.completeMinigame({
-            ok: true,
-            quality: 3,
-            factId: 'cheyava',
-          });
-        },
-      });
-    } else {
-      this.failures += 1;
-      if (this.failures >= 2) {
-        this.completeMinigame({ ok: false, quality: 0 });
-      } else {
-        this.statusLabel?.setText(uiText.minigameRock.sealRetry);
-      }
-    }
-  }
-
-  private spawnSuccessParticles(): void {
-    for (let i = 0; i < 14; i++) {
-      const p = this.add.rectangle(
-        320 + (Math.random() - 0.5) * 60,
-        180 + (Math.random() - 0.5) * 40,
-        5,
-        5,
-        i % 2 === 0 ? 0xfee761 : 0x63c74d
-      );
-      this.tweens.add({
-        targets: p,
-        x: p.x + (Math.random() - 0.5) * 120,
-        y: p.y - 40 - Math.random() * 50,
-        alpha: 0,
-        duration: 700,
-        onComplete: () => p.destroy(),
-      });
-    }
-  }
-
-  update(_time: number, delta: number): void {
-    const dt = delta / 1000;
-
-    if (this.phase === 'scan') {
-      if (
-        Phaser.Input.Keyboard.JustDown(this.keySpace) ||
-        Phaser.Input.Keyboard.JustDown(this.keyE)
-      ) {
-        if (this.activeDialog && this.activeDialog.isTyping()) {
-          this.activeDialog.completeTyping();
-        } else {
-          this.buildDrillStep();
-        }
-      }
+  private confirmRock(): void {
+    if (this.phase !== 'scan' || this.finished) return;
+    if (!this.selected) {
+      this.setInstruction(T.pickFirst, '#feae34');
+      AudioSystem.play('ui_error');
       return;
     }
+    if (this.selected.scan < 1) {
+      this.addStrike(T.notScanned, T.wrongRockFail);
+      return;
+    }
+    if (this.selected.kind !== 'leopard') {
+      this.addStrike(T.wrongRock, T.wrongRockFail);
+      return;
+    }
+    this.buildDrill();
+  }
 
-    if (this.phase === 'drill') {
-      const keyHeld =
-        (this.keySpace && this.keySpace.isDown) || (this.keyE && this.keyE.isDown);
-      const activeDrill = this.isDrilling || keyHeld;
+  private updateScan(dt: number): void {
+    // Teclado: las flechas mueven el escáner
+    let vx = 0;
+    let vy = 0;
+    if (this.keyDown('left') || this.keyDown('a')) vx -= 1;
+    if (this.keyDown('right') || this.keyDown('d')) vx += 1;
+    if (this.keyDown('up') || this.keyDown('w')) vy -= 1;
+    if (this.keyDown('down') || this.keyDown('s')) vy += 1;
+    if (vx || vy) {
+      this.scanner.x = Phaser.Math.Clamp(this.scanner.x + vx * 200 * dt, 10, 630);
+      this.scanner.y = Phaser.Math.Clamp(this.scanner.y + vy * 200 * dt, 70, 350);
+    }
+    if (this.actionJustDown()) {
+      const under = this.rocks.find((r) => r.img.getBounds().contains(this.scanner.x, this.scanner.y));
+      if (under && this.selected !== under) this.selectRock(under);
+      else this.confirmRock();
+    }
 
-      const heatSpeed = 38 + (this.inputData.difficulty - 1) * 10;
-      const coolSpeed = 48;
-      const depthSpeed = 30;
-
-      if (activeDrill) {
-        this.drillDepth = Math.min(100, this.drillDepth + depthSpeed * dt);
-        this.drillHeat = Math.min(100, this.drillHeat + heatSpeed * dt);
-      } else {
-        this.drillHeat = Math.max(0, this.drillHeat - coolSpeed * dt);
-      }
-
-      if (this.depthBarFill) {
-        this.depthBarFill.width = Math.round((276 * this.drillDepth) / 100);
-      }
-      if (this.heatBarFill) {
-        this.heatBarFill.width = Math.round((276 * this.drillHeat) / 100);
-        this.heatBarFill.setFillStyle(
-          this.drillHeat >= 80 ? 0xe43b44 : this.drillHeat >= 55 ? 0xf77622 : 0xfeae34
+    let scanningAny = false;
+    for (const r of this.rocks) {
+      if (r.scan >= 1) continue;
+      if (r.img.getBounds().contains(this.scanner.x, this.scanner.y)) {
+        scanningAny = true;
+        r.scan = Math.min(1, r.scan + dt / (this.inputData.difficulty === 1 ? 0.8 : 1.2));
+        r.read.setText(`${T.scanning} ${Math.round(r.scan * 100)}%`);
+        const c = Phaser.Display.Color.Interpolate.ColorWithColor(
+          Phaser.Display.Color.ValueToColor(0x733e39),
+          Phaser.Display.Color.ValueToColor(0xffffff),
+          100,
+          Math.round(r.scan * 100)
         );
-      }
-      if (this.drillBitGraphic) {
-        this.drillBitGraphic.y = 122 + (this.drillDepth / 100) * 32;
-      }
-
-      // Si la temperatura de la broca pasa del límite (100 %), el núcleo se rompe
-      if (this.drillHeat >= 100) {
-        this.isDrilling = false;
-        this.failures += 1;
-        if (this.failures >= 2) {
-          this.statusLabel?.setText(uiText.minigameRock.overheatFail);
-          this.time.delayedCall(900, () => {
-            this.completeMinigame({ ok: false, quality: 0 });
-          });
-          this.phase = 'done';
-          return;
+        r.img.setTint(Phaser.Display.Color.GetColor(c.r, c.g, c.b));
+        if (r.scan >= 1) {
+          r.img.clearTint();
+          const info = T.rocks[r.kind];
+          r.read.setText(`${info.name}\n${info.read}`).setColor('#ffffff');
+          AudioSystem.play('scan_beep');
         }
-        this.drillDepth = 0;
-        this.drillHeat = 0;
-        this.statusLabel?.setText(uiText.minigameRock.overheatRetry);
+      }
+    }
+    if (scanningAny) AudioSystem.startLoop('minigame', 'scan_loop', 0.35);
+    else AudioSystem.stopLoop('minigame');
+  }
+
+  // ------------------------------------------------------------------ 2. perforar
+
+  private buildDrill(): void {
+    this.phase = 'drill';
+    AudioSystem.stopLoop('minigame');
+    this.clearCursorTargets();
+    this.setActiveStep(1);
+    this.setInstruction(T.instDrill);
+    this.stage.removeAll(true);
+    this.depth = 0;
+    this.heat = 0;
+    this.safeDepth = 0;
+    this.drilling = false;
+
+    const d = this.inputData.difficulty;
+    const layers = d === 1 ? 1 : d === 2 ? 2 : 3;
+    this.hardLayers = [];
+    for (let i = 0; i < layers; i++) {
+      const from = 15 + ((i + Math.random() * 0.6) * 75) / layers;
+      this.hardLayers.push({ from, to: from + 8 + d * 2 });
+    }
+
+    const rock = this.add.image(150, 196, 'rock_leopard').setScale(10);
+    this.bit = this.add.rectangle(150, 112, 12, 44, 0xc0cbdc).setStrokeStyle(2, 0x181425);
+    const icon = this.add.image(150, 84, 'icon_drill').setScale(3);
+    this.stage.add([rock, this.bit, icon]);
+
+    this.stage.add(panel(this, 286, 76, 340, 196));
+    this.stage.add(txt(this, 300, 86, T.depth, 12, '#ead4aa'));
+    this.stage.add(this.add.rectangle(300, 112, 310, 16, 0x3a4466).setOrigin(0, 0.5).setStrokeStyle(2, 0x181425));
+    for (const l of this.hardLayers) {
+      this.stage.add(
+        this.add.rectangle(300 + (310 * l.from) / 100, 112, (310 * (l.to - l.from)) / 100, 16, 0x5a6988).setOrigin(0, 0.5)
+      );
+    }
+    this.depthFill = this.add.rectangle(302, 112, 0, 10, 0x63c74d).setOrigin(0, 0.5);
+    this.stage.add(this.depthFill);
+    this.stage.add(txt(this, 300, 124, '▒ = capa dura', 10, '#8b9bb4'));
+
+    this.stage.add(txt(this, 300, 146, T.heat, 12, '#fee761'));
+    this.stage.add(this.add.rectangle(300, 172, 310, 16, 0x3a4466).setOrigin(0, 0.5).setStrokeStyle(2, 0x181425));
+    this.stage.add(this.add.rectangle(300 + 310 * 0.82, 172, 310 * 0.18, 12, 0xa22633).setOrigin(0, 0.5));
+    this.heatFill = this.add.rectangle(302, 172, 0, 10, 0xfeae34).setOrigin(0, 0.5);
+    this.stage.add(this.heatFill);
+    this.drillStatus = txt(this, 300, 192, '', 11, '#fee761', 316);
+    this.stage.add(this.drillStatus);
+
+    const b = button(this, 456, 246, 240, 34, T.drillButton, () => (this.drilling = true));
+    b.bg.on('pointerup', () => (this.drilling = false));
+    b.bg.on('pointerout', () => (this.drilling = false));
+    this.input.on('pointerup', () => (this.drilling = false));
+    this.stage.add([b.bg, b.label]);
+  }
+
+  private inHardLayer(): boolean {
+    return this.hardLayers.some((l) => this.depth >= l.from && this.depth <= l.to);
+  }
+
+  private updateDrill(dt: number): void {
+    const d = this.inputData.difficulty;
+    const active = this.drilling || this.actionHeld();
+    const hard = this.inHardLayer();
+    if (active) {
+      this.depth = Math.min(100, this.depth + (hard ? 9 : 24) * dt);
+      this.heat = Math.min(100, this.heat + (hard ? 44 + d * 8 : 18 + d * 5) * dt);
+      AudioSystem.startLoop('minigame', 'drill_loop', hard ? 0.7 : 0.5);
+    } else {
+      this.heat = Math.max(0, this.heat - 40 * dt);
+      AudioSystem.stopLoop('minigame');
+    }
+    if (!hard) this.safeDepth = Math.max(this.safeDepth, this.depth);
+    this.drillStatus.setText(hard ? T.hardLayer : '');
+
+    this.depthFill.width = Math.round((306 * this.depth) / 100);
+    this.heatFill.width = Math.round((306 * this.heat) / 100);
+    this.heatFill.setFillStyle(this.heat >= 82 ? 0xe43b44 : this.heat >= 55 ? 0xf77622 : 0xfeae34);
+    this.bit.y = 112 + (this.depth / 100) * 40;
+    if (active) this.bit.x = 150 + (Math.random() - 0.5) * (hard ? 3 : 1.5);
+
+    if (this.heat >= 100) {
+      this.drilling = false;
+      AudioSystem.stopLoop('minigame');
+      AudioSystem.play('overheat');
+      // Retrocede a la última capa segura antes de la capa dura
+      const layer = this.hardLayers.find((l) => this.depth >= l.from - 0.01);
+      this.depth = Math.min(this.safeDepth, layer ? layer.from - 1 : this.safeDepth);
+      this.heat = 0;
+      if (this.addStrike(T.overheat, T.overheatFail)) this.setInstruction(T.overheat, '#feae34');
+      return;
+    }
+    if (this.depth >= 100) this.buildSeal();
+  }
+
+  // ------------------------------------------------------------------ 3. sellar
+
+  private buildSeal(): void {
+    this.phase = 'seal';
+    this.drilling = false;
+    AudioSystem.stopLoop('minigame');
+    this.setActiveStep(2);
+    const d = this.inputData.difficulty;
+    this.sealsNeeded = d >= 3 ? 2 : 1;
+    this.sealsDone = 0;
+    this.setInstruction(d >= 3 ? `${T.instSeal} ${T.sealTwice}` : T.instSeal);
+    this.stage.removeAll(true);
+    this.stage.add(this.add.image(130, 180, 'tube_full').setScale(8));
+    this.stage.add(panel(this, 236, 110, 380, 130));
+    this.bar = new TimingBar(this, 256, 176, 340, d === 1 ? 0.26 : d === 2 ? 0.19 : 0.14, 0.75 + d * 0.15, T.sealTitle);
+    this.stage.add(this.bar.objects);
+    this.sealStatus = txt(this, 426, 210, '', 11, '#fee761').setOrigin(0.5);
+    this.stage.add(this.sealStatus);
+    const b = button(this, 426, 290, 200, 36, T.sealButton, () => this.trySeal(), 0x63c74d, '#181425');
+    this.stage.add([b.bg, b.label]);
+  }
+
+  private trySeal(): void {
+    if (this.phase !== 'seal' || this.finished || !this.bar) return;
+    if (this.bar.hit()) {
+      this.sealsDone += 1;
+      AudioSystem.play('tube_seal', { volume: 0.6 });
+      if (this.sealsDone >= this.sealsNeeded) {
+        this.phase = 'done';
+        this.succeed('cheyava', T.success, T.source);
         return;
       }
+      this.sealStatus.setText(`${this.sealsDone}/${this.sealsNeeded}`);
+      this.bar.moveZone();
+    } else {
+      this.sealsDone = 0;
+      this.bar.moveZone();
+      this.addStrike(T.sealMiss, T.sealFail);
+    }
+  }
 
-      if (this.drillDepth >= 100) {
-        this.buildSealStep();
-      }
+  update(_t: number, delta: number): void {
+    const dt = delta / 1000;
+    if (this.finished) {
+      this.actionJustDown();
       return;
     }
-
-    if (this.phase === 'seal') {
-      const markerSpeed = 95 + (this.inputData.difficulty - 1) * 20;
-      this.sealMarkerPos += this.sealMarkerDir * markerSpeed * dt;
-      if (this.sealMarkerPos >= 100) {
-        this.sealMarkerPos = 100;
-        this.sealMarkerDir = -1;
-      } else if (this.sealMarkerPos <= 0) {
-        this.sealMarkerPos = 0;
-        this.sealMarkerDir = 1;
-      }
-
-      if (this.sealMarkerRect) {
-        this.sealMarkerRect.x = Math.round(270 + (280 * this.sealMarkerPos) / 100);
-      }
-
-      if (
-        Phaser.Input.Keyboard.JustDown(this.keySpace) ||
-        Phaser.Input.Keyboard.JustDown(this.keyE)
-      ) {
-        this.trySealTube();
-      }
-      return;
-    }
-
-    if (this.phase === 'done') {
-      if (
-        Phaser.Input.Keyboard.JustDown(this.keySpace) ||
-        Phaser.Input.Keyboard.JustDown(this.keyE)
-      ) {
-        this.activeDialog?.advanceOrFinish();
-      }
+    if (this.phase === 'scan') this.updateScan(dt);
+    else if (this.phase === 'drill') this.updateDrill(dt);
+    else if (this.phase === 'seal') {
+      this.bar?.update(dt);
+      if (this.actionJustDown()) this.trySeal();
     }
   }
 }

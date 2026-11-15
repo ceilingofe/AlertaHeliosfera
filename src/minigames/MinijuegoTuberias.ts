@@ -1,259 +1,175 @@
 import Phaser from 'phaser';
-import uiText from '../../content/ui_text.json';
+import MG from '../../content/minigames.json';
 import { gameStore } from '../state/GameState';
-import { Data } from '../systems/Data';
+import { AudioSystem } from '../systems/Audio';
 import { Events } from '../systems/Events';
-import { DialogBox } from '../ui/DialogBox';
 import { MinigameBase } from './MinigameBase';
+import { button, txt } from './widgets';
+import { generatePipePuzzle, rotateMask, traceFlow, type PipePuzzle } from './pipePuzzle';
 
-interface PipeCell {
-  row: number;
-  col: number;
-  isOnPath: boolean;
-  targetRot: number;
-  currentRot: number;
-  clogCount: number;
-  container: Phaser.GameObjects.Container;
-  pipeGraphic: Phaser.GameObjects.Graphics;
-  clogBadge?: Phaser.GameObjects.Rectangle;
+const T = MG.tuberias;
+
+interface Tile {
+  r: number;
+  c: number;
+  mask: number;
+  clog: number;
+  bg: Phaser.GameObjects.Rectangle;
+  g: Phaser.GameObjects.Graphics;
+  clogMark: Phaser.GameObjects.Text | null;
 }
 
 /**
- * Minijuego de Tuberías de MOXIE / Reparación de Antena (sección 9.1):
- * Cuadrícula de 4×4 (o 5×5 en dificultad 3) donde se rotan los tramos de tubería
- * para conectar: Toma de aire -> Calentador 800 °C -> MOXIE -> Tanque de O₂.
- * En dificultad >= 2 incluye un filtro tapado que se sacude antes de rotar.
+ * Tuberías de MOXIE / circuito de la antena.
+ * El camino se genera al azar cada vez; todas las piezas empiezan giradas.
+ * No hay pistas de qué pieza es la buena: hay que pensar el recorrido y luego PROBAR.
+ * Probar con una fuga cuesta un intento, pero enseña hasta dónde llegó el flujo.
+ * Desde dificultad 2 hay tramos tapados que se destapan con 3 toques.
  */
 export class MinijuegoTuberias extends MinigameBase {
-  private cells: PipeCell[] = [];
-  private activeDialog: DialogBox | null = null;
-  private isDone = false;
-  private targetSystem: 'moxie_pipes' | 'antenna' = 'moxie_pipes';
-
-  private keySpace!: Phaser.Input.Keyboard.Key;
-  private keyE!: Phaser.Input.Keyboard.Key;
+  private puzzle!: PipePuzzle;
+  private tiles: Tile[] = [];
+  private system: 'moxie_pipes' | 'antenna' = 'moxie_pipes';
+  private cell = 40;
+  private ox = 0;
+  private oy = 0;
+  private cursor = { r: 0, c: 0 };
+  private cursorRect!: Phaser.GameObjects.Rectangle;
 
   constructor() {
     super('MinijuegoTuberias');
   }
 
   create(): void {
-    this.isDone = false;
-    this.cells = [];
-    this.targetSystem =
-      this.inputData.type === 'antenna' ? 'antenna' : 'moxie_pipes';
-
-    const title =
-      this.targetSystem === 'antenna'
-        ? uiText.minigamePipes.titleAntenna
-        : uiText.minigamePipes.titleMoxie;
-
+    this.system = this.inputData.type === 'antenna' ? 'antenna' : 'moxie_pipes';
+    const d = this.inputData.difficulty;
     this.drawHeader(
-      title,
-      [uiText.minigamePipes.step1, uiText.minigamePipes.step2],
-      uiText.minigamePipes.instRotate
+      this.system === 'antenna' ? T.titleAntenna : T.titleMoxie,
+      T.steps,
+      d >= 2 ? `${T.instRotate} ${T.instClog}` : T.instRotate
     );
 
-    if (this.input.keyboard) {
-      this.keySpace = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-      this.keyE = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
-    }
+    const rows = d === 1 ? 4 : 5;
+    const cols = d === 1 ? 5 : d === 2 ? 6 : 7;
+    this.puzzle = generatePipePuzzle(rows, cols, d >= 2 ? d - 1 : 0, Math.random);
+    this.cell = d === 3 ? 36 : 40;
+    this.ox = Math.round(320 - (cols * this.cell) / 2);
+    this.oy = 72 + Math.round((236 - rows * this.cell) / 2);
+    this.tiles = [];
 
-    const gridSize = this.inputData.difficulty >= 3 ? 5 : 4;
-    const cellSize = gridSize === 5 ? 34 : 42;
-    const startX = 216;
-    const startY = 76;
-
-    // Etiquetas de entrada y salida
-    this.add
-      .text(
-        startX - 12,
-        startY + cellSize / 2,
-        this.targetSystem === 'antenna'
-          ? uiText.minigamePipes.antennaInLabel
-          : uiText.minigamePipes.inLabel,
-        {
-          fontFamily: 'PixelifySans, monospace',
-          fontSize: '12px',
-          color: '#fee761',
-        }
-      )
-      .setOrigin(1, 0.5);
-
-    this.add
-      .text(
-        startX + gridSize * cellSize + 12,
-        startY + (gridSize - 0.5) * cellSize,
-        this.targetSystem === 'antenna'
-          ? uiText.minigamePipes.antennaOutLabel
-          : uiText.minigamePipes.outLabel,
-        {
-          fontFamily: 'PixelifySans, monospace',
-          fontSize: '12px',
-          color: '#2ce8f5',
-        }
-      )
-      .setOrigin(0, 0.5);
-
-    // Definir camino escalonado desde (0,0) hasta (gridSize-1, gridSize-1)
-    for (let r = 0; r < gridSize; r++) {
-      for (let c = 0; c < gridSize; c++) {
-        // Camino principal: fila 0 hasta col 2, baja a última fila, va a última col
-        const isOnPath =
-          (r === 0 && c <= 2) ||
-          (c === 2 && r >= 0 && r <= gridSize - 1) ||
-          (r === gridSize - 1 && c >= 2);
-
-        const mismatch = isOnPath && (r + c) % 2 === 1 ? 90 : 0;
-        const clogCount =
-          this.inputData.difficulty >= 2 && r === 1 && c === 2 ? 2 : 0;
-
-        const cx = startX + c * cellSize + cellSize / 2;
-        const cy = startY + r * cellSize + cellSize / 2;
-
-        const tileBg = this.add
-          .rectangle(0, 0, cellSize - 4, cellSize - 4, isOnPath ? 0x262b44 : 0x3a4466)
-          .setStrokeStyle(2, 0x181425)
-          .setInteractive({ useHandCursor: true });
-
-        const pipeGraphic = this.add.graphics();
-        this.drawPipeSegment(pipeGraphic, cellSize, isOnPath, false);
-        pipeGraphic.setAngle(mismatch);
-
-        const container = this.add.container(cx, cy, [tileBg, pipeGraphic]);
-
-        let clogBadge: Phaser.GameObjects.Rectangle | undefined;
-        if (clogCount > 0) {
-          clogBadge = this.add
-            .rectangle(0, 0, cellSize - 12, cellSize - 12, 0xb86f50)
-            .setStrokeStyle(2, 0xfee761);
-          container.add(clogBadge);
-        }
-
-        const cellObj: PipeCell = {
-          row: r,
-          col: c,
-          isOnPath,
-          targetRot: 0,
-          currentRot: mismatch,
-          clogCount,
-          container,
-          pipeGraphic,
-          clogBadge,
-        };
-
-        tileBg.on('pointerdown', () => this.rotateOrUnclogCell(cellObj, cellSize));
-        this.cells.push(cellObj);
+    this.add.rectangle(this.ox - 4, this.oy - 4, cols * this.cell + 8, rows * this.cell + 8, 0x181425).setOrigin(0, 0);
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const x = this.ox + c * this.cell + this.cell / 2;
+        const y = this.oy + r * this.cell + this.cell / 2;
+        const bg = this.add.rectangle(x, y, this.cell - 3, this.cell - 3, 0x3a4466).setStrokeStyle(1, 0x262b44).setInteractive({ useHandCursor: true });
+        const g = this.add.graphics({ x, y });
+        const clog = this.puzzle.clogged.has(r * cols + c) ? 3 : 0;
+        const clogMark = clog ? txt(this, x, y, '✕', 16, '#feae34').setOrigin(0.5).setDepth(5) : null;
+        const tile: Tile = { r, c, mask: this.puzzle.masks[r * cols + c], clog, bg, g, clogMark };
+        bg.on('pointerdown', () => {
+          this.cursor = { r, c };
+          this.tap(tile);
+        });
+        this.tiles.push(tile);
+        this.drawTile(tile, false);
       }
     }
 
-    // Diálogo grande de Corvi con sello NASA
-    this.activeDialog = new DialogBox(this, {
-      mode: 'big',
-      mood: 'think',
-      text: uiText.minigamePipes.corviMoxie,
-      source: uiText.minigamePipes.corviSource,
-      label: 'ARCHIVO REAL',
+    const inLabel = this.system === 'antenna' ? T.inAntenna : T.inMoxie;
+    const outLabel = this.system === 'antenna' ? T.outAntenna : T.outMoxie;
+    const inY = this.oy + this.puzzle.entryRow * this.cell + this.cell / 2;
+    const outY = this.oy + this.puzzle.exitRow * this.cell + this.cell / 2;
+    this.add.rectangle(this.ox - 4, inY, 14, 10, 0xfee761).setOrigin(1, 0.5);
+    txt(this, this.ox - 20, inY, inLabel, 11, '#fee761').setOrigin(1, 0.5);
+    this.add.rectangle(this.ox + cols * this.cell + 4, outY, 14, 10, 0x2ce8f5).setOrigin(0, 0.5);
+    txt(this, this.ox + cols * this.cell + 20, outY, outLabel, 11, '#2ce8f5').setOrigin(0, 0.5);
+
+    this.cursorRect = this.add.rectangle(0, 0, this.cell - 1, this.cell - 1).setStrokeStyle(2, 0xfee761).setDepth(6).setVisible(false);
+
+    const b = button(this, 320, 330, 180, 30, T.testButton, () => this.test(), 0x63c74d, '#181425');
+    void b;
+  }
+
+  private drawTile(t: Tile, flowing: boolean): void {
+    const g = t.g;
+    g.clear();
+    const half = this.cell / 2 - 2;
+    const color = flowing ? 0x2ce8f5 : t.clog ? 0x733e39 : 0xc0cbdc;
+    g.fillStyle(0x181425);
+    g.fillRect(-7, -7, 14, 14);
+    g.fillStyle(color);
+    g.fillRect(-5, -5, 10, 10);
+    const arms: [number, number, number, number][] = [
+      [-5, -half, 10, half], // N
+      [0, -5, half, 10], // E
+      [-5, 0, 10, half], // S
+      [-half, -5, half, 10], // W
+    ];
+    arms.forEach((a, i) => {
+      if (t.mask & (1 << i)) {
+        g.fillStyle(0x181425).fillRect(a[0] - 1, a[1] - 1, a[2] + 2, a[3] + 2);
+        g.fillStyle(color).fillRect(a[0], a[1], a[2], a[3]);
+      }
     });
   }
 
-  private drawPipeSegment(
-    g: Phaser.GameObjects.Graphics,
-    cellSize: number,
-    isOnPath: boolean,
-    connected: boolean
-  ): void {
-    g.clear();
-    const half = (cellSize - 6) / 2;
-    g.fillStyle(connected ? 0x2ce8f5 : isOnPath ? 0xc0cbdc : 0x5a6988, 1);
-    g.fillRect(-half, -5, half * 2, 10);
-    g.fillRect(-5, -half, 10, half * 2);
-  }
-
-  private rotateOrUnclogCell(cell: PipeCell, cellSize: number): void {
-    if (this.isDone) return;
-
-    if (cell.clogCount > 0) {
-      cell.clogCount -= 1;
-      this.setInstruction(uiText.minigamePipes.instBlocked);
-      this.tweens.add({
-        targets: cell.container,
-        x: cell.container.x + 4,
-        duration: 50,
-        yoyo: true,
-      });
-      if (cell.clogCount <= 0) {
-        cell.clogBadge?.destroy();
-        this.setInstruction(uiText.minigamePipes.instRotate);
+  private tap(t: Tile): void {
+    if (this.finished) return;
+    if (t.clog > 0) {
+      t.clog -= 1;
+      AudioSystem.play('clank', { volume: 0.5, pitchJitter: 0.2 });
+      this.tweens.add({ targets: [t.g, t.bg], x: '+=3', duration: 40, yoyo: true });
+      if (t.clog === 0) {
+        t.clogMark?.destroy();
+        t.clogMark = null;
+        this.puzzle.clogged.delete(t.r * this.puzzle.cols + t.c);
+      } else {
+        this.setInstruction(T.clogged, '#feae34');
       }
+      this.drawTile(t, false);
       return;
     }
-
-    cell.currentRot = (cell.currentRot + 90) % 180;
-    cell.pipeGraphic.setAngle(cell.currentRot);
-
-    this.checkAllConnected(cellSize);
+    t.mask = rotateMask(t.mask);
+    this.puzzle.masks[t.r * this.puzzle.cols + t.c] = t.mask;
+    AudioSystem.play('ui_switch', { volume: 0.4 });
+    for (const tile of this.tiles) this.drawTile(tile, false);
   }
 
-  private checkAllConnected(cellSize: number): void {
-    const allReady = this.cells.every(
-      (c) => !c.isOnPath || (c.clogCount === 0 && c.currentRot % 180 === c.targetRot)
-    );
-
-    if (!allReady) return;
-
-    this.isDone = true;
-    this.setActiveStep(1);
-
-    for (const c of this.cells) {
-      if (c.isOnPath) {
-        this.drawPipeSegment(c.pipeGraphic, cellSize, true, true);
-      }
+  private test(): void {
+    if (this.finished) return;
+    const flow = traceFlow(this.puzzle);
+    for (const t of this.tiles) this.drawTile(t, flow.reached.has(t.r * this.puzzle.cols + t.c));
+    if (flow.ok) {
+      this.setActiveStep(1);
+      AudioSystem.play('valve_loop', { volume: 0.5 });
+      Events.resolveMaintenanceEvent(gameStore.state, this.system);
+      if (this.system === 'antenna') this.succeed('luz', T.successAntenna, T.sourceAntenna);
+      else this.succeed('moxie', T.successMoxie, T.sourceMoxie);
+    } else {
+      AudioSystem.play('o2_hiss', { volume: 0.6 });
+      this.addStrike(T.leak, this.system === 'antenna' ? T.failAntenna : T.failMoxie);
     }
-
-    Events.resolveMaintenanceEvent(gameStore.state, this.targetSystem);
-    const factId = this.targetSystem === 'antenna' ? 'luz' : 'moxie';
-    const fact = Data.getFactById(factId);
-    if (!gameStore.state.learnedToday.includes(factId)) {
-      gameStore.state.learnedToday.push(factId);
-    }
-
-    this.activeDialog?.destroy();
-    this.activeDialog = new DialogBox(this, {
-      mode: 'small',
-      mood: 'proud',
-      text: fact.text,
-      source: fact.source,
-      label: fact.label,
-      autoCloseMs: 1800,
-      onComplete: () => {
-        this.completeMinigame({
-          ok: true,
-          quality: 3,
-          factId,
-        });
-      },
-    });
   }
 
   update(): void {
-    if (
-      Phaser.Input.Keyboard.JustDown(this.keySpace) ||
-      Phaser.Input.Keyboard.JustDown(this.keyE)
-    ) {
-      if (this.isDone) {
-        this.activeDialog?.advanceOrFinish();
-        return;
-      }
-      // Con Espacio/E alinea el siguiente tramo pendiente de la ruta
-      const pending = this.cells.find(
-        (c) => c.isOnPath && (c.clogCount > 0 || c.currentRot % 180 !== c.targetRot)
-      );
-      if (pending) {
-        const gridSize = this.inputData.difficulty >= 3 ? 5 : 4;
-        const cellSize = gridSize === 5 ? 34 : 42;
-        this.rotateOrUnclogCell(pending, cellSize);
-      }
+    if (this.finished) {
+      this.actionJustDown();
+      return;
     }
+    const { rows, cols } = this.puzzle;
+    let moved = false;
+    if (this.keyJustDown('left') || this.keyJustDown('a')) (this.cursor.c = Math.max(0, this.cursor.c - 1)), (moved = true);
+    if (this.keyJustDown('right') || this.keyJustDown('d')) (this.cursor.c = Math.min(cols - 1, this.cursor.c + 1)), (moved = true);
+    if (this.keyJustDown('up') || this.keyJustDown('w')) (this.cursor.r = Math.max(0, this.cursor.r - 1)), (moved = true);
+    if (this.keyJustDown('down') || this.keyJustDown('s')) (this.cursor.r = Math.min(rows - 1, this.cursor.r + 1)), (moved = true);
+    if (moved) this.cursorRect.setVisible(true);
+    this.cursorRect.setPosition(this.ox + this.cursor.c * this.cell + this.cell / 2, this.oy + this.cursor.r * this.cell + this.cell / 2);
+    if (this.actionJustDown()) {
+      this.cursorRect.setVisible(true);
+      const t = this.tiles[this.cursor.r * cols + this.cursor.c];
+      if (t) this.tap(t);
+    }
+    if (this.pJustDown()) this.test();
   }
 }
