@@ -9,6 +9,9 @@ import { Clock } from '../systems/Clock';
 import { Data, type CorviQAEntry } from '../systems/Data';
 import { Events } from '../systems/Events';
 import { Vitals } from '../systems/Vitals';
+import { Quota } from '../systems/Quota';
+import { AudioSystem } from '../systems/Audio';
+import factsData from '../../content/facts.json';
 import { AstronautAppearance } from '../ui/AstronautAppearance';
 import { DialogBox } from '../ui/DialogBox';
 import { getSharedJoystickVector } from '../ui/Joystick';
@@ -57,6 +60,7 @@ export class Base extends Phaser.Scene {
   private activeRefill = false;
   private activeHeat = false;
   private unsubscribers: (() => void)[] = [];
+  private modal: Phaser.GameObjects.Container | null = null;
 
   constructor() {
     super('Base');
@@ -78,6 +82,7 @@ export class Base extends Phaser.Scene {
     this.faqContainer = null;
     this.activeQaDialog = null;
     this.unsubscribers = [];
+    this.modal = null;
 
     // 1. Piso embaldosado y pared superior estilo s04_base.png (TODO_ARTE pendiente de Karmin)
     const g = this.add.graphics();
@@ -97,99 +102,43 @@ export class Base extends Phaser.Scene {
       }
     }
 
-    // 2. Panel de la Base arriba a la izquierda (s04_base.png)
-    const basePanel = this.add.rectangle(8, 6, 198, 76, 0xc0cbdc).setOrigin(0, 0);
-    basePanel.setStrokeStyle(2, 0x181425);
-
-    this.add.text(18, 12, uiText.base.panelTitle, {
+    // 2. Monitor central en la pared: estado de la base (no choca con los paneles del HUD)
+    this.add.rectangle(309, 57, 196, 58, 0x262b44).setStrokeStyle(2, 0x181425);
+    this.add.rectangle(309, 57, 186, 48, 0x124e89);
+    this.add.text(218, 34, uiText.base.panelTitle, {
       fontFamily: 'PixelifySans, monospace',
-      resolution: 2,
-      fontSize: '12px',
-      color: '#5a6988',
+      fontSize: '10px',
+      color: '#2ce8f5',
     });
-
-    this.add.image(22, 34, 'icon_bolt').setScale(1.8);
-    this.add.text(34, 27, uiText.base.energyLabel, {
-      fontFamily: 'PixelifySans, monospace',
-      resolution: 2,
-      fontSize: '12px',
-      color: '#181425',
-    });
+    this.add.image(224, 54, 'icon_bolt').setScale(1.4);
     this.energyText = this.add
-      .text(198, 27, '100 %', {
-        fontFamily: 'PixelifySans, monospace',
-        resolution: 2,
-        fontSize: '12px',
-        color: '#181425',
-      })
+      .text(398, 47, '100 %', { fontFamily: 'PixelifySans, monospace', fontSize: '10px', color: '#ffffff' })
       .setOrigin(1, 0);
-
-    this.add
-      .rectangle(34, 46, 164, 8, 0x3a4466)
-      .setOrigin(0, 0.5)
-      .setStrokeStyle(1, 0x181425);
-    this.energyBarFill = this.add
-      .rectangle(35, 46, 162, 6, 0xfee761)
-      .setOrigin(0, 0.5);
-
-    this.add.image(22, 61, 'icon_o2').setScale(1.8);
-    this.add.text(34, 54, uiText.base.moxieLabel, {
-      fontFamily: 'PixelifySans, monospace',
-      resolution: 2,
-      fontSize: '12px',
-      color: '#181425',
-    });
+    this.add.rectangle(234, 54, 120, 6, 0x3a4466).setOrigin(0, 0.5);
+    this.energyBarFill = this.add.rectangle(234, 54, 120, 6, 0xfee761).setOrigin(0, 0.5);
+    this.add.image(224, 72, 'icon_o2').setScale(1.4);
     this.moxieText = this.add
-      .text(198, 54, '80 %', {
-        fontFamily: 'PixelifySans, monospace',
-        resolution: 2,
-        fontSize: '12px',
-        color: '#181425',
-      })
+      .text(398, 65, '80 %', { fontFamily: 'PixelifySans, monospace', fontSize: '10px', color: '#ffffff' })
       .setOrigin(1, 0);
+    this.add.rectangle(234, 72, 120, 6, 0x3a4466).setOrigin(0, 0.5);
+    this.moxieBarFill = this.add.rectangle(234, 72, 120, 6, 0x2ce8f5).setOrigin(0, 0.5);
 
-    this.add
-      .rectangle(34, 72, 164, 8, 0x3a4466)
-      .setOrigin(0, 0.5)
-      .setStrokeStyle(1, 0x181425);
-    this.moxieBarFill = this.add
-      .rectangle(35, 72, 130, 6, 0x2ce8f5)
-      .setOrigin(0, 0.5);
-
-    // 3. Consola central de telemetría (debajo del cartel superior de zona, y = 34..86)
-    const consoleFrame = this.add.rectangle(306, 60, 178, 52, 0x262b44).setOrigin(0.5);
-    consoleFrame.setStrokeStyle(2, 0x181425);
-    this.add.rectangle(264, 60, 74, 36, 0x124e89).setOrigin(0.5);
-    this.add.rectangle(348, 60, 70, 36, 0x124e89).setOrigin(0.5);
-    this.add.rectangle(348, 50, 52, 8, 0xfee761).setOrigin(0.5);
-
-    const chartLine = this.add.graphics();
-    chartLine.lineStyle(2, 0x2ce8f5, 1);
-    chartLine.beginPath();
-    chartLine.moveTo(232, 70);
-    chartLine.lineTo(250, 58);
-    chartLine.lineTo(268, 64);
-    chartLine.lineTo(294, 48);
-    chartLine.strokePath();
-
-    // 4. Botones superiores "Recargar", "Calentarme", "Dormir" y "Traje" (debajo del reloj del HUD, y >= 60)
-    this.createActionButton(450, 70, 84, 20, 0x262b44, '#ffffff', uiText.base.refillButton, () => {
-      this.triggerRefillO2();
-    });
-
-    this.createActionButton(542, 70, 88, 20, 0xc0cbdc, '#181425', uiText.base.heatButton, () => {
-      this.triggerHeatSuit();
-    });
-
-    this.createActionButton(450, 93, 84, 20, 0xb55088, '#ffffff', uiText.base.sleepButton, () => {
-      this.goToSleep();
-    });
-
-    this.createActionButton(542, 93, 88, 20, 0x3a4466, '#fee761', 'Traje', () => {
-      this.scene.stop('HUD');
-      this.scene.stop('Dialogo');
-      this.scene.stop('Tormenta');
-      this.scene.start('Personaliza', { nextScene: 'Base' });
+    // 3. Columna de acciones a la derecha (debajo del reloj; el radar no se muestra adentro)
+    this.add.rectangle(518, 62, 122, 134, 0x262b44, 0.92).setOrigin(0, 0).setStrokeStyle(2, 0x181425);
+    const actions: [string, number, string, () => void][] = [
+      [uiText.base.refillButton, 0x124e89, '#ffffff', () => this.triggerRefillO2()],
+      [uiText.base.heatButton, 0xbe4a2f, '#ffffff', () => this.triggerHeatSuit()],
+      [uiText.base.examButton, 0x3e8948, '#ffffff', () => this.openTrivia()],
+      [uiText.base.journalButton, 0x5a6988, '#ffffff', () => this.openJournal()],
+      [uiText.base.suitButton, 0x3a4466, '#fee761', () => {
+        this.scene.stop('HUD');
+        this.scene.stop('Dialogo');
+        this.scene.stop('Tormenta');
+        this.scene.start('Personaliza', { nextScene: 'Base' });
+      }],
+    ];
+    actions.forEach(([label, color, textColor, cb], i) => {
+      this.createActionButton(524, 68 + i * 25, 110, 21, color, textColor, label, cb);
     });
 
     // 5. Estaciones e interior: Cama, Percha de Corvi, Mesa de muestras, Puerta al Refugio y Puerta de Salida
@@ -204,38 +153,38 @@ export class Base extends Phaser.Scene {
 
     // Cama a la izquierda (s04_base.png: cabecera blanca, sábana gris, cobija magenta #b55088)
     const bedFrame = this.add
-      .rectangle(74, 148, 86, 86, 0x181425)
+      .rectangle(64, 252, 86, 76, 0x181425)
       .setOrigin(0.5)
       .setInteractive({ useHandCursor: true });
-    this.add.rectangle(74, 118, 82, 22, 0xffffff).setOrigin(0.5);
-    this.add.rectangle(74, 134, 82, 10, 0xc0cbdc).setOrigin(0.5);
-    this.add.rectangle(74, 164, 82, 50, 0xb55088).setOrigin(0.5);
-    addBlock(74, 148, 86, 86);
+    this.add.rectangle(64, 226, 82, 20, 0xffffff).setOrigin(0.5);
+    this.add.rectangle(64, 241, 82, 8, 0xc0cbdc).setOrigin(0.5);
+    this.add.rectangle(64, 266, 82, 44, 0xb55088).setOrigin(0.5);
+    addBlock(64, 252, 86, 76);
     bedFrame.on('pointerdown', () => this.goToSleep());
 
     // Corvi en su percha (abre el menú de preguntas corvi_qa.json)
-    this.add.rectangle(198, 182, 52, 8, 0x8b9bb4).setStrokeStyle(2, 0x181425);
-    this.add.rectangle(198, 196, 10, 20, 0x262b44).setStrokeStyle(2, 0x181425);
+    this.add.rectangle(212, 222, 52, 8, 0x8b9bb4).setStrokeStyle(2, 0x181425);
+    this.add.rectangle(212, 236, 10, 20, 0x262b44).setStrokeStyle(2, 0x181425);
     const corviSprite = this.add
-      .image(198, 142, 'corvi_neutral')
+      .image(212, 182, 'corvi_neutral')
       .setScale(1.8)
       .setInteractive({ useHandCursor: true });
-    addBlock(198, 160, 44, 48);
+    addBlock(212, 200, 44, 48);
     corviSprite.on('pointerdown', () => {
       this.openCorviFaqMenu();
     });
 
     // Mesa de muestras a la derecha (s04_base.png)
     const tableTop = this.add
-      .rectangle(512, 168, 152, 34, 0xc0cbdc)
+      .rectangle(420, 196, 152, 34, 0xc0cbdc)
       .setStrokeStyle(2, 0x181425)
       .setInteractive({ useHandCursor: true });
-    this.add.rectangle(512, 189, 152, 10, 0x181425);
-    addBlock(512, 172, 152, 42);
+    this.add.rectangle(420, 217, 152, 10, 0x181425);
+    addBlock(420, 200, 152, 42);
 
     for (let i = 0; i < 6; i++) {
-      const tx = 458 + i * 21;
-      const tSprite = this.add.image(tx, 156, 'tube_empty').setScale(2);
+      const tx = 366 + i * 21;
+      const tSprite = this.add.image(tx, 184, 'tube_empty').setScale(2);
       this.tableTubeSprites.push(tSprite);
     }
     this.refreshTableTubes();
@@ -243,20 +192,23 @@ export class Base extends Phaser.Scene {
 
     // Puerta al refugio (arriba a la derecha, debajo del botón Traje)
     const refugeFrame = this.add
-      .rectangle(560, 126, 64, 34, 0x733e39)
+      .rectangle(462, 60, 48, 56, 0x733e39)
       .setStrokeStyle(3, 0x181425)
       .setInteractive({ useHandCursor: true });
-    this.add.rectangle(560, 127, 32, 28, 0x262b44);
-    this.add.circle(570, 128, 2, 0xfee761);
+    this.add.rectangle(462, 64, 30, 46, 0x262b44);
+    this.add.circle(472, 66, 2, 0xfee761);
+    this.add
+      .text(462, 26, uiText.base.refugeSign, { fontFamily: 'PixelifySans, monospace', fontSize: '9px', color: '#fee761' })
+      .setOrigin(0.5);
     refugeFrame.on('pointerdown', () => this.toggleRefuge());
 
     // Puerta de salida al exterior (abajo al centro, arriba de la barra de herramientas del HUD)
     const exitDoor = this.add
-      .rectangle(334, 278, 68, 20, 0x3a4466)
+      .rectangle(300, 296, 76, 20, 0x3a4466)
       .setStrokeStyle(2, 0x181425)
       .setInteractive({ useHandCursor: true });
     this.add
-      .text(334, 278, 'SALIR', {
+      .text(300, 296, uiText.base.exitSign, {
         fontFamily: 'PixelifySans, monospace',
         resolution: 2,
         fontSize: '10px',
@@ -267,10 +219,10 @@ export class Base extends Phaser.Scene {
 
     // Indicador visual cuando el astronauta está dentro del Refugio Blindado
     const refBg = this.add
-      .rectangle(334, 232, 286, 26, 0x265c42, 0.95)
+      .rectangle(300, 128, 286, 26, 0x265c42, 0.95)
       .setStrokeStyle(2, 0x63c74d);
     const refTxt = this.add
-      .text(334, 232, uiText.base.refugeEnteredMsg, {
+      .text(300, 128, uiText.base.refugeEnteredMsg, {
         fontFamily: 'PixelifySans, monospace',
         resolution: 2,
         fontSize: '11px',
@@ -283,12 +235,12 @@ export class Base extends Phaser.Scene {
       .setDepth(25);
 
     this.stations = [
-      { id: 'bed', x: 128, y: 156, prompt: uiText.base.interactBed },
-      { id: 'corvi', x: 236, y: 166, prompt: uiText.base.interactCorvi },
-      { id: 'console', x: 306, y: 112, prompt: uiText.base.interactConsole },
-      { id: 'table', x: 512, y: 204, prompt: uiText.base.interactTable },
-      { id: 'refugeDoor', x: 560, y: 140, prompt: uiText.base.interactRefugeDoor },
-      { id: 'exitDoor', x: 334, y: 262, prompt: uiText.base.interactExitDoor },
+      { id: 'bed', x: 124, y: 252, prompt: uiText.base.interactBed },
+      { id: 'corvi', x: 250, y: 206, prompt: uiText.base.interactCorvi },
+      { id: 'console', x: 309, y: 104, prompt: uiText.base.interactConsole },
+      { id: 'table', x: 420, y: 238, prompt: uiText.base.interactTable },
+      { id: 'refugeDoor', x: 462, y: 104, prompt: uiText.base.interactRefugeDoor },
+      { id: 'exitDoor', x: 300, y: 278, prompt: uiText.base.interactExitDoor },
     ];
 
     // 6. Astronauta en el interior (escala ×2) con su color de traje y peinado actuales
@@ -303,7 +255,7 @@ export class Base extends Phaser.Scene {
       .setCollideWorldBounds(true);
     this.playerOriginY = this.player.displayOriginY;
 
-    this.physics.world.setBounds(16, 92, 608, 194);
+    this.physics.world.setBounds(16, 92, 494, 200);
     this.physics.add.collider(this.player, obstacles);
 
     // 7. Etiqueta flotante de interacción
@@ -335,7 +287,13 @@ export class Base extends Phaser.Scene {
       this.keySpace = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
       this.keyEsc = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
 
-      this.keyE.on('down', () => this.handleStationInteraction());
+      this.keyE.on('down', () => {
+        if (this.activeQaDialog) {
+          this.activeQaDialog.advanceOrFinish();
+          return;
+        }
+        this.handleStationInteraction();
+      });
       this.keySpace.on('down', () => {
         if (this.activeQaDialog) {
           this.activeQaDialog.advanceOrFinish();
@@ -344,6 +302,10 @@ export class Base extends Phaser.Scene {
         this.handleStationInteraction();
       });
       this.keyEsc.on('down', () => {
+        if (this.modal) {
+          this.closeModal();
+          return;
+        }
         if (this.faqContainer) {
           this.closeCorviFaqMenu();
           return;
@@ -373,6 +335,14 @@ export class Base extends Phaser.Scene {
       this.scene.launch('Tormenta');
     }
 
+    AudioSystem.playMusic('blueprints');
+    AudioSystem.startLoop('ambient', 'base_hum_loop', 0.5);
+    this.unsubscribers.push(
+      bus.on('trivia:finished', () => {
+        this.input.keyboard?.resetKeys();
+      })
+    );
+
     bus.emit('zone:changed', {
       name:
         state.location === 'refugio'
@@ -386,6 +356,7 @@ export class Base extends Phaser.Scene {
       }
       this.unsubscribers = [];
       this.closeCorviFaqMenu();
+      AudioSystem.stopLoop('ambient');
     });
   }
 
@@ -396,9 +367,9 @@ export class Base extends Phaser.Scene {
     const energy = Math.round(state.base.energy);
     const reserve = Math.round(state.base.o2Reserve);
     this.energyText.setText(`${energy} %`);
-    this.energyBarFill.width = Math.round((162 * energy) / 100);
+    this.energyBarFill.width = Math.round((120 * energy) / 100);
     this.moxieText.setText(`${reserve} %`);
-    this.moxieBarFill.width = Math.round((162 * reserve) / 100);
+    this.moxieBarFill.width = Math.round((120 * reserve) / 100);
 
     if (state.clock.paused) {
       this.player.setVelocity(0, 0);
@@ -579,6 +550,7 @@ export class Base extends Phaser.Scene {
     });
 
     this.faqContainer = this.add.container(0, 0, items).setDepth(85);
+    this.scene.setVisible(false, 'HUD');
   }
 
   private playCorviAnswerSequence(qa: CorviQAEntry): void {
@@ -598,6 +570,7 @@ export class Base extends Phaser.Scene {
 
       if (pageIdx >= qa.a.length) {
         Clock.setPaused(state, false);
+        this.scene.setVisible(true, 'HUD');
         return;
       }
 
@@ -620,6 +593,7 @@ export class Base extends Phaser.Scene {
   }
 
   private closeCorviFaqMenu(): void {
+    if (this.scene.isActive('HUD') || this.scene.isPaused('HUD')) this.scene.setVisible(true, 'HUD');
     this.faqContainer?.destroy(true);
     this.faqContainer = null;
     this.activeQaDialog?.destroy();
@@ -728,7 +702,16 @@ export class Base extends Phaser.Scene {
     this.scene.start('Mundo');
   }
 
-  private goToSleep(): void {
+  private goToSleep(confirmed = false): void {
+    const state = gameStore.state;
+    // Los tubos en la caja se entregan solos antes de revisar la cuota
+    if (this.tubesPending() > 0) this.deliverSamplesAtTable();
+    if (!confirmed && !Quota.isAllMet(state)) {
+      this.openConfirm(uiText.base.sleepConfirmText, uiText.base.sleepConfirmYes, () => this.goToSleep(true));
+      return;
+    }
+    this.closeModal();
+    AudioSystem.stopLoop('ambient');
     this.scene.stop('HUD');
     this.scene.stop('Dialogo');
     this.scene.stop('Tormenta');
@@ -755,7 +738,7 @@ export class Base extends Phaser.Scene {
       const w = Math.max(120, Math.round(this.promptLabel.width + 18));
       this.promptBg.setSize(w, 20);
       this.promptContainer.setPosition(
-        Math.min(540, Math.max(100, Math.round(this.player.x))),
+        Math.min(440, Math.max(100, Math.round(this.player.x))),
         Math.max(96, Math.round(this.player.y - 34))
       );
       this.promptContainer.setVisible(true);
@@ -765,7 +748,7 @@ export class Base extends Phaser.Scene {
   }
 
   private handleStationInteraction(): void {
-    if (gameStore.state.clock.paused || this.faqContainer) return;
+    if (gameStore.state.clock.paused || this.faqContainer || this.modal) return;
     const st = this.getNearestStation();
     if (!st) return;
 
@@ -774,8 +757,7 @@ export class Base extends Phaser.Scene {
         this.goToSleep();
         break;
       case 'console':
-        this.triggerRefillO2();
-        this.triggerHeatSuit();
+        this.openTrivia();
         break;
       case 'table':
         this.deliverSamplesAtTable();
@@ -790,5 +772,128 @@ export class Base extends Phaser.Scene {
         this.openCorviFaqMenu();
         break;
     }
+  }
+
+  private tubesPending(): number {
+    return gameStore.state.tubes.filter((t) => t !== null).length;
+  }
+
+  private openTrivia(): void {
+    const state = gameStore.state;
+    if (state.triviaDoneDay === state.day) {
+      bus.emit('interact:prompt', { text: uiText.trivia.alreadyDone });
+      AudioSystem.play('ui_error');
+      return;
+    }
+    AudioSystem.play('ui_open');
+    this.player.setVelocity(0, 0);
+    this.scene.launch('Trivia', { returnScene: 'Base' });
+    this.scene.pause();
+  }
+
+  /** Bitácora: todo lo aprendido en la misión, con su fuente. */
+  private openJournal(page = 0): void {
+    this.closeModal();
+    const state = gameStore.state;
+    const ids = [...state.journal, ...state.learnedToday.filter((id) => !state.journal.includes(id))];
+    const facts = (factsData as { id: string; text: string; source: string; label: string; icon: string }[]).filter((f) =>
+      ids.includes(f.id)
+    );
+    Clock.setPaused(state, true);
+    AudioSystem.play('ui_open');
+    const items: Phaser.GameObjects.GameObject[] = [];
+    items.push(this.add.rectangle(320, 180, 640, 360, 0x181425, 0.75).setInteractive());
+    items.push(this.add.rectangle(320, 186, 470, 280, 0xead4aa).setStrokeStyle(3, 0x181425));
+    items.push(
+      this.add.text(100, 56, `${uiText.base.journalTitle} · ${facts.length}/${(factsData as unknown[]).length}`, {
+        fontFamily: 'PixelifySans, monospace',
+        fontSize: '15px',
+        color: '#733e39',
+      })
+    );
+    const perPage = 4;
+    const pages = Math.max(1, Math.ceil(facts.length / perPage));
+    const p = Math.min(page, pages - 1);
+    if (facts.length === 0) {
+      items.push(
+        this.add.text(100, 90, uiText.base.journalEmpty, {
+          fontFamily: 'PixelifySans, monospace',
+          fontSize: '11px',
+          color: '#181425',
+          wordWrap: { width: 440 },
+        })
+      );
+    }
+    facts.slice(p * perPage, p * perPage + perPage).forEach((f, i) => {
+      const y = 82 + i * 54;
+      items.push(this.add.rectangle(100, y, 440, 48, 0xffffff).setOrigin(0, 0).setStrokeStyle(1, 0xc0cbdc));
+      items.push(this.add.image(116, y + 18, `icon_${f.icon}`).setScale(1.8));
+      items.push(
+        this.add.text(132, y + 6, f.text, {
+          fontFamily: 'PixelifySans, monospace',
+          fontSize: '11px',
+          color: '#181425',
+          wordWrap: { width: 400 },
+        })
+      );
+      items.push(
+        this.add.text(132, y + 34, `★ ${f.label} · ${f.source}`, {
+          fontFamily: 'PixelifySans, monospace',
+          fontSize: '9px',
+          color: '#5a6988',
+        })
+      );
+    });
+    const mkBtn = (x: number, label: string, cb: () => void): void => {
+      const bg = this.add.rectangle(x, 306, 96, 22, 0x262b44).setStrokeStyle(2, 0x181425).setInteractive({ useHandCursor: true });
+      const t = this.add.text(x, 306, label, { fontFamily: 'PixelifySans, monospace', fontSize: '11px', color: '#ffffff' }).setOrigin(0.5);
+      bg.on('pointerdown', cb);
+      items.push(bg, t);
+    };
+    if (p > 0) mkBtn(160, '◄', () => this.openJournal(p - 1));
+    if (p < pages - 1) mkBtn(480, '►', () => this.openJournal(p + 1));
+    mkBtn(320, uiText.corviFaq.closeButton, () => this.closeModal());
+    this.modal = this.add.container(0, 0, items).setDepth(86);
+    this.scene.setVisible(false, 'HUD');
+  }
+
+  private openConfirm(text: string, yesLabel: string, onYes: () => void): void {
+    this.closeModal();
+    Clock.setPaused(gameStore.state, true);
+    AudioSystem.play('ui_question');
+    const items: Phaser.GameObjects.GameObject[] = [];
+    items.push(this.add.rectangle(320, 180, 640, 360, 0x181425, 0.7).setInteractive());
+    items.push(this.add.rectangle(320, 180, 380, 130, 0x262b44).setStrokeStyle(3, 0xe43b44));
+    items.push(
+      this.add
+        .text(320, 150, text, {
+          fontFamily: 'PixelifySans, monospace',
+          fontSize: '11px',
+          color: '#ffffff',
+          align: 'center',
+          wordWrap: { width: 350 },
+        })
+        .setOrigin(0.5)
+    );
+    const yes = this.add.rectangle(240, 218, 150, 26, 0xa22633).setStrokeStyle(2, 0x181425).setInteractive({ useHandCursor: true });
+    const yesT = this.add.text(240, 218, yesLabel, { fontFamily: 'PixelifySans, monospace', fontSize: '11px', color: '#ffffff' }).setOrigin(0.5);
+    const no = this.add.rectangle(400, 218, 150, 26, 0x3e8948).setStrokeStyle(2, 0x181425).setInteractive({ useHandCursor: true });
+    const noT = this.add.text(400, 218, uiText.base.sleepConfirmNo, { fontFamily: 'PixelifySans, monospace', fontSize: '11px', color: '#ffffff' }).setOrigin(0.5);
+    yes.on('pointerdown', () => {
+      this.closeModal();
+      onYes();
+    });
+    no.on('pointerdown', () => this.closeModal());
+    items.push(yes, yesT, no, noT);
+    this.modal = this.add.container(0, 0, items).setDepth(86);
+    this.scene.setVisible(false, 'HUD');
+  }
+
+  private closeModal(): void {
+    if (!this.modal) return;
+    this.modal.destroy(true);
+    this.modal = null;
+    this.scene.setVisible(true, 'HUD');
+    Clock.setPaused(gameStore.state, false);
   }
 }

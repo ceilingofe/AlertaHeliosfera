@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { AudioSystem } from '../systems/Audio';
 import uiText from '../../content/ui_text.json';
 import { gameStore } from '../state/GameState';
 import { Save } from '../state/Save';
@@ -38,6 +39,9 @@ export class Diploma extends Phaser.Scene {
   create(): void {
     const state = gameStore.state;
     state.clock.paused = true;
+    AudioSystem.stopAllLoops();
+    AudioSystem.playMusic('starboard');
+    AudioSystem.play('ui_confirm_big');
 
     this.allFacts = Data.getAllFacts();
     if (state.learnedToday.length > 0) {
@@ -147,7 +151,7 @@ export class Diploma extends Phaser.Scene {
     const labelX = 200;
     const valueX = 334;
     const rowStart = 144;
-    const rowStep = 20;
+    const rowStep = 15;
 
     const s = summary.samplesByType;
     const samplesBreakdown = `${summary.totalSamples}: ${s.roca} rocas, ${s.suelo} suelo, ${s.minerales} minerales y ${s.aire} aire`;
@@ -165,6 +169,10 @@ export class Diploma extends Phaser.Scene {
       [
         uiText.diploma.doseLabel,
         `${summary.dosePercent} ${uiText.diploma.doseUnit}`,
+      ],
+      [
+        uiText.diploma.scienceLabel,
+        `${state.sciencePoints} pts · ${uiText.diploma.triviaLabel} ${state.stats.triviaCorrect}/${state.stats.triviaAsked}`,
       ],
     ];
 
@@ -220,11 +228,15 @@ export class Diploma extends Phaser.Scene {
     const summaryLine =
       this.cause === 'radiacion'
         ? uiText.diploma.rescueRadSummary
-        : uiText.diploma.rescueO2Summary;
+        : this.cause === 'mision'
+          ? uiText.diploma.rescueMisionSummary
+          : uiText.diploma.rescueO2Summary;
     const adviceLine =
       this.cause === 'radiacion'
         ? uiText.diploma.rescueRadAdvice
-        : uiText.diploma.rescueO2Advice;
+        : this.cause === 'mision'
+          ? uiText.diploma.rescueMisionAdvice
+          : uiText.diploma.rescueO2Advice;
 
     this.add.text(208, 253, summaryLine, {
       fontFamily: 'PixelifySans, monospace',

@@ -23,14 +23,42 @@ const NASA_SOURCES_LIST: { title: string; detail: string; tag: string }[] = [
     tag: 'ARCHIVO REAL',
   },
   {
-    title: 'JPL Horizons (Solar System Dynamics)',
-    detail: 'Distancia Tierra–Marte y retraso de transmisión de luz (3 a 22 minutos).',
-    tag: 'ARCHIVO REAL',
+    title: 'Efemérides JPL (elementos orbitales de Standish)',
+    detail: 'Distancia Tierra–Marte real del día y retraso de la luz (3 a 22 minutos).',
+    tag: 'CALCULADO',
   },
   {
     title: 'Misiones InSight, Phoenix y MAVEN',
     detail: 'Polvo en paneles solares (2022), percloratos en regolito y auroras marcianas.',
     tag: 'ARCHIVO REAL',
+  },
+];
+
+const TEAM_AND_AUDIO_LIST: { title: string; detail: string; tag: string }[] = [
+  {
+    title: 'Equipo SpaceCrows',
+    detail: 'Sergio, Karmin (arte y sprites), David, Héctor, Cristian y Valeria.',
+    tag: 'EQUIPO',
+  },
+  {
+    title: 'Música original del juego',
+    detail: 'Blueprints for a New World · Sunsets Over Red Soil · Beyond the Starboard Window.',
+    tag: 'SOUNDTRACK',
+  },
+  {
+    title: 'Kenney · Interface Sounds',
+    detail: 'Sonidos de interfaz (clics, confirmaciones, errores). Licencia CC0, kenney.nl.',
+    tag: 'CC0',
+  },
+  {
+    title: 'Efectos de sonido sintetizados',
+    detail: 'Pasos, broca, viento, válvulas, sirena y más: creados para este juego (tools/sfx).',
+    tag: 'ORIGINAL',
+  },
+  {
+    title: 'Phaser 3 · Pixelify Sans · paleta ENDESGA 32',
+    detail: 'Motor del juego (MIT), tipografía (OFL) y paleta de colores de ENDESGA.',
+    tag: 'LIBRE',
   },
 ];
 
@@ -47,11 +75,15 @@ export class Creditos extends Phaser.Scene {
     super('Creditos');
   }
 
-  init(data?: CreditosData): void {
+  private page = 0;
+
+  init(data?: CreditosData & { page?: number }): void {
     this.returnScene = data?.returnScene ?? 'Despegue';
+    this.page = data?.page ?? 0;
   }
 
   create(): void {
+    AudioSystem.playMusic('starboard');
     // 1. Fondo espacial estrellado y contenedor principal sin empalmes
     this.add.rectangle(320, 180, 640, 360, 0x181425);
     const frame = this.add
@@ -79,8 +111,9 @@ export class Creditos extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    // 3. Tarjetas de fuentes NASA con sus etiquetas de honestidad (y = 64..264)
-    NASA_SOURCES_LIST.forEach((item, idx) => {
+    // 3. Tarjetas (página 0: fuentes NASA · página 1: equipo y audio)
+    const list = this.page === 0 ? NASA_SOURCES_LIST : TEAM_AND_AUDIO_LIST;
+    list.forEach((item, idx) => {
       const cy = 64 + idx * 41;
       this.add
         .rectangle(24, cy, 592, 37, 0x181425)
@@ -126,6 +159,26 @@ export class Creditos extends Phaser.Scene {
         color: '#181425',
       })
       .setOrigin(0.5);
+
+    // Cambiar de página
+    const pageBtn = this.add
+      .rectangle(520, 322, 170, 28, 0x124e89)
+      .setStrokeStyle(2, 0x181425)
+      .setInteractive({ useHandCursor: true });
+    this.add
+      .text(520, 322, this.page === 0 ? 'Equipo y audio ►' : '◄ Fuentes NASA', {
+        fontFamily: 'PixelifySans, monospace',
+        fontSize: '12px',
+        color: '#ffffff',
+      })
+      .setOrigin(0.5);
+    const flip = (): void => {
+      AudioSystem.play('ui_switch');
+      this.scene.restart({ returnScene: this.returnScene, page: this.page === 0 ? 1 : 0 });
+    };
+    pageBtn.on('pointerdown', flip);
+    this.input.keyboard?.once('keydown-RIGHT', flip);
+    this.input.keyboard?.once('keydown-LEFT', flip);
 
     // 5. Botón Volver
     const backBtn = this.add

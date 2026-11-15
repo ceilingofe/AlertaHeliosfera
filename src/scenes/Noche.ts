@@ -34,12 +34,28 @@ export class Noche extends Phaser.Scene {
     const state = gameStore.state;
     const completedDay = state.day;
     const hadAurora = state.activeEvents.includes('aurora_tonight') || completedDay === 5;
-    const dayFacts = Data.getFactsForDay(completedDay);
+    // Lo aprendido hoy: primero lo que el jugador hizo de verdad, luego los datos del guion
+    const learnedIds = [...state.learnedToday];
+    const scripted = Data.getFactsForDay(completedDay);
+    const dayFacts = [
+      ...learnedIds.map((id) => Data.getFactById(id)).filter((f) => f && f.id),
+      ...scripted.filter((f) => !learnedIds.includes(f.id)),
+    ];
 
     BaseSystem.deliverTubes(state, 1);
-    BaseSystem.sleepToNextDay(state);
+    const quotaTotal = Object.values(state.quotaToday).reduce((a, b) => a + b, 0);
+    const deliveredTotal = (Object.keys(state.quotaToday) as (keyof typeof state.quotaToday)[]).reduce(
+      (a, k) => a + Math.min(state.deliveredToday[k], state.quotaToday[k]),
+      0
+    );
+    const trustDelta = BaseSystem.sleepToNextDay(state);
+    const bonus = state.supplyBonus;
+    const missionCancelled = state.missionTrust <= 0;
     Save.save(state);
-    AudioSystem.play(completedDay === 1 || completedDay === 4 ? 'unlock' : 'shootingStar');
+    AudioSystem.playMusic('starboard');
+    AudioSystem.play('whoosh', { volume: 0.5 });
+    if (missionCancelled) AudioSystem.play('ui_error_long');
+    else if (trustDelta > 0) AudioSystem.play('ui_unlock');
 
     const nextDay = state.day;
 
@@ -107,8 +123,24 @@ export class Noche extends Phaser.Scene {
       }
     );
 
-    dayFacts.slice(0, 3).forEach((fact, idx) => {
-      const fy = 66 + idx * 54;
+    // Informe de la Tierra: cuota, confianza y ciencia
+    const T = uiText.night;
+    this.add.rectangle(350, 62, 264, 58, bonus === 'menos' ? 0xa22633 : 0x265c42).setOrigin(0, 0).setStrokeStyle(2, 0x181425);
+    this.add.text(358, 66, `${T.reportTitle} · ${deliveredTotal}/${quotaTotal} ${T.reportSamples}`, {
+      fontFamily: 'PixelifySans, monospace', fontSize: '11px', color: '#ffffff',
+    });
+    const verdict = bonus === 'menos' ? T.reportMissed : bonus === 'extra' ? T.reportExtra : T.reportMet;
+    this.add.text(358, 80, verdict, {
+      fontFamily: 'PixelifySans, monospace', fontSize: '10px', color: '#ead4aa', wordWrap: { width: 250 },
+    });
+    const stars = '★'.repeat(Math.max(0, state.missionTrust)) + '☆'.repeat(Math.max(0, 3 - state.missionTrust));
+    const deltaTxt = trustDelta > 0 ? ` (+${trustDelta})` : trustDelta < 0 ? ` (${trustDelta})` : '';
+    this.add.text(358, 104, `${T.reportTrust} ${stars}${deltaTxt} · ${T.reportScience} ${state.sciencePoints}`, {
+      fontFamily: 'PixelifySans, monospace', fontSize: '10px', color: '#fee761',
+    });
+
+    dayFacts.slice(0, 2).forEach((fact, idx) => {
+      const fy = 126 + idx * 52;
       this.add.rectangle(350, fy, 264, 46, 0xffffff).setOrigin(0, 0);
       this.add.image(364, fy + 16, `icon_${fact.icon}`).setScale(1.8);
       this.add.text(378, fy + 6, fact.text, {
@@ -140,7 +172,7 @@ export class Noche extends Phaser.Scene {
           ? uiText.night.unlocksDay5Sub
           : uiText.night.unlocksSub;
 
-    this.add.rectangle(350, 230, 264, 38, 0xfee761).setOrigin(0, 0);
+    this.add.rectangle(350, 232, 264, 38, 0xfee761).setOrigin(0, 0);
     this.add.text(360, 234, unlockTitle, {
       fontFamily: 'PixelifySans, monospace',
       resolution: 2,
@@ -162,7 +194,7 @@ export class Noche extends Phaser.Scene {
       .setInteractive({ useHandCursor: true });
 
     this.add
-      .text(482, 292, `${uiText.night.sleepButtonPrefix} ${nextDay}`, {
+      .text(482, 292, missionCancelled ? T.missionOverButton : `${uiText.night.sleepButtonPrefix} ${nextDay}`, {
         fontFamily: 'PixelifySans, monospace',
         resolution: 2,
         fontSize: '14px',
@@ -195,8 +227,9 @@ export class Noche extends Phaser.Scene {
       .image(56, 294, completedDay === 1 ? 'corvi_alert' : 'corvi_happy')
       .setScale(2.5);
 
-    const hookText =
-      completedDay === 1
+    const hookText = missionCancelled
+      ? T.corviMissionOver
+      : completedDay === 1
         ? uiText.night.corviStormHook
         : hadAurora
           ? uiText.night.corviAuroraText
@@ -236,7 +269,11 @@ export class Noche extends Phaser.Scene {
     });
 
     const startNextDay = (): void => {
-      AudioSystem.play('scanClick');
+      AudioSystem.play('ui_confirm');
+      if (missionCancelled) {
+        this.scene.start('Rescate', { cause: 'mision' });
+        return;
+      }
       state.location = 'base';
       Save.save(state);
       this.scene.start('Transmision');

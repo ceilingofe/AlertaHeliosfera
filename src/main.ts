@@ -18,7 +18,9 @@ import { Personaliza } from './scenes/Personaliza';
 import { Preload } from './scenes/Preload';
 import { Rescate } from './scenes/Rescate';
 import { Tormenta } from './scenes/Tormenta';
+import { Titulo } from './scenes/Titulo';
 import { Transmision } from './scenes/Transmision';
+import { Trivia } from './scenes/Trivia';
 import './ui/installTextDefaults';
 import { installCameraDefaults, VIEW_H, VIEW_W } from './ui/installCameraDefaults';
 
@@ -44,6 +46,7 @@ const config: Phaser.Types.Core.GameConfig = {
   scene: [
     Boot,
     Preload,
+    Titulo,
     Despegue,
     Creditos,
     Personaliza,
@@ -59,6 +62,7 @@ const config: Phaser.Types.Core.GameConfig = {
     MinijuegoAire,
     MinijuegoPaneles,
     MinijuegoTuberias,
+    Trivia,
     Noche,
     Rescate,
     Diploma,

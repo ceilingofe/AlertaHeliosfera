@@ -6,7 +6,7 @@
     "events": [],
     "endHook": "storm_warning_day3",
     "factIds": ["luz", "radiacion", "cheyava"],
-    "corviIntro": "¡Bienvenida a Jezero, LUNA-7! No tenemos aire, pero sí estilo."
+    "corviIntro": "¡Te damos la bienvenida a Jezero, LUNA-7! No tenemos aire, pero sí estilo."
   },
   {
     "day": 2,

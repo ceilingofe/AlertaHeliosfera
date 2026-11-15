@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { AudioSystem } from '../systems/Audio';
 import uiText from '../../content/ui_text.json';
 import { gameStore } from '../state/GameState';
 import { Save } from '../state/Save';
@@ -37,6 +38,7 @@ export class Personaliza extends Phaser.Scene {
   }
 
   create(): void {
+    AudioSystem.playMusic('starboard');
     const state = gameStore.state;
     state.clock.paused = true;
 
