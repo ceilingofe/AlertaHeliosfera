@@ -1,12 +1,16 @@
 import Phaser from 'phaser';
 
 /**
- * Escena inicial: configura ajustes básicos y espera a que la fuente PixelifySans
- * esté disponible en el navegador antes de pasar a Preload.
+ * Escena inicial: carga la ilustración de la pantalla de carga y espera a que la fuente
+ * PixelifySans esté disponible en el navegador antes de pasar a Preload.
  */
 export class Boot extends Phaser.Scene {
   constructor() {
     super('Boot');
+  }
+
+  preload(): void {
+    this.load.image('loading_bg', 'assets/sprites/loading_bg.png');
   }
 
   async create(): Promise<void> {

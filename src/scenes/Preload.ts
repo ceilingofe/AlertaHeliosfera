@@ -1,9 +1,9 @@
 import Phaser from 'phaser';
-import { AudioSystem } from '../systems/Audio';
-import { createProceduralTextures } from '../ui/ProceduralTextures';
 import uiText from '../../content/ui_text.json';
+import { AudioSystem } from '../systems/Audio';
 import { Data } from '../systems/Data';
 import { VIEW_H, VIEW_W } from '../ui/installCameraDefaults';
+import { createProceduralTextures } from '../ui/ProceduralTextures';
 
 const SPRITE_KEYS = [
   'acc_antena',
@@ -75,8 +75,8 @@ const UI_ICON_KEYS = [
 ] as const;
 
 /**
- * Escena de precarga: carga todos los sprites, íconos y JSON de datos NASA.
- * Si no hay guardado va a Despegue (Día 1); si hay guardado retoma el día guardado.
+ * Escena de precarga: muestra la ilustración marciana de pantalla de carga,
+ * carga todos los sprites, íconos y JSON de datos NASA y pasa a la pantalla de Título.
  */
 export class Preload extends Phaser.Scene {
   constructor() {
@@ -87,27 +87,54 @@ export class Preload extends Phaser.Scene {
     const width = VIEW_W;
     const height = VIEW_H;
 
-    const barBg = this.add.rectangle(width / 2, height / 2 + 20, 244, 16, 0x262b44).setOrigin(0.5);
-    barBg.setStrokeStyle(2, 0x181425);
+    // Fondo ilustrado de la pantalla de carga (cargado en Boot)
+    if (this.textures.exists('loading_bg')) {
+      this.add.image(width / 2, height / 2, 'loading_bg').setDisplaySize(width, height);
+    } else {
+      this.add.rectangle(width / 2, height / 2, width, height, 0x181425);
+    }
 
-    const barFill = this.add.rectangle(width / 2 - 120, height / 2 + 20, 0, 12, 0x63c74d).setOrigin(0, 0.5);
+    // Panel inferior semitransparente para que la barra de progreso destaque sin tapar el sol ni las mesetas
+    const cardBg = this.add
+      .rectangle(width / 2, height - 46, 304, 54, 0x181425, 0.84)
+      .setStrokeStyle(2, 0xfee761);
 
     const loadingLabel = this.add
-      .text(width / 2, height / 2 - 6, uiText.loading, {
+      .text(width / 2, height - 58, `${uiText.gameTitle} · ${uiText.loading}`, {
         fontFamily: 'PixelifySans, monospace',
-        fontSize: '16px',
-        color: '#ead4aa',
+        fontSize: '13px',
+        color: '#fee761',
+      })
+      .setOrigin(0.5);
+
+    const barBg = this.add
+      .rectangle(width / 2, height - 34, 264, 16, 0x262b44)
+      .setOrigin(0.5)
+      .setStrokeStyle(2, 0x181425);
+
+    const barFill = this.add
+      .rectangle(width / 2 - 130, height - 34, 0, 12, 0x63c74d)
+      .setOrigin(0, 0.5);
+
+    const pctLabel = this.add
+      .text(width / 2, height - 34, '0 %', {
+        fontFamily: 'PixelifySans, monospace',
+        fontSize: '10px',
+        color: '#ffffff',
       })
       .setOrigin(0.5);
 
     this.load.on('progress', (value: number) => {
-      barFill.width = Math.round(240 * value);
+      barFill.width = Math.round(260 * value);
+      pctLabel.setText(`${Math.round(value * 100)} %`);
     });
 
     this.load.on('complete', () => {
-      barBg.destroy();
-      barFill.destroy();
-      loadingLabel.destroy();
+      barFill.width = 260;
+      pctLabel.setText('100 %');
+      void cardBg;
+      void barBg;
+      void loadingLabel;
     });
 
     for (const key of SPRITE_KEYS) {
@@ -138,6 +165,10 @@ export class Preload extends Phaser.Scene {
     createProceduralTextures(this);
     AudioSystem.installUnlock();
     AudioSystem.preloadAll();
-    this.scene.start('Titulo');
+
+    // Breve pausa para que se aprecie la pantalla de carga antes de entrar a Título
+    this.time.delayedCall(550, () => {
+      this.scene.start('Titulo');
+    });
   }
 }
