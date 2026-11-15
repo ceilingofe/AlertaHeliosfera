@@ -1,8 +1,6 @@
-import corviQaData from '../../content/corvi_qa.json';
-import daysData from '../../content/days.json';
-import factsData from '../../content/facts.json';
 import type { GameState, Label, Mood, SampleType } from '../types';
 import { Ephemeris } from './Ephemeris';
+import { I18n } from './I18n';
 
 export interface FactEntry {
   id: string;
@@ -82,10 +80,9 @@ const HOURS_06_TO_18 = [
   '06', '07', '08', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18',
 ];
 
-
 /**
  * Carga, valida y entrega datos científicos con sus etiquetas de honestidad
- * ("ARCHIVO REAL" o "SIMULADO") y marcadores TODO_DATO (sección 10).
+ * ("ARCHIVO REAL" o "SIMULADO") según el idioma activo.
  */
 export class Data {
   private static horizonsCache: unknown = null;
@@ -103,16 +100,16 @@ export class Data {
   }
 
   static getDayScript(day: number): DayScriptEntry | null {
-    const list = daysData as DayScriptEntry[];
+    const list = I18n.days() as DayScriptEntry[];
     return list.find((d) => d.day === day) ?? null;
   }
 
   static getAllFacts(): FactEntry[] {
-    return factsData as FactEntry[];
+    return I18n.facts() as FactEntry[];
   }
 
   static getFactById(id: string): FactEntry {
-    const list = factsData as FactEntry[];
+    const list = I18n.facts() as FactEntry[];
     return list.find((f) => f.id === id) ?? list[0];
   }
 
@@ -120,7 +117,7 @@ export class Data {
     const script = Data.getDayScript(day);
     if (script && script.factIds.length > 0) {
       const ids = [...script.factIds];
-      const list = factsData as FactEntry[];
+      const list = Data.getAllFacts();
       let idx = 0;
       while (ids.length < 3) {
         const candidate = list[(day + idx) % list.length].id;
@@ -131,7 +128,7 @@ export class Data {
       }
       return ids.slice(0, 3).map((id) => Data.getFactById(id));
     }
-    const list = factsData as FactEntry[];
+    const list = Data.getAllFacts();
     const start = ((day - 1) * 3) % list.length;
     return [
       list[start % list.length],
@@ -145,7 +142,7 @@ export class Data {
    */
   static getUnlockedCorviQA(stateOrDay: GameState | number): CorviQAEntry[] {
     const day = typeof stateOrDay === 'number' ? stateOrDay : stateOrDay.day;
-    const all = corviQaData as CorviQAEntry[];
+    const all = I18n.corviQa() as CorviQAEntry[];
     return all.filter((entry) => {
       if (entry.unlock === 'start') return true;
       if (entry.unlock.startsWith('day')) {
@@ -198,7 +195,7 @@ export class Data {
     return {
       minutes,
       label: 'CALCULADO',
-      source: 'Efemérides JPL',
+      source: I18n.getLang() === 'es' ? 'Efemérides JPL' : 'JPL Ephemeris',
       isTodo: false,
       distanceMkm: Math.round(Ephemeris.distanceMillionKm(date)),
       dateText: date.toISOString().slice(0, 10),
@@ -222,12 +219,13 @@ export class Data {
       const k = (phase + 1) / 2;
       return Math.round(minC + (maxC - minC) * Math.pow(k, 1.4) + wobble);
     });
+    const isEs = I18n.getLang() === 'es';
     return {
-      sol: `día ${day}`,
+      sol: isEs ? `día ${day}` : `sol ${day}`,
       hours: HOURS_06_TO_18,
       tempsC,
       label: 'CALCULADO',
-      source: 'rango real de MEDA',
+      source: isEs ? 'rango real de MEDA' : 'MEDA real range',
       isTodo: false,
     };
   }

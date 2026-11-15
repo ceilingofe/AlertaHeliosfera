@@ -15,6 +15,8 @@
 const MUTE_STORAGE_KEY = 'alerta-heliosfera:muted';
 const MUSIC_STORAGE_KEY = 'alerta-heliosfera:music';
 const SFX_STORAGE_KEY = 'alerta-heliosfera:sfx';
+const MUSIC_VOL_STORAGE_KEY = 'alerta-heliosfera:musicVol';
+const SFX_VOL_STORAGE_KEY = 'alerta-heliosfera:sfxVol';
 
 export type MusicTrack = 'starboard' | 'blueprints' | 'sunsets';
 
@@ -146,6 +148,15 @@ function readFlag(key: string, fallback: string): string {
   return fallback;
 }
 
+function readNumber(key: string, fallback: number): number {
+  const raw = readFlag(key, String(fallback));
+  const n = Number(raw);
+  if (Number.isFinite(n)) {
+    return Math.min(1, Math.max(0, n));
+  }
+  return fallback;
+}
+
 function writeFlag(key: string, value: string): void {
   try {
     if (typeof localStorage !== 'undefined') localStorage.setItem(key, value);
@@ -171,12 +182,13 @@ export class AudioSystem {
   private static muted = readFlag(MUTE_STORAGE_KEY, '0') === '1';
   private static musicOn = readFlag(MUSIC_STORAGE_KEY, '1') === '1';
   private static sfxOn = readFlag(SFX_STORAGE_KEY, '1') === '1';
+  private static musicVolume = readNumber(MUSIC_VOL_STORAGE_KEY, 0.45);
+  private static sfxVolume = readNumber(SFX_VOL_STORAGE_KEY, 0.85);
   private static lastStepAt = 0;
   private static stepIndex = 0;
 
   private static musicEls = new Map<MusicTrack, HTMLAudioElement>();
   private static currentTrack: MusicTrack | null = null;
-  private static musicVolume = 0.45;
   private static duck = 1;
   private static fadeTimer: ReturnType<typeof setInterval> | null = null;
   private static unlockInstalled = false;
@@ -191,7 +203,7 @@ export class AudioSystem {
     AudioSystem.muted = mute;
     writeFlag(MUTE_STORAGE_KEY, mute ? '1' : '0');
     AudioSystem.applyMusicVolume();
-    if (AudioSystem.sfxBus) AudioSystem.sfxBus.gain.value = mute || !AudioSystem.sfxOn ? 0 : 1;
+    AudioSystem.applySfxBusGain();
   }
 
   static toggleMute(): boolean {
@@ -200,11 +212,32 @@ export class AudioSystem {
   }
 
   static isMusicOn(): boolean {
-    return AudioSystem.musicOn;
+    return AudioSystem.musicOn && AudioSystem.musicVolume > 0;
+  }
+
+  static getMusicVolume(): number {
+    return AudioSystem.musicOn ? AudioSystem.musicVolume : 0;
+  }
+
+  static setMusicVolume(level: number): number {
+    const clamped = Math.min(1, Math.max(0, level));
+    AudioSystem.musicVolume = clamped;
+    AudioSystem.musicOn = clamped > 0.005;
+    writeFlag(MUSIC_VOL_STORAGE_KEY, clamped.toFixed(2));
+    writeFlag(MUSIC_STORAGE_KEY, AudioSystem.musicOn ? '1' : '0');
+    AudioSystem.applyMusicVolume();
+    if (AudioSystem.musicOn && !AudioSystem.muted && AudioSystem.currentTrack) {
+      AudioSystem.musicEls.get(AudioSystem.currentTrack)?.play().catch(() => {});
+    }
+    return clamped;
   }
 
   static toggleMusic(): boolean {
     AudioSystem.musicOn = !AudioSystem.musicOn;
+    if (AudioSystem.musicOn && AudioSystem.musicVolume <= 0.005) {
+      AudioSystem.musicVolume = 0.45;
+      writeFlag(MUSIC_VOL_STORAGE_KEY, '0.45');
+    }
     writeFlag(MUSIC_STORAGE_KEY, AudioSystem.musicOn ? '1' : '0');
     AudioSystem.applyMusicVolume();
     if (AudioSystem.musicOn && AudioSystem.currentTrack) {
@@ -214,14 +247,38 @@ export class AudioSystem {
   }
 
   static isSfxOn(): boolean {
-    return AudioSystem.sfxOn;
+    return AudioSystem.sfxOn && AudioSystem.sfxVolume > 0;
+  }
+
+  static getSfxVolume(): number {
+    return AudioSystem.sfxOn ? AudioSystem.sfxVolume : 0;
+  }
+
+  static setSfxVolume(level: number): number {
+    const clamped = Math.min(1, Math.max(0, level));
+    AudioSystem.sfxVolume = clamped;
+    AudioSystem.sfxOn = clamped > 0.005;
+    writeFlag(SFX_VOL_STORAGE_KEY, clamped.toFixed(2));
+    writeFlag(SFX_STORAGE_KEY, AudioSystem.sfxOn ? '1' : '0');
+    AudioSystem.applySfxBusGain();
+    return clamped;
   }
 
   static toggleSfx(): boolean {
     AudioSystem.sfxOn = !AudioSystem.sfxOn;
+    if (AudioSystem.sfxOn && AudioSystem.sfxVolume <= 0.005) {
+      AudioSystem.sfxVolume = 0.85;
+      writeFlag(SFX_VOL_STORAGE_KEY, '0.85');
+    }
     writeFlag(SFX_STORAGE_KEY, AudioSystem.sfxOn ? '1' : '0');
-    if (AudioSystem.sfxBus) AudioSystem.sfxBus.gain.value = AudioSystem.muted || !AudioSystem.sfxOn ? 0 : 1;
+    AudioSystem.applySfxBusGain();
     return AudioSystem.sfxOn;
+  }
+
+  private static applySfxBusGain(): void {
+    if (!AudioSystem.sfxBus) return;
+    AudioSystem.sfxBus.gain.value =
+      AudioSystem.muted || !AudioSystem.sfxOn ? 0 : AudioSystem.sfxVolume;
   }
 
   // ------------------------------------------------------------------ arranque
@@ -262,7 +319,7 @@ export class AudioSystem {
       try {
         AudioSystem.ctx = new AudioCtx();
         AudioSystem.sfxBus = AudioSystem.ctx.createGain();
-        AudioSystem.sfxBus.gain.value = AudioSystem.muted || !AudioSystem.sfxOn ? 0 : 1;
+        AudioSystem.applySfxBusGain();
         AudioSystem.sfxBus.connect(AudioSystem.ctx.destination);
       } catch {
         return null;

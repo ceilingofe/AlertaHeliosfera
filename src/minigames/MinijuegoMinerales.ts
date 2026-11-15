@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
-import MG from '../../content/minigames.json';
 import { AudioSystem } from '../systems/Audio';
+import { I18n } from '../systems/I18n';
 import { MinigameBase } from './MinigameBase';
 import { TimingBar, button, panel, shuffle, txt } from './widgets';
 
@@ -8,7 +8,6 @@ type Phase = 'tool' | 'extract' | 'seal' | 'done';
 type Objective = 'organicos' | 'agua' | 'elementos';
 type Tool = 'sherloc' | 'supercam' | 'pixl';
 
-const T = MG.minerales;
 const CORRECT: Record<Objective, Tool> = { organicos: 'sherloc', agua: 'supercam', elementos: 'pixl' };
 const TOOL_COLOR: Record<Tool, number> = { sherloc: 0xb55088, supercam: 0xe43b44, pixl: 0x2ce8f5 };
 
@@ -37,11 +36,16 @@ export class MinijuegoMinerales extends MinigameBase {
   private batteryFill!: Phaser.GameObjects.Rectangle;
   private bar: TimingBar | null = null;
 
+  private get t() {
+    return I18n.mg().minerales;
+  }
+
   constructor() {
     super('MinijuegoMinerales');
   }
 
   create(): void {
+    const T = this.t;
     this.objective = shuffle<Objective>(['organicos', 'agua', 'elementos'])[0];
     this.drawHeader(T.title, T.steps, T.instTool);
     this.stage = this.add.container(0, 0);
@@ -66,6 +70,7 @@ export class MinijuegoMinerales extends MinigameBase {
   // ------------------------------------------------------------------ 1. instrumento
 
   private buildTool(): void {
+    const T = this.t;
     this.phase = 'tool';
     this.setActiveStep(0);
     this.stage.removeAll(true);
@@ -84,6 +89,7 @@ export class MinijuegoMinerales extends MinigameBase {
   }
 
   private pickTool(tool: Tool): void {
+    const T = this.t;
     if (this.phase !== 'tool' || this.finished) return;
     AudioSystem.play('scan_beep');
     if (tool !== CORRECT[this.objective]) {
@@ -97,6 +103,7 @@ export class MinijuegoMinerales extends MinigameBase {
   // ------------------------------------------------------------------ 2. extraer
 
   private buildExtract(): void {
+    const T = this.t;
     this.phase = 'extract';
     this.setActiveStep(1);
     const d = this.inputData.difficulty;
@@ -153,6 +160,7 @@ export class MinijuegoMinerales extends MinigameBase {
   }
 
   private tapNode(node: Node): void {
+    const T = this.t;
     if (this.phase !== 'extract' || this.finished || node.done) return;
     if (node.n === this.nextNode) {
       node.done = true;
@@ -168,11 +176,14 @@ export class MinijuegoMinerales extends MinigameBase {
   }
 
   private updateExtract(dt: number): void {
+    const T = this.t;
     this.updateKeyboardCursor(dt);
     if (this.actionJustDown()) this.pickWithReticle();
     const drain = 7 + this.inputData.difficulty * 3;
     this.battery = Math.max(0, this.battery - drain * dt);
-    this.batteryFill.width = Math.round((256 * this.battery) / 100);
+    const bw = Math.round((256 * this.battery) / 100);
+    this.batteryFill.setVisible(bw > 0);
+    if (bw > 0) this.batteryFill.setSize(bw, 8).updateDisplayOrigin();
     this.batteryFill.setFillStyle(this.battery < 25 ? 0xe43b44 : this.battery < 50 ? 0xfee761 : 0x63c74d);
     if (this.battery <= 0) {
       if (this.addStrike(T.batteryOut, T.fail)) this.layoutNodes();
@@ -182,6 +193,7 @@ export class MinijuegoMinerales extends MinigameBase {
   // ------------------------------------------------------------------ 3. sellar
 
   private buildSeal(): void {
+    const T = this.t;
     this.phase = 'seal';
     this.clearCursorTargets();
     this.setActiveStep(2);
@@ -204,6 +216,7 @@ export class MinijuegoMinerales extends MinigameBase {
   }
 
   private trySeal(): void {
+    const T = this.t;
     if (this.phase !== 'seal' || this.finished || !this.bar) return;
     if (this.bar.hit()) {
       this.phase = 'done';

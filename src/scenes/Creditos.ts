@@ -1,72 +1,15 @@
 import Phaser from 'phaser';
-import uiText from '../../content/ui_text.json';
 import { AudioSystem } from '../systems/Audio';
+import { I18n } from '../systems/I18n';
 
 interface CreditosData {
   returnScene?: string;
 }
 
-const NASA_SOURCES_LIST: { title: string; detail: string; tag: string }[] = [
-  {
-    title: 'NASA DONKI & Modelo WSA-Enlil (CCMC)',
-    detail: 'Eyecciones de masa coronal (CME de mayo de 2024 y trayectorias en el sistema solar).',
-    tag: 'ARCHIVO REAL',
-  },
-  {
-    title: 'Curiosity RAD (Radiation Assessment Detector)',
-    detail: 'Dosis de radiación en la superficie marciana (~0,21 mGy/día y pico de 8,1 mGy).',
-    tag: 'ARCHIVO REAL',
-  },
-  {
-    title: 'Perseverance MEDA, MOXIE, SHERLOC y PIXL',
-    detail: 'Clima del cráter Jezero, producción de O₂ (hasta 12 g/h) y roca Cheyava Falls (2024).',
-    tag: 'ARCHIVO REAL',
-  },
-  {
-    title: 'Efemérides JPL (elementos orbitales de Standish)',
-    detail: 'Distancia Tierra–Marte real del día y retraso de la luz (3 a 22 minutos).',
-    tag: 'CALCULADO',
-  },
-  {
-    title: 'Misiones InSight, Phoenix y MAVEN',
-    detail: 'Polvo en paneles solares (2022), percloratos en regolito y auroras marcianas.',
-    tag: 'ARCHIVO REAL',
-  },
-];
-
-const TEAM_AND_AUDIO_LIST: { title: string; detail: string; tag: string }[] = [
-  {
-    title: 'Equipo SpaceCrows',
-    detail: 'Sergio, Karmin (arte y sprites), David, Héctor, Cristian y Valeria.',
-    tag: 'EQUIPO',
-  },
-  {
-    title: 'Música original del juego',
-    detail: 'Blueprints for a New World · Sunsets Over Red Soil · Beyond the Starboard Window.',
-    tag: 'SOUNDTRACK',
-  },
-  {
-    title: 'Kenney · Interface Sounds',
-    detail: 'Sonidos de interfaz (clics, confirmaciones, errores). Licencia CC0, kenney.nl.',
-    tag: 'CC0',
-  },
-  {
-    title: 'Efectos de sonido sintetizados',
-    detail: 'Pasos, broca, viento, válvulas, sirena y más: creados para este juego (tools/sfx).',
-    tag: 'ORIGINAL',
-  },
-  {
-    title: 'Phaser 3 · Pixelify Sans · paleta ENDESGA 32',
-    detail: 'Motor del juego (MIT), tipografía (OFL) y paleta de colores de ENDESGA.',
-    tag: 'LIBRE',
-  },
-];
-
 /**
  * Escena Creditos (sección 10.9 y Fase 6):
  * Muestra todas las fuentes científicas de la NASA empleadas en Alerta Heliosfera,
- * las etiquetas de honestidad ("ARCHIVO REAL" / "SIMULADO") y el aviso oficial:
- * "Este juego usa datos abiertos de la NASA. No está avalado por la NASA."
+ * las etiquetas de honestidad ("ARCHIVO REAL" / "SIMULADO") y el aviso oficial.
  */
 export class Creditos extends Phaser.Scene {
   private returnScene = 'Despegue';
@@ -83,6 +26,8 @@ export class Creditos extends Phaser.Scene {
   }
 
   create(): void {
+    const uiText = I18n.ui();
+    const creditsText = I18n.credits();
     AudioSystem.playMusic('starboard');
     // 1. Fondo espacial estrellado y contenedor principal sin empalmes
     this.add.rectangle(320, 180, 640, 360, 0x181425);
@@ -94,7 +39,7 @@ export class Creditos extends Phaser.Scene {
     // 2. Encabezado superior
     this.add.rectangle(320, 26, 612, 26, 0x124e89);
     this.add
-      .text(320, 26, 'CRÉDITOS Y FUENTES DE DATOS ABIERTOS NASA', {
+      .text(320, 26, creditsText.headerTitle, {
         fontFamily: 'PixelifySans, monospace',
         fontSize: '14px',
         color: '#fee761',
@@ -110,7 +55,7 @@ export class Creditos extends Phaser.Scene {
       .setOrigin(0.5);
 
     // 3. Tarjetas (página 0: fuentes NASA · página 1: equipo y audio)
-    const list = this.page === 0 ? NASA_SOURCES_LIST : TEAM_AND_AUDIO_LIST;
+    const list = this.page === 0 ? creditsText.nasaSources : creditsText.teamAndAudio;
     list.forEach((item, idx) => {
       const cy = 64 + idx * 41;
       this.add
@@ -131,11 +76,11 @@ export class Creditos extends Phaser.Scene {
       });
 
       const badge = this.add
-        .rectangle(512, cy + 6, 96, 14, 0xffffff)
+        .rectangle(506, cy + 6, 102, 14, 0xffffff)
         .setOrigin(0, 0)
         .setStrokeStyle(1, 0x5a6988);
       void badge;
-      this.add.text(518, cy + 8, `▪ ${item.tag}`, {
+      this.add.text(512, cy + 8, `▪ ${item.tag}`, {
         fontFamily: 'PixelifySans, monospace',
         fontSize: '9px',
         color: '#262b44',
@@ -160,7 +105,7 @@ export class Creditos extends Phaser.Scene {
       .setStrokeStyle(2, 0x181425)
       .setInteractive({ useHandCursor: true });
     this.add
-      .text(520, 322, this.page === 0 ? 'Equipo y audio ►' : '◄ Fuentes NASA', {
+      .text(520, 322, this.page === 0 ? creditsText.teamAudioBtn : creditsText.nasaSourcesBtn, {
         fontFamily: 'PixelifySans, monospace',
         fontSize: '12px',
         color: '#ffffff',
@@ -181,7 +126,7 @@ export class Creditos extends Phaser.Scene {
       .setInteractive({ useHandCursor: true });
 
     this.add
-      .text(320, 322, 'Volver (Espacio / Esc)', {
+      .text(320, 322, creditsText.backBtn, {
         fontFamily: 'PixelifySans, monospace',
         fontSize: '12px',
         color: '#ffffff',

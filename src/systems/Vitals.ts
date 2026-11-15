@@ -46,13 +46,20 @@ export class Vitals {
         const timeToEmpty = prevBattery / heaterDrainRate;
         if (dt <= timeToEmpty) {
           state.astronaut.heaterBattery = Math.max(0, prevBattery - heaterDrainRate * dt);
-          state.astronaut.suitTempC = balance.heater.suitC;
+          if (isNight) {
+            const comfortSpan = balance.heater.suitC - balance.heater.comfortMinC;
+            state.astronaut.suitTempC =
+              balance.heater.comfortMinC + (comfortSpan * state.astronaut.heaterBattery) / 100;
+          } else {
+            state.astronaut.suitTempC = balance.heater.suitC;
+          }
         } else {
           state.astronaut.heaterBattery = 0;
           const coldDt = dt - timeToEmpty;
+          const startC = isNight ? balance.heater.comfortMinC : balance.heater.suitC;
           state.astronaut.suitTempC = Math.max(
             balance.heater.minC,
-            balance.heater.suitC - balance.heater.coolPerSec * coldDt
+            startC - balance.heater.coolPerSec * coldDt
           );
         }
       } else {

@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
-import MG from '../../content/minigames.json';
 import { gameStore } from '../state/GameState';
 import { AudioSystem } from '../systems/Audio';
+import { I18n } from '../systems/I18n';
 import { MinigameBase } from './MinigameBase';
 import { TimingBar, button, panel, shuffle, txt } from './widgets';
 
@@ -16,7 +16,6 @@ interface RockSlot {
   frame: Phaser.GameObjects.Rectangle;
 }
 
-const T = MG.roca;
 const TEX: Record<RockKind, string> = {
   leopard: 'rock_leopard',
   sandstone: 'rock_sandstone',
@@ -57,11 +56,16 @@ export class MinijuegoRoca extends MinigameBase {
   private sealsDone = 0;
   private sealStatus!: Phaser.GameObjects.Text;
 
+  private get t() {
+    return I18n.mg().roca;
+  }
+
   constructor() {
     super('MinijuegoRoca');
   }
 
   create(): void {
+    const T = this.t;
     this.phase = 'scan';
     this.rocks = [];
     this.selected = null;
@@ -74,6 +78,7 @@ export class MinijuegoRoca extends MinigameBase {
   // ------------------------------------------------------------------ 1. escanear
 
   private buildScan(): void {
+    const T = this.t;
     this.phase = 'scan';
     this.setActiveStep(0);
     this.stage.removeAll(true);
@@ -121,6 +126,7 @@ export class MinijuegoRoca extends MinigameBase {
   }
 
   private confirmRock(): void {
+    const T = this.t;
     if (this.phase !== 'scan' || this.finished) return;
     if (!this.selected) {
       this.setInstruction(T.pickFirst, '#feae34');
@@ -139,6 +145,7 @@ export class MinijuegoRoca extends MinigameBase {
   }
 
   private updateScan(dt: number): void {
+    const T = this.t;
     let vx = 0;
     let vy = 0;
     if (this.keyDown('left') || this.keyDown('a')) vx -= 1;
@@ -184,6 +191,7 @@ export class MinijuegoRoca extends MinigameBase {
   // ------------------------------------------------------------------ 2. trivia NASA
 
   private buildTrivia(): void {
+    const T = this.t;
     this.phase = 'trivia';
     this.triviaAnswered = false;
     AudioSystem.stopLoop('minigame');
@@ -203,7 +211,7 @@ export class MinijuegoRoca extends MinigameBase {
     if (this.textures.exists('tube_sample')) {
       this.stage.add(this.add.image(118, 222, 'tube_sample').setScale(2.4).setTint(0xb86f50));
     }
-    this.stage.add(txt(this, 90, 272, 'Cheyava Falls\nCráter Jezero', 10, '#ead4aa').setOrigin(0.5).setAlign('center'));
+    this.stage.add(txt(this, 90, 272, T.cheyavaLabel, 10, '#ead4aa').setOrigin(0.5).setAlign('center'));
 
     // Pregunta NASA verificada a la derecha
     this.stage.add(panel(this, 174, 76, 450, 226));
@@ -255,6 +263,7 @@ export class MinijuegoRoca extends MinigameBase {
   // ------------------------------------------------------------------ 3. perforar
 
   private buildDrill(): void {
+    const T = this.t;
     this.phase = 'drill';
     this.triviaPick = null;
     AudioSystem.stopLoop('minigame');
@@ -288,14 +297,14 @@ export class MinijuegoRoca extends MinigameBase {
         this.add.rectangle(300 + (310 * l.from) / 100, 112, (310 * (l.to - l.from)) / 100, 16, 0x5a6988).setOrigin(0, 0.5)
       );
     }
-    this.depthFill = this.add.rectangle(302, 112, 0, 10, 0x63c74d).setOrigin(0, 0.5);
+    this.depthFill = this.add.rectangle(302, 112, 1, 10, 0x63c74d).setOrigin(0, 0.5).setVisible(false);
     this.stage.add(this.depthFill);
-    this.stage.add(txt(this, 300, 124, '▒ = capa dura', 10, '#8b9bb4'));
+    this.stage.add(txt(this, 300, 124, T.hardLayerLegend, 10, '#8b9bb4'));
 
     this.stage.add(txt(this, 300, 146, T.heat, 12, '#fee761'));
     this.stage.add(this.add.rectangle(300, 172, 310, 16, 0x3a4466).setOrigin(0, 0.5).setStrokeStyle(2, 0x181425));
     this.stage.add(this.add.rectangle(300 + 310 * 0.82, 172, 310 * 0.18, 12, 0xa22633).setOrigin(0, 0.5));
-    this.heatFill = this.add.rectangle(302, 172, 0, 10, 0xfeae34).setOrigin(0, 0.5);
+    this.heatFill = this.add.rectangle(302, 172, 1, 10, 0xfeae34).setOrigin(0, 0.5).setVisible(false);
     this.stage.add(this.heatFill);
     this.drillStatus = txt(this, 300, 192, '', 11, '#fee761', 316);
     this.stage.add(this.drillStatus);
@@ -312,6 +321,7 @@ export class MinijuegoRoca extends MinigameBase {
   }
 
   private updateDrill(dt: number): void {
+    const T = this.t;
     const d = this.inputData.difficulty;
     const active = this.drilling || this.actionHeld();
     const hard = this.inHardLayer();
@@ -326,8 +336,12 @@ export class MinijuegoRoca extends MinigameBase {
     if (!hard) this.safeDepth = Math.max(this.safeDepth, this.depth);
     this.drillStatus.setText(hard ? T.hardLayer : '');
 
-    this.depthFill.width = Math.round((306 * this.depth) / 100);
-    this.heatFill.width = Math.round((306 * this.heat) / 100);
+    const dw = Math.round((306 * this.depth) / 100);
+    this.depthFill.setVisible(dw > 0);
+    if (dw > 0) this.depthFill.setSize(dw, 10).updateDisplayOrigin();
+    const hw = Math.round((306 * this.heat) / 100);
+    this.heatFill.setVisible(hw > 0);
+    if (hw > 0) this.heatFill.setSize(hw, 10).updateDisplayOrigin();
     this.heatFill.setFillStyle(this.heat >= 82 ? 0xe43b44 : this.heat >= 55 ? 0xf77622 : 0xfeae34);
     this.bit.y = 112 + (this.depth / 100) * 40;
     if (active) this.bit.x = 150 + (Math.random() - 0.5) * (hard ? 3 : 1.5);
@@ -348,6 +362,7 @@ export class MinijuegoRoca extends MinigameBase {
   // ------------------------------------------------------------------ 4. sellar
 
   private buildSeal(): void {
+    const T = this.t;
     this.phase = 'seal';
     this.drilling = false;
     AudioSystem.stopLoop('minigame');
@@ -372,6 +387,7 @@ export class MinijuegoRoca extends MinigameBase {
   }
 
   private trySeal(): void {
+    const T = this.t;
     if (this.phase !== 'seal' || this.finished || !this.bar) return;
     if (this.bar.hit()) {
       this.sealsDone += 1;

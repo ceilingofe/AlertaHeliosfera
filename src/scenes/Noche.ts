@@ -1,10 +1,10 @@
 import Phaser from 'phaser';
-import uiText from '../../content/ui_text.json';
 import { gameStore } from '../state/GameState';
 import { Save } from '../state/Save';
 import { AudioSystem } from '../systems/Audio';
 import { BaseSystem } from '../systems/BaseSystem';
 import { Data } from '../systems/Data';
+import { I18n } from '../systems/I18n';
 import { StaticEffect } from '../ui/StaticEffect';
 
 interface ShootingStar {
@@ -31,6 +31,7 @@ export class Noche extends Phaser.Scene {
   }
 
   create(): void {
+    const uiText = I18n.ui();
     const state = gameStore.state;
     const completedDay = state.day;
     const hadAurora = state.activeEvents.includes('aurora_tonight') || completedDay === 5;
@@ -143,7 +144,7 @@ export class Noche extends Phaser.Scene {
       this.add.rectangle(350, fy, 30, 48, 0x262b44).setOrigin(0, 0);
       this.add.image(365, fy + 24, `icon_${fact.icon}`).setScale(1.7);
       this.add
-        .text(608, fy + 3, `★ ${fact.label} · ${fact.source}`, {
+        .text(608, fy + 3, `★ ${I18n.formatLabel(fact.label)} · ${fact.source}`, {
           fontFamily: 'PixelifySans, monospace',
           fontSize: '8px',
           color: '#124e89',

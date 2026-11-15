@@ -1,0 +1,158 @@
+[
+  {
+    "id": "oxigeno",
+    "q": "Where does my oxygen come from?",
+    "unlock": "start",
+    "a": [
+      {
+        "mood": "think",
+        "text": "From MOXIE: a metal tree that breathes in Martian air."
+      },
+      {
+        "mood": "happy",
+        "text": "It makes oxygen out of carbon dioxide at 800 °C.",
+        "source": "MOXIE (Perseverance)"
+      }
+    ]
+  },
+  {
+    "id": "noche",
+    "q": "Why is it dangerous outside at night?",
+    "unlock": "start",
+    "a": [
+      {
+        "mood": "think",
+        "text": "Mars lost its thermal blanket: its atmosphere is razor thin."
+      },
+      {
+        "mood": "neutral",
+        "text": "At night the temperature plunges to around −80 °C.",
+        "source": "MEDA"
+      }
+    ]
+  },
+  {
+    "id": "roca",
+    "q": "Which rock should I look for?",
+    "unlock": "start",
+    "a": [
+      {
+        "mood": "happy",
+        "text": "One with layers and spots, just like Cheyava Falls.",
+        "source": "Perseverance"
+      }
+    ]
+  },
+  {
+    "id": "retraso",
+    "q": "Why do Earth messages take so long?",
+    "unlock": "start",
+    "a": [
+      {
+        "mood": "neutral",
+        "text": "Radio travels at the speed of light, but Mars is millions of kilometers away."
+      },
+      {
+        "mood": "happy",
+        "text": "That's why each transmission takes between 3 and 22 minutes to arrive.",
+        "source": "JPL Horizons"
+      }
+    ]
+  },
+  {
+    "id": "polvo",
+    "q": "Why do I have to clean the solar panels?",
+    "unlock": "day2",
+    "a": [
+      {
+        "mood": "alert",
+        "text": "Fine Martian dust blocks sunlight and cuts the base's power."
+      },
+      {
+        "mood": "think",
+        "text": "In 2022, dust coated the InSight lander's panels and ended the mission.",
+        "source": "InSight Mission"
+      }
+    ]
+  },
+  {
+    "id": "suelo",
+    "q": "Why do we wear gloves when handling soil?",
+    "unlock": "day2",
+    "a": [
+      {
+        "mood": "alert",
+        "text": "Martian regolith contains perchlorates, toxic salts."
+      },
+      {
+        "mood": "happy",
+        "text": "With our sealed suit and sieve, we can study it safely.",
+        "source": "Phoenix & Curiosity"
+      }
+    ]
+  },
+  {
+    "id": "tormenta",
+    "q": "What is a solar storm?",
+    "unlock": "day3",
+    "a": [
+      {
+        "mood": "alert",
+        "text": "The Sun hurls a fast-moving cloud of energetic particles called a CME."
+      },
+      {
+        "mood": "neutral",
+        "text": "The shelter's thick regolith walls are your castle shield.",
+        "source": "DONKI & Curiosity RAD"
+      }
+    ]
+  },
+  {
+    "id": "aire",
+    "q": "What is in Mars's air?",
+    "unlock": "day3",
+    "a": [
+      {
+        "mood": "think",
+        "text": "95% is carbon dioxide, and pressure is barely 6 millibars."
+      },
+      {
+        "mood": "happy",
+        "text": "That is less than 1% of Earth's atmospheric pressure.",
+        "source": "Curiosity"
+      }
+    ]
+  },
+  {
+    "id": "minerales",
+    "q": "Where is water hiding in Jezero?",
+    "unlock": "day4",
+    "a": [
+      {
+        "mood": "think",
+        "text": "Jezero has no exposed ice sitting on the surface."
+      },
+      {
+        "mood": "proud",
+        "text": "Water stayed locked inside clays and hydrated minerals.",
+        "source": "Perseverance (SHERLOC & PIXL)"
+      }
+    ]
+  },
+  {
+    "id": "clima",
+    "q": "Do all solar storms hit Mars?",
+    "unlock": "day5",
+    "a": [
+      {
+        "mood": "neutral",
+        "text": "Not all of them: space is huge, and many CMEs miss the planet."
+      },
+      {
+        "mood": "happy",
+        "text": "NASA's WSA-Enlil model helps forecast which path they'll take.",
+        "source": "DONKI WSA-Enlil"
+      }
+    ]
+  }
+]

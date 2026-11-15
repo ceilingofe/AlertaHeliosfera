@@ -11,7 +11,24 @@
     "unlockedSuitLabel": "Traje personalizado listo",
     "prizeTitle": "PREMIO DEL DÍA 1",
     "corviWelcome": "¡Te damos la bienvenida a Jezero, LUNA-7!\nNo tenemos aire, pero sí estilo.",
-    "sealText": "DATO REAL NASA · Perseverance"
+    "sealText": "DATO REAL NASA · Perseverance",
+    "nasaSourcesTag": "★ Fuentes NASA",
+    "clickBelowHint": "(clic abajo)",
+    "continueDialogHint": "Espacio / E / Clic ►",
+    "onboardingDialogs": [
+      {
+        "mood": "happy",
+        "text": "¡Te damos la bienvenida, Capitán! Soy Corvi, oficial de la estación Octavia E. Butler.\nEstán al mando de la misión LUNA-7 en el cráter Jezero: explora Marte, reúne muestras y sobrevive."
+      },
+      {
+        "mood": "think",
+        "text": "Cada día la Tierra pide una cuota de muestras (roca, suelo, minerales, aire) y reparaciones.\nMuévete con WASD o flechas, presiona E / Espacio para interactuar y M para abrir el mapa."
+      },
+      {
+        "mood": "alert",
+        "text": "¡Cuida tu oxígeno y radiación acumulada! Vuelve antes de las 17:00: de noche (−80 °C) el calor baja muy rápido. ¡Corre al Refugio si llega una tormenta solar!"
+      }
+    ]
   },
   "transmision": {
     "headerPrefix": "TRANSMISIÓN DE LA TIERRA · DÍA",
@@ -35,7 +52,9 @@
     "footerNote": "Cada tarjeta muestra de dónde sale su dato.",
     "startDayButton": "Empezar el día",
     "nasaSealPrefix": "DATO REAL NASA",
-    "distanceSuffix": "millones de km"
+    "distanceSuffix": "millones de km",
+    "simBadge": "SIMULADO",
+    "gameRuleSource": "Regla del juego"
   },
   "minigameRock": {
     "title": "Muestra de roca",
@@ -149,6 +168,7 @@
     "bannerImpactPrefix": "IMPACTO SOLAR EN CURSO ·",
     "bannerFalseAlarm": "MODELO ACTUALIZADO · LA CME PASA DE LADO",
     "signalsTitle": "SEÑALES DE AVISO",
+    "signalsSub": "cielo ocre + interferencia de señal",
     "signalSky": "· El cielo se pone ocre",
     "signalAntenna": "· Estática en la antena",
     "staticLabel": "estática",
@@ -168,6 +188,8 @@
   },
   "hud": {
     "missionsTitle": "MISIONES DEL DÍA",
+    "nightMissionsTitle": "MISIONES DE LA NOCHE",
+    "nightSurviveMission": "Sobrevivir hasta el amanecer",
     "missionRockPrefix": "Entregar",
     "missionRockUnit": "roca",
     "missionRocksUnit": "rocas",
@@ -183,6 +205,7 @@
     "dayPrefix": "DÍA",
     "outdoorWindowLabel": "AFUERA",
     "indoorCurfewLabel": "ADENTRO",
+    "nightOutsideLabel": "NOCHE · −80°",
     "youLabel": "TÚ",
     "o2Label": "Oxígeno",
     "tempLabel": "Temp. del traje",
@@ -194,7 +217,9 @@
     "pausedHint": "Presiona ESC o toca aquí para continuar",
     "actionButton": "E",
     "radioWarn16": "Corvi: Vuelve pronto, viene el frío de las 17:00.",
-    "radioCurfew17": "Corvi: Ya son las 17:00 (−80 °C). Si sales o te quedas afuera, el O₂ y calor bajan rápido.",
+    "radioCurfew17": "Corvi: Ya son las 17:00 (−80 °C). Afuera de noche, el calor del traje baja muy rápido.",
+    "radioNightFirst": "Corvi: Anochece en Jezero (−80 °C). Disfruta las estrellas, pero cuida tu calefactor: ¡la temperatura cae rápido!",
+    "radioHeaterEmpty": "Corvi: ¡Se agotó el calefactor! La temperatura del traje cae rápido, ¡entra YA!",
     "radioCurfewReturn": "Corvi: Ya son las 20:00. Te guío de regreso a la base.",
     "radioO2Warn40": "Corvi: Te queda 40 % de oxígeno. Regresa a la base.",
     "radioO2Danger20": "¡Alerta! Oxígeno al 20 %. Vuelve de inmediato.",
@@ -202,7 +227,7 @@
     "radioBoxFull": "La caja ya tiene 6 tubos llenos. Entrégalos en la base.",
     "radioDustEvent": "Corvi: El viento cubrió de polvo el panel 2. ¡Ve a limpiarlo!",
     "radioMoxieEvent": "Corvi: Las tuberías de MOXIE se taparon. ¡Repáralas afuera!",
-    "radioColdNightEvent": "Corvi: Esta noche será helada: tu batería bajará ×4 desde las 17:00.",
+    "radioColdNightEvent": "Corvi: Esta noche será helada: tu batería bajará ×10 desde las 17:00.",
     "radioThreeForks": "¡Depósito de Three Forks! Tus muestras valen el doble aquí.",
     "interactDoor": "E: entrar a la base",
     "interactPanel": "E: limpiar panel con brocha",
@@ -241,6 +266,9 @@
     "musicOff": "Música: NO",
     "sfxOn": "Efectos: SÍ",
     "sfxOff": "Efectos: NO",
+    "musicVolumeLabel": "Música",
+    "sfxVolumeLabel": "Efectos",
+    "languageLabel": "Idioma",
     "creditsButton": "Fuentes y créditos",
     "titleButton": "Menú principal",
     "mapTitle": "MAPA DEL CRÁTER JEZERO",
@@ -267,10 +295,11 @@
     "interactJournalDesk": "E: abrir bitácora científica",
     "interactSuitLocker": "E: personalizar traje en el armario",
     "interactRefugeDoor": "E: cruzar compuerta del refugio blindado",
+    "interactExitRefuge": "[E] Salir del Refugio Blindado",
     "interactExitDoor": "E: salir a la superficie",
     "interactCorvi": "E: preguntar a Corvi",
-    "curfewBlocked": "Corvi: Ya pasan de las 17:00. Si sales ahora (−80 °C), tu O₂ y batería bajarán muy rápido.",
-    "nightExitConfirm": "¡Ya es de noche en Marte (−80 °C)!\nTu oxígeno bajará ×2 y el calefactor ×3.\n¿Salir a ver el cielo nocturno de todos modos?",
+    "curfewBlocked": "Corvi: Ya pasan de las 17:00. Si sales ahora (−80 °C), el calor de tu traje bajará muy rápido.",
+    "nightExitConfirm": "¡Ya es de noche en Marte (−80 °C)!\nTu temperatura bajará muy rápido y el O₂ más rápido.\n¿Salir a ver el cielo nocturno de todos modos?",
     "nightExitYes": "Salir de noche",
     "refilledMsg": "Corvi: Oxígeno recargado con la reserva de MOXIE.",
     "noReserveMsg": "Corvi: No hay suficiente energía o reserva de MOXIE.",
@@ -279,6 +308,7 @@
     "noTubesMsg": "Corvi: Aún no traes tubos llenos para entregar.",
     "refugeEnteredMsg": "Refugio Blindado activo · Muros de regolito (dosis ×0.05)",
     "refugeExitedMsg": "Módulo principal de la Base (dosis ×0.30)",
+    "refugeDoseBadge": "DOSIS ×0.05",
     "corviGreeting": "Corvi: Aquí estás a salvo. Pregúntame lo que quieras sobre Marte.",
     "o2StationSign": "ESTACIÓN O₂",
     "heaterStationSign": "CALENTADOR",
@@ -347,12 +377,15 @@
     "hair3Label": "Peinado 3",
     "accessoryTitle": "ACCESORIOS DESBLOQUEADOS",
     "noAccessory": "Sin accesorio",
+    "noneAccessory": "Ninguno",
     "accDiadema": "Diadema (Día 1)",
     "accMono": "Moño (Día 1)",
     "accAntena": "Antena (Día 5)",
     "accGorrito": "Gorrito (Día 10)",
     "accAudifonos": "Audífonos (Día 15)",
     "patchTitle": "PARCHE DE MISIÓN",
+    "patchLabel": "★ PARCHE:",
+    "dayPrefix": "Día",
     "lockedNotice": "Completa el Día 1 y duerme en la base para desbloquear tu armario.",
     "saveAndContinue": "Guardar y continuar",
     "openButton": "Personalizar traje"
@@ -365,7 +398,10 @@
     "daysSingular": "día en Marte!",
     "daysPlural": "días en Marte!",
     "samplesLabel": "Muestras entregadas",
+    "samplesOf": "de",
     "moxieLabel": "Oxígeno de MOXIE",
+    "moxieProducedPrefix": "Tu base produjo",
+    "moxieProducedSuffix": "kg de O₂",
     "stormsLabel": "Tormentas solares",
     "stormsUnit": "superadas en el refugio",
     "doseLabel": "Dosis total",
@@ -380,6 +416,7 @@
     "playAgainButton": "Jugar otra vez",
     "scienceLabel": "Ciencia",
     "triviaLabel": "examen",
+    "ptsUnit": "pts",
     "rescueMisionSummary": "La Tierra canceló la misión por falta de muestras.",
     "rescueMisionAdvice": "La próxima vez: usa el radar (M) y entrega la cuota cada día."
   },

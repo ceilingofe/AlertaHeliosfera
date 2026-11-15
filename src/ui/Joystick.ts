@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import VirtualJoyStick from 'phaser3-rex-plugins/plugins/virtualjoystick.js';
-import uiText from '../../content/ui_text.json';
 import { bus } from '../state/bus';
+import { I18n } from '../systems/I18n';
 
 export interface JoystickVector {
   x: number;
@@ -50,7 +50,7 @@ export class TouchControls {
       .setInteractive({ useHandCursor: true });
 
     this.actionText = scene.add
-      .text(actionX, actionY, uiText.hud.actionButton, {
+      .text(actionX, actionY, I18n.ui().hud.actionButton, {
         fontFamily: 'PixelifySans, monospace',
         fontSize: '16px',
         color: '#ffffff',

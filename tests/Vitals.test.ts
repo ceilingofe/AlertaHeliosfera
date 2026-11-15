@@ -16,7 +16,7 @@ describe('Sistema Vitals (src/systems/Vitals.ts)', () => {
     expect(after121.rescueCause).toBe('oxigeno');
   });
 
-  it('gasta la batería del calefactor 3 veces más rápido después de las 17:00', () => {
+  it('gasta la batería del calefactor 7.5 veces más rápido después de las 17:00 y baja más rápido que el O₂', () => {
     const dayState = createInitialGameState();
     dayState.clock.minutes = 600; // 10:00 (día)
     Vitals.tick(dayState, 10);
@@ -25,11 +25,14 @@ describe('Sistema Vitals (src/systems/Vitals.ts)', () => {
     const nightState = createInitialGameState();
     nightState.clock.minutes = 1020; // 17:00 (noche)
     Vitals.tick(nightState, 10);
-    const nightDrain = 100 - nightState.astronaut.heaterBattery;
+    const nightHeaterDrain = 100 - nightState.astronaut.heaterBattery;
+    const nightO2Drain = 100 - nightState.astronaut.o2;
 
     expect(dayDrain).toBeCloseTo(4, 4);
-    expect(nightDrain).toBeCloseTo(12, 4);
-    expect(nightDrain / dayDrain).toBeCloseTo(3, 4);
+    expect(nightHeaterDrain).toBeCloseTo(30, 4);
+    expect(nightHeaterDrain / dayDrain).toBeCloseTo(7.5, 4);
+    expect(nightHeaterDrain).toBeGreaterThan(nightO2Drain);
+    expect(nightState.astronaut.suitTempC).toBeLessThan(21);
   });
 
   it('enfría el traje cuando la batería llega a 0 y triplica el consumo de oxígeno debajo de 18 °C', () => {
@@ -37,9 +40,9 @@ describe('Sistema Vitals (src/systems/Vitals.ts)', () => {
     state.astronaut.heaterBattery = 0;
     state.astronaut.suitTempC = 21;
 
-    // En 4 segundos sin batería baja de 21 °C a 17 °C (< 18 °C)
+    // En 4 segundos sin batería baja de 21 °C a 15 °C (< 18 °C)
     Vitals.tick(state, 4);
-    expect(state.astronaut.suitTempC).toBe(17);
+    expect(state.astronaut.suitTempC).toBe(15);
 
     const o2Before = state.astronaut.o2;
     Vitals.tick(state, 10);

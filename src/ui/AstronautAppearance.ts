@@ -205,11 +205,12 @@ export class AstronautAppearance {
     AstronautAppearance.drawPatchBadge(ctx, 13, 27, 6, 5, patch);
 
     canvasTex.refresh();
+    canvasTex.setFilter(Phaser.Textures.FilterMode.NEAREST);
   }
 
   /**
    * Extrae un cuadro de 64×64 de la hoja de caminata, recolorea el traje,
-   * dibuja el parche en el pecho y el accesorio en el casco, y lo escala a 16×32 nítido.
+   * dibuja el parche en el pecho y el accesorio en el casco, y conserva 32×64 píxeles nítidos (NEAREST).
    */
   private static buildWalkFrameMiniTexture(
     scene: Phaser.Scene,
@@ -273,14 +274,15 @@ export class AstronautAppearance {
       }
     }
 
-    // Escalar de 32×64 a 16×32 para mantener las proporciones mini del mundo y la base
-    const canvasTex = scene.textures.createCanvas(targetKey, 16, 32);
+    // Conservar 32×64 completo con filtrado NEAREST para evitar difuminado al escalar en Phaser
+    const canvasTex = scene.textures.createCanvas(targetKey, 32, 64);
     if (!canvasTex) return;
     const outCtx = canvasTex.getContext();
     outCtx.imageSmoothingEnabled = false;
-    outCtx.clearRect(0, 0, 16, 32);
-    outCtx.drawImage(workCanvas, 0, 0, 32, 64, 0, 0, 16, 32);
+    outCtx.clearRect(0, 0, 32, 64);
+    outCtx.drawImage(workCanvas, 0, 0, 32, 64, 0, 0, 32, 64);
     canvasTex.refresh();
+    canvasTex.setFilter(Phaser.Textures.FilterMode.NEAREST);
   }
 
   private static drawPatchBadge(

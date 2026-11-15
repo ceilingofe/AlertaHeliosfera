@@ -1,9 +1,9 @@
 import Phaser from 'phaser';
-import MG from '../../content/minigames.json';
 import { bus } from '../state/bus';
 import { gameStore } from '../state/GameState';
 import { AudioSystem } from '../systems/Audio';
 import { Clock } from '../systems/Clock';
+import { I18n } from '../systems/I18n';
 import type { MinigameInput, MinigameResult, Mood } from '../types';
 import { DialogBox } from '../ui/DialogBox';
 
@@ -124,7 +124,7 @@ export abstract class MinigameBase extends Phaser.Scene {
       .setDepth(55)
       .setInteractive({ useHandCursor: true });
     this.abortLabel = this.add
-      .text(62, 338, MG.common.abortButton, { fontFamily: FONT, fontSize: '11px', color: '#ead4aa' })
+      .text(62, 338, I18n.mg().common.abortButton, { fontFamily: FONT, fontSize: '11px', color: '#ead4aa' })
       .setOrigin(0.5)
       .setDepth(56);
     this.abortBg.on('pointerover', () => this.abortBg?.setStrokeStyle(2, 0xe43b44));
@@ -207,7 +207,7 @@ export abstract class MinigameBase extends Phaser.Scene {
     this.activeDialog = new DialogBox(this, {
       mode: 'big',
       mood,
-      text: `${MG.common.failPrefix} ${text}`,
+      text: `${I18n.mg().common.failPrefix} ${text}`,
       onComplete: () => this.completeMinigame({ ok: false, quality: 0 }),
     });
   }
@@ -223,7 +223,7 @@ export abstract class MinigameBase extends Phaser.Scene {
     this.spawnSuccessParticles();
     const quality = this.qualityFromStrikes();
     const stars = '★'.repeat(quality) + '☆'.repeat(3 - quality);
-    this.setInstruction(`${MG.common.qualityLabel} ${stars}`, '#fee761');
+    this.setInstruction(`${I18n.mg().common.qualityLabel} ${stars}`, '#fee761');
     this.activeDialog?.destroy();
     this.activeDialog = new DialogBox(this, {
       mode: 'big',
@@ -373,7 +373,9 @@ export abstract class MinigameBase extends Phaser.Scene {
   private baseUpdate(): void {
     const o2 = Math.max(0, gameStore.state.astronaut.o2);
     if (this.o2Fill) {
-      this.o2Fill.width = Math.round((64 * o2) / 100);
+      const w = Math.round((64 * o2) / 100);
+      this.o2Fill.setVisible(w > 0);
+      if (w > 0) this.o2Fill.setSize(w, 6).updateDisplayOrigin();
       const color = o2 <= 20 ? 0xe43b44 : o2 <= 40 ? 0xfee761 : 0x2ce8f5;
       this.o2Fill.setFillStyle(color);
       this.o2Label.setText(`${Math.ceil(o2)}%`).setColor(o2 <= 20 ? '#e43b44' : o2 <= 40 ? '#fee761' : '#2ce8f5');

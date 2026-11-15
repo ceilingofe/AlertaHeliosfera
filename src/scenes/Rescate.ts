@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { AudioSystem } from '../systems/Audio';
-import uiText from '../../content/ui_text.json';
+import { I18n } from '../systems/I18n';
 import { gameStore } from '../state/GameState';
 import type { RescueCause } from '../types';
 import { AstronautAppearance } from '../ui/AstronautAppearance';
@@ -27,6 +27,7 @@ export class Rescate extends Phaser.Scene {
   }
 
   create(): void {
+    const uiText = I18n.ui();
     const state = gameStore.state;
     AudioSystem.stopAllLoops();
     AudioSystem.playMusic(null);
@@ -96,7 +97,7 @@ export class Rescate extends Phaser.Scene {
       state.customization.hair,
       state.customization.suit
     );
-    this.add.image(254, 214, miniKey).setScale(2);
+    this.add.image(254, 214, miniKey).setScale(1);
 
     const dust = this.add.graphics();
     dust.fillStyle(0xe4a672, 0.85);

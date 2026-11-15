@@ -23,8 +23,10 @@ import { Transmision } from './scenes/Transmision';
 import { Trivia } from './scenes/Trivia';
 import './ui/installTextDefaults';
 import { installCameraDefaults, VIEW_H, VIEW_W } from './ui/installCameraDefaults';
+import { I18n } from './systems/I18n';
 
 installCameraDefaults();
+I18n.setLang(I18n.getLang());
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -35,7 +37,14 @@ const config: Phaser.Types.Core.GameConfig = {
   height: VIEW_H * 2,
   backgroundColor: '#181425',
   pixelArt: true,
+  antialias: false,
   roundPixels: true,
+  render: {
+    pixelArt: true,
+    antialias: false,
+    antialiasGL: false,
+    roundPixels: true,
+  },
   physics: { default: 'arcade', arcade: { debug: false } },
   scale: {
     mode: Phaser.Scale.FIT,
@@ -85,7 +94,15 @@ window.addEventListener('orientationchange', () => {
 window.visualViewport?.addEventListener('resize', refreshScale);
 
 const fsBtn = document.getElementById('mobile-fs-btn');
+const updateFsBtnLabel = (): void => {
+  if (!fsBtn) return;
+  const en = I18n.getLang() === 'en';
+  fsBtn.textContent = document.fullscreenElement
+    ? en ? '✕ Exit' : '✕ Salir'
+    : en ? '⛶ Fullscreen' : '⛶ Pantalla completa';
+};
 if (fsBtn) {
+  updateFsBtnLabel();
   fsBtn.addEventListener('click', async () => {
     try {
       if (!document.fullscreenElement) {
@@ -105,7 +122,7 @@ if (fsBtn) {
     setTimeout(refreshScale, 150);
   });
   document.addEventListener('fullscreenchange', () => {
-    fsBtn.textContent = document.fullscreenElement ? '✕ Salir' : '⛶ Pantalla completa';
+    updateFsBtnLabel();
     setTimeout(refreshScale, 120);
   });
 }

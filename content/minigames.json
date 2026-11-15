@@ -63,7 +63,9 @@
     "sealMiss": "Sello flojo: el aire de Marte contaminaría la muestra.",
     "sealFail": "El tubo quedó mal sellado. Una muestra contaminada ya no sirve para buscar señales de vida.",
     "success": "¡Núcleo sellado! Las rocas sedimentarias guardan pistas de vida antigua. En julio de 2024 Perseverance halló \"manchas de leopardo\" en Cheyava Falls y en 2025 la NASA dijo que son la posible señal de vida más clara hasta ahora.",
-    "source": "NASA · Perseverance (2024–2025)"
+    "source": "NASA · Perseverance (2024–2025)",
+    "cheyavaLabel": "Cheyava Falls\nCráter Jezero",
+    "hardLayerLegend": "▒ = capa dura"
   },
   "suelo": {
     "title": "Muestra de regolito",
@@ -86,7 +88,9 @@
     "wrongJar": "Ese grano es demasiado grueso para estudiar el polvo que respiraríamos.",
     "fail": "Sin una muestra fina no podemos saber cómo dañaría el polvo los trajes y los pulmones.",
     "success": "¡Regolito guardado! En diciembre de 2022 Perseverance tomó sus primeras muestras de regolito para estudiar cómo afectaría el polvo a astronautas y equipos. Ojo: tiene percloratos, sales tóxicas que detectó Phoenix en 2008.",
-    "source": "NASA · Perseverance y Phoenix"
+    "source": "NASA · Perseverance y Phoenix",
+    "lowLabel": "poca",
+    "highLabel": "mucha"
   },
   "minerales": {
     "title": "Análisis de veta",
@@ -137,7 +141,9 @@
     "source": "NASA · Curiosity SAM y Perseverance",
     "co2": "CO₂ 95 %",
     "n2": "N₂ 2.8 %",
-    "ar": "Ar 2 %"
+    "ar": "Ar 2 %",
+    "pressureCompare": "Tierra: 1 013 mbar · Marte: ~6 mbar",
+    "pumpLabel": "BOMBA"
   },
   "paneles": {
     "title": "Limpiar panel solar",
@@ -173,6 +179,7 @@
     "soxeTooHot": "¡Sobrecalentamiento (>860 °C)! Riesgo de coquización de carbono.",
     "soxeTooCold": "Reactor frío (<760 °C): la electrólisis se detiene.",
     "soxeOverheatFail": "¡Exceso térmico en el reactor SOXE! Se activó el enfriamiento de emergencia.",
+    "soxeOptimal": "✓ 800 °C óptimo · produciendo O₂",
     "failMoxie": "Las fugas o el exceso térmico dañaron el equipo. Sin MOXIE, el oxígeno de la base baja cada hora.",
     "failAntenna": "La antena sigue sin señal. Sin ella no llegan los avisos de tormenta de la Tierra.",
     "successMoxie": "¡MOXIE funciona! Entre 2021 y 2023 produjo 122 g de oxígeno a partir del CO₂ de Marte, calentándolo a unos 800 °C. Así podrían respirar y despegar futuras tripulaciones.",

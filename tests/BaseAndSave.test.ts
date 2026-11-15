@@ -49,7 +49,7 @@ describe('Sistemas BaseSystem y Save (Fase 2)', () => {
     expect(state.astronaut.heaterBattery).toBe(90);
   });
 
-  it('permite salir después de las 17:00, pero de noche el oxígeno baja el doble', () => {
+  it('permite salir después de las 17:00, y de noche la temperatura/batería baja más rápido que el oxígeno', () => {
     const state = createInitialGameState();
     state.clock.minutes = 1019;
     expect(BaseSystem.canExitToWorld(state)).toBe(true);
@@ -67,8 +67,9 @@ describe('Sistemas BaseSystem y Save (Fase 2)', () => {
     night.location = 'mundo';
     night.clock.minutes = 1100;
     Vitals.tick(night, 1);
-    expect(100 - night.astronaut.o2).toBeCloseTo((100 - day.astronaut.o2) * 2, 4);
-    expect(night.astronaut.heaterBattery).toBeLessThan(day.astronaut.heaterBattery);
+    expect(100 - night.astronaut.o2).toBeCloseTo((100 - day.astronaut.o2) * 1.35, 4);
+    expect(100 - night.astronaut.heaterBattery).toBeGreaterThan(100 - night.astronaut.o2);
+    expect(night.astronaut.suitTempC).toBeLessThan(day.astronaut.suitTempC);
   });
 
   it('dormir pasa al día 2 con dosis de hoy en 0 y dosis total intacta', () => {

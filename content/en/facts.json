@@ -1,0 +1,11 @@
+[
+  { "id": "luz", "icon": "sun", "text": "Messages from Earth take minutes to reach Mars.", "label": "ARCHIVO REAL", "source": "JPL Horizons" },
+  { "id": "radiacion", "icon": "rad", "text": "Radiation never drops: it builds up day by day.", "label": "ARCHIVO REAL", "source": "Curiosity RAD" },
+  { "id": "cheyava", "icon": "drill", "text": "Perseverance found leopard spots on the rock Cheyava Falls.", "label": "ARCHIVO REAL", "source": "Perseverance (2024)" },
+  { "id": "polvo", "icon": "brush", "text": "Martian dust covered InSight's solar panels and shut it down in 2022.", "label": "ARCHIVO REAL", "source": "InSight Mission" },
+  { "id": "moxie", "icon": "o2", "text": "MOXIE made oxygen from Mars's air: up to 12 grams per hour.", "label": "ARCHIVO REAL", "source": "MOXIE (Perseverance)" },
+  { "id": "aire", "icon": "valve", "text": "Mars's atmosphere is 95% carbon dioxide.", "label": "ARCHIVO REAL", "source": "Curiosity" },
+  { "id": "agua_rocas", "icon": "scanner", "text": "There is no exposed ice in Jezero, but some rocks trap water inside.", "label": "ARCHIVO REAL", "source": "Perseverance" },
+  { "id": "percloratos", "icon": "shovel", "text": "Martian soil contains perchlorates, which are harmful salts.", "label": "ARCHIVO REAL", "source": "Phoenix & Curiosity" },
+  { "id": "frio", "icon": "moon", "text": "At night, Jezero Crater drops to around −80 °C.", "label": "ARCHIVO REAL", "source": "MEDA" }
+]

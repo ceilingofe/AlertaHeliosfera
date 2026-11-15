@@ -1,18 +1,21 @@
 import Phaser from 'phaser';
-import uiText from '../../content/ui_text.json';
 import { gameStore } from '../state/GameState';
 import { AudioSystem } from '../systems/Audio';
+import { I18n } from '../systems/I18n';
+import type { Mood } from '../types';
 import { AstronautAppearance } from '../ui/AstronautAppearance';
 import { DialogBox } from '../ui/DialogBox';
 
 /**
  * Escena Despegue (fiel al storyboard s01_despegue.png):
  * Pantalla del día 1 con cohete aterrizado, astronauta en traje por defecto o personalizado,
- * botón "¡Despegue rápido!", vista de la personalización (con candado en esquina sin tapar iconos)
- * y saludo grande de Corvi.
+ * botón "¡Despegue rápido!", vista de la personalización y bienvenida inmersiva de 3 diálogos
+ * donde Corvi saluda al Capitán y explica la misión LUNA-7.
  */
 export class Despegue extends Phaser.Scene {
   private dialogBox: DialogBox | null = null;
+  private onboardingStep = 0;
+  private stepBadge!: Phaser.GameObjects.Text;
 
   constructor() {
     super('Despegue');
@@ -21,6 +24,7 @@ export class Despegue extends Phaser.Scene {
   create(): void {
     AudioSystem.playMusic('starboard');
     const state = gameStore.state;
+    const uiText = I18n.ui();
 
     // 1. Cielo estrellado nocturno (#181425) y horizonte curvo de Marte
     this.add.rectangle(320, 180, 640, 360, 0x181425);
@@ -37,7 +41,7 @@ export class Despegue extends Phaser.Scene {
     horizon.fillStyle(0xb86f50, 1);
     horizon.fillEllipse(310, 340, 680, 156);
 
-    // 2. Título superior "DÍA 1 · TE DAMOS LA BIENVENIDA A JEZERO" y botón de Fuentes NASA
+    // 2. Título superior y botón de Fuentes NASA
     this.add
       .text(320, 22, uiText.despegue.header, {
         fontFamily: 'PixelifySans, monospace',
@@ -51,7 +55,7 @@ export class Despegue extends Phaser.Scene {
       .setStrokeStyle(1, 0x5a6988)
       .setInteractive({ useHandCursor: true });
     this.add
-      .text(64, 22, '★ Fuentes NASA', {
+      .text(64, 22, uiText.despegue.nasaSourcesTag, {
         fontFamily: 'PixelifySans, monospace',
         fontSize: '10px',
         color: '#fee761',
@@ -74,7 +78,7 @@ export class Despegue extends Phaser.Scene {
       state.customization
     );
 
-    // 4. Botón "¡Despegue rápido!" (arriba a la derecha, permite iniciar en menos de 15 s)
+    // 4. Botón "¡Despegue rápido!" (arriba a la derecha, permite saltar directo)
     const launchBtn = this.add
       .rectangle(522, 74, 208, 36, 0x181425)
       .setStrokeStyle(2, 0x5a6988)
@@ -93,7 +97,7 @@ export class Despegue extends Phaser.Scene {
         522,
         104,
         state.unlocks.customization
-          ? `${uiText.despegue.unlockedSuitLabel} (clic abajo)`
+          ? `${uiText.despegue.unlockedSuitLabel} ${uiText.despegue.clickBelowHint}`
           : uiText.despegue.defaultSuitLabel,
         {
           fontFamily: 'PixelifySans, monospace',
@@ -153,25 +157,55 @@ export class Despegue extends Phaser.Scene {
       });
     }
 
-    // 6. Diálogo grande de Corvi
-    this.dialogBox = new DialogBox(this, {
-      mode: 'big',
-      mood: 'happy',
-      text: uiText.despegue.corviWelcome,
-      onComplete: () => {
-        this.goToTransmision();
-      },
-    });
+    // 6. Secuencia de bienvenida de Corvi al Capitán (3 diálogos explicando cómo jugar)
+    this.stepBadge = this.add
+      .text(622, 260, '', {
+        fontFamily: 'PixelifySans, monospace',
+        fontSize: '10px',
+        color: '#fee761',
+      })
+      .setOrigin(1, 0)
+      .setDepth(95);
 
-    launchBtn.on('pointerdown', () => this.goToTransmision());
-    this.input.keyboard?.on('keydown-ENTER', () => this.goToTransmision());
-    this.input.keyboard?.on('keydown-E', () => this.goToTransmision());
-    this.input.keyboard?.on('keydown-SPACE', () => {
-      if (this.dialogBox && this.dialogBox.isTyping()) {
-        this.dialogBox.completeTyping();
+    this.onboardingStep = 0;
+    this.showOnboardingStep();
+
+    const advanceDialog = (): void => {
+      if (this.dialogBox) {
+        this.dialogBox.advanceOrFinish();
       } else {
         this.goToTransmision();
       }
+    };
+
+    launchBtn.on('pointerdown', () => this.goToTransmision());
+    this.input.keyboard?.on('keydown-ENTER', advanceDialog);
+    this.input.keyboard?.on('keydown-E', advanceDialog);
+    this.input.keyboard?.on('keydown-SPACE', advanceDialog);
+  }
+
+  private showOnboardingStep(): void {
+    const uiText = I18n.ui();
+    const dialogs = uiText.despegue.onboardingDialogs ?? [];
+    if (this.onboardingStep >= dialogs.length) {
+      this.goToTransmision();
+      return;
+    }
+
+    const entry = dialogs[this.onboardingStep];
+    this.stepBadge.setText(
+      `(${this.onboardingStep + 1}/${dialogs.length}) · ${uiText.despegue.continueDialogHint}`
+    );
+
+    this.dialogBox?.destroy();
+    this.dialogBox = new DialogBox(this, {
+      mode: 'big',
+      mood: (entry.mood as Mood) ?? 'happy',
+      text: entry.text,
+      onComplete: () => {
+        this.onboardingStep += 1;
+        this.showOnboardingStep();
+      },
     });
   }
 

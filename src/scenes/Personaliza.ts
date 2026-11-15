@@ -1,5 +1,4 @@
 import Phaser from 'phaser';
-import uiText from '../../content/ui_text.json';
 import { gameStore } from '../state/GameState';
 import { Save } from '../state/Save';
 import { AudioSystem } from '../systems/Audio';
@@ -12,6 +11,7 @@ import {
   SUIT_COLOR_ORDER,
   SUIT_PALETTES,
 } from '../systems/Customization';
+import { I18n } from '../systems/I18n';
 import type { Accessory, SuitColor } from '../types';
 import { AstronautAppearance } from '../ui/AstronautAppearance';
 
@@ -42,6 +42,7 @@ export class Personaliza extends Phaser.Scene {
   }
 
   create(): void {
+    const uiText = I18n.ui();
     AudioSystem.playMusic('starboard');
     const state = gameStore.state;
     Clock.setPaused(state, true);
@@ -70,9 +71,9 @@ export class Personaliza extends Phaser.Scene {
     this.add.ellipse(116, 236, 76, 14, 0x181425);
 
     this.previewContainer = this.add.container(116, 156);
-    this.miniFrontImg = this.add.image(204, 142, 'astronaut_mini_hair1').setScale(1.8);
-    this.miniSideImg = this.add.image(204, 188, 'astronaut_mini_hair1').setScale(1.8);
-    this.miniBackImg = this.add.image(204, 234, 'astronaut_mini_hair1').setScale(1.8);
+    this.miniFrontImg = this.add.image(204, 142, 'astronaut_mini_hair1').setScale(0.9);
+    this.miniSideImg = this.add.image(204, 188, 'astronaut_mini_hair1').setScale(0.9);
+    this.miniBackImg = this.add.image(204, 234, 'astronaut_mini_hair1').setScale(0.9);
 
     this.patchLabelText = this.add
       .text(136, 284, '', {
@@ -117,6 +118,7 @@ export class Personaliza extends Phaser.Scene {
   }
 
   private refreshPreview(): void {
+    const uiText = I18n.ui();
     const state = gameStore.state;
     this.previewContainer.removeAll(true);
 
@@ -156,13 +158,14 @@ export class Personaliza extends Phaser.Scene {
       state.customization.accessory,
       state.customization.patch
     );
-    this.miniFrontImg.setTexture(frontKey);
-    this.miniSideImg.setTexture(sideKey);
-    this.miniBackImg.setTexture(backKey);
-    this.patchLabelText.setText(`★ PARCHE: ${state.customization.patch}`);
+    this.miniFrontImg.setTexture(frontKey).setScale(0.9);
+    this.miniSideImg.setTexture(sideKey).setScale(0.9);
+    this.miniBackImg.setTexture(backKey).setScale(0.9);
+    this.patchLabelText.setText(`${uiText.personaliza.patchLabel} ${state.customization.patch}`);
   }
 
   private drawSuitColorSection(x: number, y: number): void {
+    const uiText = I18n.ui();
     const state = gameStore.state;
     this.add.text(x, y, uiText.personaliza.suitColorTitle, {
       fontFamily: 'PixelifySans, monospace',
@@ -183,7 +186,7 @@ export class Personaliza extends Phaser.Scene {
         .setInteractive({ useHandCursor: unlocked });
 
       this.add
-        .text(bx, by, unlocked ? palette.name : '🔒', {
+        .text(bx, by, unlocked ? I18n.suitColorName(suitColor) : '🔒', {
           fontFamily: 'PixelifySans, monospace',
           fontSize: '10px',
           color: suitColor === 'blanco' || suitColor === 'azul' ? '#181425' : '#ffffff',
@@ -201,6 +204,7 @@ export class Personaliza extends Phaser.Scene {
   }
 
   private drawHairSection(x: number, y: number): void {
+    const uiText = I18n.ui();
     const state = gameStore.state;
     this.add.text(x, y, uiText.personaliza.hairTitle, {
       fontFamily: 'PixelifySans, monospace',
@@ -242,6 +246,7 @@ export class Personaliza extends Phaser.Scene {
   }
 
   private drawAccessoriesSection(x: number, y: number): void {
+    const uiText = I18n.ui();
     const state = gameStore.state;
     this.add.text(x, y, uiText.personaliza.accessoryTitle, {
       fontFamily: 'PixelifySans, monospace',
@@ -264,7 +269,7 @@ export class Personaliza extends Phaser.Scene {
 
       if (acc === null) {
         this.add
-          .text(bx, by, 'Ninguno', {
+          .text(bx, by, uiText.personaliza.noneAccessory, {
             fontFamily: 'PixelifySans, monospace',
             fontSize: '9px',
             color: '#181425',
@@ -283,7 +288,7 @@ export class Personaliza extends Phaser.Scene {
         if (!unlocked) {
           const minDay = ACCESSORY_UNLOCK_DAY[acc];
           this.add
-            .text(bx, by + 13, `Día ${minDay}`, {
+            .text(bx, by + 13, `${uiText.personaliza.dayPrefix} ${minDay}`, {
               fontFamily: 'PixelifySans, monospace',
               fontSize: '8px',
               color: '#fee761',
@@ -303,6 +308,7 @@ export class Personaliza extends Phaser.Scene {
   }
 
   private drawPatchSection(x: number, y: number): void {
+    const uiText = I18n.ui();
     const state = gameStore.state;
     this.add.text(x, y, uiText.personaliza.patchTitle, {
       fontFamily: 'PixelifySans, monospace',

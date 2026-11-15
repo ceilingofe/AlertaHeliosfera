@@ -1,9 +1,9 @@
 import Phaser from 'phaser';
-import uiText from '../../content/ui_text.json';
 import { bus } from '../state/bus';
 import { gameStore } from '../state/GameState';
 import { AudioSystem } from '../systems/Audio';
 import { Events } from '../systems/Events';
+import { I18n } from '../systems/I18n';
 import { StaticEffect } from '../ui/StaticEffect';
 
 /**
@@ -31,6 +31,7 @@ export class Tormenta extends Phaser.Scene {
   }
 
   create(): void {
+    const uiText = I18n.ui();
     this.lastAnnouncedStormId = null;
 
     // 1. Cielo ocre (#feae34 con alpha 0.27, sección 9.2 y s10_tormenta.png)
@@ -81,7 +82,7 @@ export class Tormenta extends Phaser.Scene {
       .text(
         centerX,
         36,
-        `${uiText.storm.signalsTitle}: cielo ocre + interferencia de señal`,
+        `${uiText.storm.signalsTitle}: ${uiText.storm.signalsSub}`,
         {
           fontFamily: 'PixelifySans, monospace',
           fontSize: '9px',
@@ -118,6 +119,7 @@ export class Tormenta extends Phaser.Scene {
   }
 
   update(time: number): void {
+    const uiText = I18n.ui();
     const storm = Events.getActiveStorm();
     const inMinigame =
       this.scene.isActive('MinijuegoRoca') ||
@@ -180,7 +182,7 @@ export class Tormenta extends Phaser.Scene {
       this.ochreOverlay.setAlpha(0.38);
     }
 
-    this.honestyTagText.setText(`★ ARCHIVO REAL · NASA · ${storm.donkiActivityID}`);
+    this.honestyTagText.setText(`★ ${I18n.formatLabel('ARCHIVO REAL')} · NASA · ${storm.donkiActivityID}`);
     if (storm.phase === 'impact') {
       AudioSystem.startLoop('storm', 'rumble', insideHabitat ? 0.25 : 0.6);
     } else {

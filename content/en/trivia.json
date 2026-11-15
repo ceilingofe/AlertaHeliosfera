@@ -1,0 +1,418 @@
+[
+  {
+    "id": "luz_minutos",
+    "q": "How long does a radio message take between Earth and Mars?",
+    "options": [
+      "Less than 1 second",
+      "Between 3 and 22 minutes",
+      "About 6 hours",
+      "Two days"
+    ],
+    "answer": 1,
+    "explain": "Light travels at 300,000 km/s, yet Mars sits 55 to 400 million km away. That's why rovers can't be driven with a live joystick—they follow commands sent in advance.",
+    "source": "NASA · Mars Exploration"
+  },
+  {
+    "id": "presion",
+    "q": "How high is the atmospheric pressure on the surface of Mars?",
+    "options": [
+      "Same as Earth",
+      "Half of Earth's",
+      "Less than 1% of Earth's",
+      "Twice Earth's"
+    ],
+    "answer": 2,
+    "explain": "Mars averages around 6 millibars compared to 1,013 on Earth. With so little pressure, liquid water quickly boils or freezes, so astronauts need pressurized suits.",
+    "source": "NASA · Mars Facts"
+  },
+  {
+    "id": "co2",
+    "q": "What is almost all of the Martian atmosphere made of?",
+    "options": [
+      "Oxygen",
+      "Carbon dioxide",
+      "Nitrogen",
+      "Hydrogen"
+    ],
+    "answer": 1,
+    "explain": "About 95% is CO₂, with nearly 3% nitrogen, 2% argon, and only trace amounts of oxygen.",
+    "source": "NASA · Curiosity SAM"
+  },
+  {
+    "id": "moxie",
+    "q": "What did Perseverance's MOXIE experiment accomplish?",
+    "options": [
+      "Searched for water with radar",
+      "Made oxygen from Martian air",
+      "Flew like a helicopter",
+      "Measured marsquakes"
+    ],
+    "answer": 1,
+    "explain": "MOXIE split oxygen from CO₂ by heating it to ~800 °C. Between 2021 and 2023 it produced 122 grams—proving crews can make air and rocket fuel on Mars.",
+    "source": "NASA · MOXIE"
+  },
+  {
+    "id": "jezero_lago",
+    "q": "Why did Perseverance land in Jezero Crater?",
+    "options": [
+      "It is the hottest spot on Mars",
+      "Billions of years ago it held a lake and river delta",
+      "It has thick surface ice",
+      "It is the tallest volcano"
+    ],
+    "answer": 1,
+    "explain": "Jezero held a lake about 3.5 billion years ago. Where water once flowed, ancient life could have existed and left clues preserved in delta rocks.",
+    "source": "NASA · Mars 2020"
+  },
+  {
+    "id": "cheyava",
+    "q": "What did Perseverance find in the rock Cheyava Falls in 2024?",
+    "options": [
+      "A dinosaur fossil",
+      "'Leopard spots' that may be a biosignature of ancient life",
+      "An underground lake",
+      "Fragments of an iron meteorite"
+    ],
+    "answer": 1,
+    "explain": "The spots show chemistry often linked to microbes on Earth. In 2025 NASA reported it as the clearest potential biosignature yet, pending study in Earth labs.",
+    "source": "NASA · Perseverance (2024–2025)"
+  },
+  {
+    "id": "tubos",
+    "q": "Why does Perseverance store samples inside sealed tubes?",
+    "options": [
+      "To burn as fuel",
+      "So a future mission can bring them back to Earth",
+      "To feed astronauts",
+      "To bury as waste"
+    ],
+    "answer": 1,
+    "explain": "Earth laboratories hold instruments far more sensitive than any rover payload. Hermetic seals protect the cores from contamination.",
+    "source": "NASA · Mars Sample Return"
+  },
+  {
+    "id": "insight_polvo",
+    "q": "What ended the InSight mission in 2022?",
+    "options": [
+      "A marsquake",
+      "Dust coating its solar panels",
+      "A solar storm",
+      "Running out of rocket fuel"
+    ],
+    "answer": 1,
+    "explain": "Settling Martian dust blocked sunlight on its solar arrays until power ran out. That's why cleaning our base solar panels matters!",
+    "source": "NASA · InSight"
+  },
+  {
+    "id": "insight_sismos",
+    "q": "What did InSight mainly study?",
+    "options": [
+      "Marsquakes and the interior of Mars",
+      "Clouds",
+      "Microbial life",
+      "Martian rings"
+    ],
+    "answer": 0,
+    "explain": "Its seismometer recorded over 1,300 marsquakes and helped scientists map Mars's crust, mantle, and core.",
+    "source": "NASA · InSight"
+  },
+  {
+    "id": "spirit_opportunity",
+    "q": "What helped Spirit and Opportunity last years longer than planned?",
+    "options": [
+      "Nuclear batteries",
+      "Wind gusts that cleared dust off their solar panels",
+      "Astronaut repair crews",
+      "Spare solar arrays"
+    ],
+    "answer": 1,
+    "explain": "Lucky 'cleaning events' from wind restored their power. Opportunity operated for nearly 15 years despite a 90-day mission plan.",
+    "source": "NASA · Mars Exploration Rovers"
+  },
+  {
+    "id": "campo_magnetico",
+    "q": "Why is radiation more hazardous on Mars than on Earth?",
+    "options": [
+      "Mars is closer to the Sun",
+      "Mars lacks a global magnetic field and has a very thin atmosphere",
+      "Mars has active volcanoes",
+      "Martian rocks are radioactive"
+    ],
+    "answer": 1,
+    "explain": "Earth's magnetic shield and thick atmosphere deflect particles. On Mars, solar energetic particles and cosmic rays reach the surface almost directly.",
+    "source": "NASA · MAVEN & Curiosity RAD"
+  },
+  {
+    "id": "rad_diaria",
+    "q": "According to Curiosity RAD, how intense is radiation on the Martian surface?",
+    "options": [
+      "Zero",
+      "One day equals about 3 months of natural background radiation on Earth",
+      "Same as on Earth",
+      "A thousand times lower than Earth"
+    ],
+    "answer": 1,
+    "explain": "RAD measured ~0.64 millisieverts per day in Gale Crater, whereas Earth averages ~2.4 mSv per year. That's why your suit radiation only climbs day by day.",
+    "source": "NASA · Curiosity RAD (Hassler et al., 2014)"
+  },
+  {
+    "id": "tormenta_2024",
+    "q": "What did Curiosity measure during the May 2024 solar storm?",
+    "options": [
+      "Nothing, it was powered off",
+      "The largest radiation surge since landing in 2012",
+      "An earthquake",
+      "A meteor shower"
+    ],
+    "answer": 1,
+    "explain": "An X12 flare hurled particles toward Mars, and RAD measured 8,100 micrograys—like 30 chest X-rays. An astronaut would have needed shelter immediately.",
+    "source": "NASA · 2024"
+  },
+  {
+    "id": "auroras",
+    "q": "Can auroras happen on Mars?",
+    "options": [
+      "No, never",
+      "Yes; MAVEN spotted planet-wide auroras in May 2024",
+      "Only at Earth's poles",
+      "Only on Jupiter"
+    ],
+    "answer": 1,
+    "explain": "Incoming solar particles strike the upper atmosphere and glow. Without a global magnetic field, auroras on Mars can sweep across almost the entire planet.",
+    "source": "NASA · MAVEN"
+  },
+  {
+    "id": "refugio",
+    "q": "When a solar storm arrives, what best protects an astronaut on Mars?",
+    "options": [
+      "Staying outdoors",
+      "A bunker covered with meters of regolith or water",
+      "Climbing a high hill",
+      "Wearing dark sunglasses"
+    ],
+    "answer": 1,
+    "explain": "Dense mass (regolith, water, plastic) absorbs energetic particles. That's why the base's shelter is built behind thick regolith walls.",
+    "source": "NASA · Human Research Program"
+  },
+  {
+    "id": "donki",
+    "q": "What is NASA's DONKI?",
+    "options": [
+      "A rover",
+      "A space weather database tracking flares, CMEs, and storms",
+      "A heavy-lift rocket",
+      "A Martian telescope"
+    ],
+    "answer": 1,
+    "explain": "DONKI catalogs space weather events and how they connect. The solar alerts in this game come from real events in that database.",
+    "source": "NASA · CCMC DONKI"
+  },
+  {
+    "id": "cme",
+    "q": "What is a CME (coronal mass ejection)?",
+    "options": [
+      "A comet",
+      "A huge cloud of magnetized plasma launched by the Sun",
+      "A type of Martian rock",
+      "A Martian dust cloud"
+    ],
+    "answer": 1,
+    "explain": "A CME can take one to several days to reach a planet—giving time to broadcast warnings and race to shelter.",
+    "source": "NASA · Space Weather"
+  },
+  {
+    "id": "enlil",
+    "q": "What is the WSA-Enlil model used for?",
+    "options": [
+      "Predicting where a CME travels and when it will arrive",
+      "Measuring marsquakes",
+      "Manufacturing oxygen",
+      "Steering rovers"
+    ],
+    "answer": 0,
+    "explain": "It simulates solar wind and CME trajectories. Sometimes forecasts update: an alert can turn into a near miss, just like in the game.",
+    "source": "NASA CCMC · WSA-Enlil"
+  },
+  {
+    "id": "percloratos",
+    "q": "What are the perchlorates found in Martian soil?",
+    "options": [
+      "Salts toxic to humans",
+      "Martian bacteria",
+      "Frozen water",
+      "Precious metals"
+    ],
+    "answer": 0,
+    "explain": "Phoenix detected them in 2008. Perchlorates can harm the thyroid, so dust tracked into a habitat must be cleaned carefully.",
+    "source": "NASA · Phoenix"
+  },
+  {
+    "id": "regolito",
+    "q": "Why did Perseverance collect samples of regolith (dust and sand)?",
+    "options": [
+      "To bake bricks",
+      "To understand how dust affects astronauts and hardware",
+      "To grow potatoes",
+      "To paint the rover"
+    ],
+    "answer": 1,
+    "explain": "Fine dust creeps into suits, seals, and filters and can harm lungs. Perseverance collected its first regolith samples in December 2022.",
+    "source": "NASA · Perseverance"
+  },
+  {
+    "id": "sherloc",
+    "q": "Which Perseverance instrument uses ultraviolet light to search for organic compounds?",
+    "options": [
+      "PIXL",
+      "SHERLOC",
+      "MOXIE",
+      "MEDA"
+    ],
+    "answer": 1,
+    "explain": "SHERLOC shines an ultraviolet laser on rock surfaces: organic compounds and certain minerals respond with a telltale optical 'fingerprint'.",
+    "source": "NASA · SHERLOC"
+  },
+  {
+    "id": "pixl",
+    "q": "What does PIXL measure?",
+    "options": [
+      "Air temperature",
+      "Chemical elements inside a rock using X-rays",
+      "Wind speed",
+      "Seismic waves"
+    ],
+    "answer": 1,
+    "explain": "PIXL fires X-rays onto tiny specks of rock and maps its chemical elements grain by grain.",
+    "source": "NASA · PIXL"
+  },
+  {
+    "id": "supercam",
+    "q": "What does SuperCam's laser do?",
+    "options": [
+      "Cuts boulders in half",
+      "Vaporizes a pinpoint spot from meters away to analyze its glowing plasma",
+      "Illuminates the night sky",
+      "Contacts Earth directly"
+    ],
+    "answer": 1,
+    "explain": "From the flash's light and its infrared spectrometer, SuperCam identifies minerals—including ones that hold water.",
+    "source": "NASA · SuperCam"
+  },
+  {
+    "id": "meda",
+    "q": "Which weather station monitors the climate in Jezero?",
+    "options": [
+      "MEDA",
+      "RAD",
+      "DONKI",
+      "HiRISE"
+    ],
+    "answer": 0,
+    "explain": "MEDA measures temperature, wind, pressure, humidity, dust, and UV radiation. Air in Jezero swings from ~−20 °C by day to near −80 °C at night.",
+    "source": "NASA · MEDA"
+  },
+  {
+    "id": "sol",
+    "q": "How long is one Martian day (a 'sol')?",
+    "options": [
+      "12 hours",
+      "Roughly 24 hours and 40 minutes",
+      "3 Earth days",
+      "One week"
+    ],
+    "answer": 1,
+    "explain": "A sol lasts about 24 hours 39 minutes. Mission teams sometimes live on 'Mars time', shifting their schedules later each day.",
+    "source": "NASA · Mars Facts"
+  },
+  {
+    "id": "anio",
+    "q": "How long is a year on Mars?",
+    "options": [
+      "365 days",
+      "About 687 Earth days",
+      "100 days",
+      "10 Earth years"
+    ],
+    "answer": 1,
+    "explain": "Mars orbits farther from the Sun and takes nearly two Earth years to complete one lap, so Martian seasons last almost twice as long.",
+    "source": "NASA · Mars Facts"
+  },
+  {
+    "id": "gravedad",
+    "q": "If you weigh 50 kg on Earth, what would a scale read on Mars?",
+    "options": [
+      "About 19 kg",
+      "50 kg",
+      "100 kg",
+      "5 kg"
+    ],
+    "answer": 0,
+    "explain": "Martian surface gravity is about 38% of Earth's—you could jump nearly three times higher!",
+    "source": "NASA · Mars Facts"
+  },
+  {
+    "id": "color",
+    "q": "Why does Mars look red?",
+    "options": [
+      "Hot lava everywhere",
+      "Iron oxide (rust) in its surface dust",
+      "Extreme surface heat",
+      "Sunlight reflection"
+    ],
+    "answer": 1,
+    "explain": "Martian soil contains oxidized iron minerals. Winds loft that fine rust dust into the air, tinting even the sky.",
+    "source": "NASA · Mars Facts"
+  },
+  {
+    "id": "ingenuity",
+    "q": "What historic milestone did Ingenuity, the helicopter carried by Perseverance, achieve?",
+    "options": [
+      "The first powered, controlled flight on another planet",
+      "Carrying an astronaut",
+      "Finding liquid water",
+      "Returning samples to Earth"
+    ],
+    "answer": 0,
+    "explain": "It first lifted off in April 2021. Designed for 5 flights, Ingenuity completed 72 before rotor damage retired it in 2024.",
+    "source": "NASA · Ingenuity"
+  },
+  {
+    "id": "dsn",
+    "q": "How does Earth listen to spacecraft at Mars?",
+    "options": [
+      "Through cell towers",
+      "With giant dish antennas of the Deep Space Network (DSN)",
+      "Through TV satellites",
+      "With shortwave radios"
+    ],
+    "answer": 1,
+    "explain": "The DSN operates sites in California, Spain, and Australia so at least one site always faces Mars as Earth rotates.",
+    "source": "NASA · Deep Space Network"
+  },
+  {
+    "id": "orbitadores",
+    "q": "How do Mars rovers send most of their science data back to Earth?",
+    "options": [
+      "Over direct cables",
+      "Relayed through orbiters such as MRO overhead",
+      "On return rockets",
+      "By visible laser beams"
+    ],
+    "answer": 1,
+    "explain": "Orbiters carry larger antennas and pass overhead multiple times per sol, beaming back far more data.",
+    "source": "NASA · Mars Relay Network"
+  },
+  {
+    "id": "limite_rad",
+    "q": "Why does NASA enforce a career radiation limit for astronauts?",
+    "options": [
+      "To save money",
+      "Because cumulative radiation raises lifetime cancer risk",
+      "Because it wears out suits",
+      "Because it weakens radio signals"
+    ],
+    "answer": 1,
+    "explain": "NASA sets a career limit of 600 millisieverts. That is why the radiation meter in this game never goes down—it accumulates.",
+    "source": "NASA-STD-3001"
+  }
+]

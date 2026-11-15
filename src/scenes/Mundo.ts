@@ -1,14 +1,14 @@
 import Phaser from 'phaser';
 import balance from '../../content/balance.json';
-import uiText from '../../content/ui_text.json';
 import { bus } from '../state/bus';
 import { gameStore } from '../state/GameState';
-import { mapMarkers, SAMPLE_NAMES, type MapMarker } from '../state/mapMarkers';
+import { mapMarkers, type MapMarker } from '../state/mapMarkers';
 import { Save } from '../state/Save';
 import { AudioSystem } from '../systems/Audio';
 import { BaseSystem } from '../systems/BaseSystem';
 import { Clock } from '../systems/Clock';
 import { Events } from '../systems/Events';
+import { I18n } from '../systems/I18n';
 import { createReplacementSampleSite, generateSampleSites, type SampleSite } from '../systems/SampleSites';
 import { Vitals } from '../systems/Vitals';
 import type { SampleType } from '../types';
@@ -57,10 +57,11 @@ interface WindStreak {
 interface NightStar {
   ox: number;
   oy: number;
-  r: number;
+  size: number;
   color: number;
   speed: number;
   phase: number;
+  sparkle: boolean;
 }
 
 export const MINIGAME_KEYS = [
@@ -87,8 +88,6 @@ export function difficultyForDay(day: number): 1 | 2 | 3 {
 
 /**
  * Escena exterior en el cráter Jezero (1280×960 px).
- * Conecta movimiento, zonas reales, sitios de muestra que cambian cada día, los minijuegos,
- * eventos diarios, tormenta solar y signos vitales. Publica los puntos del mapa para el radar.
  */
 export class Mundo extends Phaser.Scene {
   private player!: Phaser.Physics.Arcade.Sprite;
@@ -99,7 +98,11 @@ export class Mundo extends Phaser.Scene {
   private keyD!: Phaser.Input.Keyboard.Key;
   private walkBobTime = 0;
   private facingDir: AstronautDirection = 'down';
+  private flashAngle = Math.PI / 2;
   private sceneEnteredAt = 0;
+  private openPauseAfterRestart = false;
+  private warnedNightFirst = false;
+  private warnedHeaterEmpty = false;
 
   private nightOverlay!: Phaser.GameObjects.Rectangle;
   private nightCosmosGfx!: Phaser.GameObjects.Graphics;
@@ -135,14 +138,22 @@ export class Mundo extends Phaser.Scene {
     super('Mundo');
   }
 
+  init(data?: { openPauseAfterRestart?: boolean }): void {
+    this.openPauseAfterRestart = data?.openPauseAfterRestart ?? false;
+  }
+
   create(): void {
+    const uiText = I18n.ui();
     const state = gameStore.state;
     state.location = 'mundo';
-    Clock.setPaused(state, false);
+    Clock.setPaused(state, this.openPauseAfterRestart);
     this.sceneEnteredAt = this.time.now;
     this.facingDir = 'down';
+    this.flashAngle = Math.PI / 2;
     this.walkBobTime = 0;
     this.rescueTriggered = false;
+    this.warnedNightFirst = Clock.isNight(state.clock.minutes);
+    this.warnedHeaterEmpty = false;
     this.interactPoints = [];
     this.activeSamplePoint = null;
     this.unsubscribers = [];
@@ -294,7 +305,7 @@ export class Mundo extends Phaser.Scene {
     ];
     this.drawZoneSigns();
 
-    // 4. Astronauta con su color de traje, peinado y vista en 4 direcciones
+    // 4. Astronauta con su color de traje, peinado y vista en 4 direcciones (sprite 32×64 a escala 0.5 = 16×32 mundo)
     const hairKey = AstronautAppearance.getDirectionalMiniKey(
       this,
       state.customization.hair,
@@ -303,10 +314,10 @@ export class Mundo extends Phaser.Scene {
       0
     );
     this.player = this.physics.add.sprite(state.astronaut.pos.x, state.astronaut.pos.y, hairKey);
-    this.player.setCollideWorldBounds(true).setDepth(10);
+    this.player.setScale(0.5).setCollideWorldBounds(true).setDepth(10);
     const body = this.player.body as Phaser.Physics.Arcade.Body;
-    body.setSize(10, 10);
-    body.setOffset(2, 13);
+    body.setSize(20, 20);
+    body.setOffset(6, 28);
     this.physics.add.collider(this.player, obstacles);
 
     // 5. Polvo dinámico y ráfagas de viento marciano
@@ -336,21 +347,22 @@ export class Mundo extends Phaser.Scene {
       });
     }
 
-    // 6. Atardecer y noche estrellada: cielo nocturno con estrellas, Vía Láctea, Fobos/Deimos y halo del traje
+    // 6. Atardecer y noche estrellada
     this.nightOverlay = this.add.rectangle(0, 0, mapWidth, mapHeight, 0x0b1026, 0).setOrigin(0, 0).setDepth(30);
     this.nightCosmosGfx = this.add.graphics().setDepth(31);
     this.playerLightGfx = this.add.graphics().setDepth(32);
 
     const starPalette = [0xffffff, 0xc0cbdc, 0x2ce8f5, 0xfee761, 0xf4b4b4];
     const starRnd = new Phaser.Math.RandomDataGenerator(['jezero-cosmos-stars']);
-    for (let i = 0; i < 84; i++) {
+    for (let i = 0; i < 115; i++) {
       this.nightStars.push({
-        ox: starRnd.realInRange(0, 420),
-        oy: starRnd.realInRange(2, 60),
-        r: i % 9 === 0 ? 1.25 : i % 3 === 0 ? 0.85 : 0.55,
+        ox: starRnd.realInRange(0, 340),
+        oy: starRnd.realInRange(2, 52),
+        size: i % 11 === 0 ? 1.5 : 1,
         color: starPalette[i % starPalette.length],
         speed: starRnd.realInRange(0.0018, 0.0052),
         phase: starRnd.realInRange(0, Math.PI * 2),
+        sparkle: i % 22 === 0,
       });
     }
 
@@ -394,7 +406,13 @@ export class Mundo extends Phaser.Scene {
     this.staticEffect = new StaticEffect(this, { intervalMs: 4200, burstDurationMs: 240, maxAlpha: 0.14 });
     this.refreshEquipmentVisuals();
 
-    for (const key of ['HUD', 'Dialogo', 'Tormenta']) {
+    if (!this.scene.isActive('HUD')) {
+      this.scene.launch('HUD', { startPaused: this.openPauseAfterRestart });
+    } else if (this.openPauseAfterRestart) {
+      bus.emit('clock:pauseChanged', { paused: true });
+    }
+    this.openPauseAfterRestart = false;
+    for (const key of ['Dialogo', 'Tormenta']) {
       if (!this.scene.isActive(key)) this.scene.launch(key);
     }
 
@@ -432,7 +450,6 @@ export class Mundo extends Phaser.Scene {
   private drawTerrain(deco: Phaser.GameObjects.Graphics): void {
     const rnd = new Phaser.Math.RandomDataGenerator(['jezero-terreno']);
 
-    // Senderos marcados hacia Bright Angel y Three Forks
     deco.fillStyle(0xe4a672, 0.5);
     for (let y = 160; y < 450; y += 10) deco.fillRect(637, y, 6, 5);
     for (let x = 700; x < 960; x += 12) deco.fillRect(x, 490, 6, 4);
@@ -450,7 +467,6 @@ export class Mundo extends Phaser.Scene {
     ];
     for (const c of craters) this.drawCrater(deco, c[0], c[1], c[2], c[3]);
 
-    // Huellas del rover Perseverance cruzando el cráter
     for (let i = 0; i < 70; i++) {
       const x = 120 + i * 15;
       const y = 700 - Math.sin(i * 0.12) * 60 - i * 3;
@@ -504,6 +520,7 @@ export class Mundo extends Phaser.Scene {
   // ------------------------------------------------------------------ sitios de muestra
 
   private spawnSampleSite(site: SampleSite, used: boolean): void {
+    const uiText = I18n.ui();
     this.add.ellipse(site.x, site.y + 6, 14, 4, 0x3e2731, 0.4);
     const rockImg = this.add.image(site.x, site.y, SAMPLE_SPRITES[site.type]).setInteractive({ useHandCursor: true });
     const marker = this.add.image(site.x, site.y - 14, 'marker_sample').setInteractive({ useHandCursor: true });
@@ -536,10 +553,9 @@ export class Mundo extends Phaser.Scene {
 
     const onDirectClick = (): void => {
       if (pt.collected || this.isAnyMinigameActive()) return;
-      // Con clic también hay que estar cerca, igual que con el teclado
       const d = Phaser.Math.Distance.Between(this.player.x, this.player.y, pt.x, pt.y);
       if (d > balance.player.interactRadius + 26) {
-        bus.emit('interact:prompt', { text: uiText.hud.radioTooFar });
+        bus.emit('interact:prompt', { text: I18n.ui().hud.radioTooFar });
         return;
       }
       this.activatePoint(pt);
@@ -565,6 +581,7 @@ export class Mundo extends Phaser.Scene {
     factId?: string;
     aborted?: boolean;
   }): void {
+    const uiText = I18n.ui();
     const state = gameStore.state;
     const pt = this.activeSamplePoint;
     this.activeSamplePoint = null;
@@ -580,7 +597,6 @@ export class Mundo extends Phaser.Scene {
         bus.emit('interact:prompt', { text: uiText.hud.radioSamplePicked });
         bus.emit('toast', { text: `+${pts} ${uiText.hud.sciencePointsShort}`, color: '#fee761' });
       } else if (res.aborted) {
-        // Misión abortada: ese sitio se pierde y aparece un punto nuevo del mismo tipo en otra zona
         this.markSiteUsed(pt, true);
         const sType = pt.sampleType ?? 'roca';
         const existingCoords = this.interactPoints.map((p) => ({ x: p.x, y: p.y }));
@@ -626,6 +642,7 @@ export class Mundo extends Phaser.Scene {
   // ------------------------------------------------------------------ marcadores para el radar
 
   private publishMarkers(): void {
+    const uiText = I18n.ui();
     const state = gameStore.state;
     const list: MapMarker[] = [
       { id: 'base', kind: 'base', x: 640, y: 472, label: uiText.hud.mapBase, active: true },
@@ -645,7 +662,7 @@ export class Mundo extends Phaser.Scene {
           x: pt.x,
           y: pt.y,
           sampleType: type,
-          label: SAMPLE_NAMES[type],
+          label: I18n.sampleName(type),
           active: !pt.collected,
           needed: remaining > 0,
         });
@@ -673,6 +690,7 @@ export class Mundo extends Phaser.Scene {
   }
 
   private refreshEquipmentVisuals(): void {
+    const uiText = I18n.ui();
     const state = gameStore.state;
     this.staticEffect?.setEnabled(!state.base.antennaOk, false);
     for (const pt of this.interactPoints) {
@@ -699,13 +717,14 @@ export class Mundo extends Phaser.Scene {
   // ------------------------------------------------------------------ bucle
 
   update(time: number, delta: number): void {
+    const uiText = I18n.ui();
     const state = gameStore.state;
     if (this.rescueTriggered) return;
 
     mapMarkers.player.x = this.player.x;
     mapMarkers.player.y = this.player.y;
     this.updateDust(delta, time);
-    this.updateNightSky(time, state.clock.minutes);
+    this.updateNightSky(time, state.clock.minutes, delta);
 
     const inMinigame = this.isAnyMinigameActive();
     if (inMinigame !== this.wasInMinigame) {
@@ -717,7 +736,6 @@ export class Mundo extends Phaser.Scene {
 
     if (inMinigame) {
       this.player.setVelocity(0, 0);
-      // El trabajo de campo gasta oxígeno aunque el reloj del día esté detenido
       const fieldRes = Vitals.tickFieldWork(state, delta / 1000);
       if (fieldRes.warnedO2At40) bus.emit('vitals:o2Warn40');
       if (fieldRes.dangerO2At20) bus.emit('vitals:o2Danger20');
@@ -743,7 +761,7 @@ export class Mundo extends Phaser.Scene {
     this.staticEffect?.update(time);
     const dt = delta / 1000;
 
-    // 1. Movimiento (WASD, flechas o joystick) con vistas en 4 direcciones y pasos animados
+    // 1. Movimiento (WASD, flechas o joystick)
     let vx = 0;
     let vy = 0;
     if (this.cursors) {
@@ -766,9 +784,22 @@ export class Mundo extends Phaser.Scene {
       this.player.setVelocity((vx / len) * speed, (vy / len) * speed);
       this.walkBobTime += delta;
       this.leaveFootprint(time);
+      const targetAngle = Math.atan2(vy, vx);
+      const diff = Math.atan2(Math.sin(targetAngle - this.flashAngle), Math.cos(targetAngle - this.flashAngle));
+      this.flashAngle += diff * Math.min(1, dt * 12);
     } else {
       this.player.setVelocity(0, 0);
       this.walkBobTime = 0;
+      const idleTarget =
+        this.facingDir === 'right'
+          ? 0
+          : this.facingDir === 'left'
+            ? Math.PI
+            : this.facingDir === 'up'
+              ? -Math.PI / 2
+              : Math.PI / 2;
+      const diff = Math.atan2(Math.sin(idleTarget - this.flashAngle), Math.cos(idleTarget - this.flashAngle));
+      this.flashAngle += diff * Math.min(1, dt * 10);
     }
 
     this.facingDir = AstronautAppearance.updatePlayerWalk(
@@ -795,7 +826,6 @@ export class Mundo extends Phaser.Scene {
     if (clockRes.warned16) bus.emit('clock:warn16');
     if (clockRes.curfew17) bus.emit('clock:curfew17');
     if (clockRes.ended20) {
-      // Quedarse afuera hasta las 20:00 es una falla de seguridad: Control de Misión lo registra.
       state.supplyBonus = 'menos';
       state.missionTrust = Math.max(0, state.missionTrust - 1);
       bus.emit('interact:prompt', { text: uiText.hud.radioCurfewReturn });
@@ -805,12 +835,20 @@ export class Mundo extends Phaser.Scene {
       return;
     }
 
-    // Tinte del cielo: atardecer desde las 16:00, noche estrellada desde las 17:00
+    // 3. Cielo nocturno y avisos nocturnos
     const m = state.clock.minutes;
-    this.updateNightSky(time, m);
-    AudioSystem.startLoop('ambient', 'wind_loop', Clock.isNight(m) ? 1.1 : 0.8);
+    const night = Clock.isNight(m);
+    if (night && !this.warnedNightFirst) {
+      this.warnedNightFirst = true;
+      bus.emit('interact:prompt', { text: uiText.hud.radioNightFirst });
+    }
+    if (night && state.astronaut.heaterBattery <= 0 && !this.warnedHeaterEmpty) {
+      this.warnedHeaterEmpty = true;
+      bus.emit('interact:prompt', { text: uiText.hud.radioHeaterEmpty });
+    }
+    AudioSystem.startLoop('ambient', 'wind_loop', night ? 1.1 : 0.8);
 
-    // 3. Eventos diarios y tormenta solar
+    // 4. Eventos diarios y tormenta solar
     const evRes = Events.tick(state, dt);
     if (evRes.triggeredEvents.length > 0) {
       this.refreshEquipmentVisuals();
@@ -854,7 +892,7 @@ export class Mundo extends Phaser.Scene {
     }
   }
 
-  private updateNightSky(time: number, minutes: number): void {
+  private updateNightSky(time: number, minutes: number, _delta?: number): void {
     const state = gameStore.state;
     const dusk = Phaser.Math.Clamp(
       (minutes - balance.dayClock.warnMin) / (balance.dayClock.curfewMin - balance.dayClock.warnMin),
@@ -862,10 +900,10 @@ export class Mundo extends Phaser.Scene {
       1
     );
     const night = Clock.isNight(minutes);
-    const skyBlend = night ? 1 : dusk * 0.65;
+    const skyBlend = night ? 1 : dusk * 0.72;
 
-    // Color de atardecer azulado-violáceo en Marte -> noche estelar profunda (#0b1026)
-    this.nightOverlay.setFillStyle(night ? 0x0b1026 : 0x1c2559, night ? 0.44 : dusk * 0.24);
+    // Oscuridad azul profundo sobre la superficie marciana (suelo)
+    this.nightOverlay.setFillStyle(night ? 0x0b1026 : 0x1c2559, night ? 0.50 : dusk * 0.25);
 
     const cg = this.nightCosmosGfx;
     const lg = this.playerLightGfx;
@@ -875,84 +913,102 @@ export class Mundo extends Phaser.Scene {
 
     const view = this.cameras.main.worldView;
     const camCx = view.centerX;
+    // Bóveda superior inspirada en image_4.png: ~54 u arriba de view.top, elevándose si el jugador está al borde norte
+    const horizonY = Math.min(view.top + 54, Math.max(view.top + 22, this.player.y - 20));
+    const canopyH = Math.max(22, horizonY - view.top);
 
-    // 1. Bóveda celeste superior con gradiente suave hacia el horizonte marciano
-    const canopyH = 56;
-    const bands = 7;
-    const bandH = canopyH / bands;
-    for (let b = 0; b < bands; b++) {
-      const bandAlpha = (1 - b / bands) * 0.66 * skyBlend;
-      cg.fillStyle(b < 3 ? 0x060919 : 0x0f1636, bandAlpha);
-      cg.fillRect(view.left - 4, view.top + b * bandH, view.width + 8, bandH + 0.5);
+    // 1. Fondo celeste espacial profundo con franjas de degradado nítido
+    const skyAlpha = Math.min(0.97, skyBlend * 0.97);
+    cg.fillStyle(0x0b0a1c, skyAlpha);
+    cg.fillRect(view.left - 4, view.top - 2, view.width + 8, canopyH * 0.45 + 2);
+    cg.fillStyle(0x161228, skyAlpha);
+    cg.fillRect(view.left - 4, view.top + canopyH * 0.45, view.width + 8, canopyH * 0.35);
+    cg.fillStyle(0x241634, skyAlpha);
+    cg.fillRect(view.left - 4, view.top + canopyH * 0.8, view.width + 8, canopyH * 0.24);
+
+    // 2. Banda pixel-art diagonal de la Vía Láctea (izquierda abajo -> arriba centro-derecha)
+    const mwShift = (camCx * 0.06) % 320;
+    const bandSteps = 22;
+    for (let i = 0; i < bandSteps; i++) {
+      const t = i / (bandSteps - 1);
+      const bx = Math.round(view.left + 16 + t * 204 - (mwShift * 0.15));
+      const by = Math.round(horizonY - 5 - t * (canopyH - 8) + Math.sin(i * 0.9) * 2.5);
+      // Halo púrpura exterior
+      cg.fillStyle(0x3a2a6a, 0.48 * skyBlend);
+      cg.fillRect(bx - 8, by - 5, 18, 10);
+      // Nube magenta/violeta intermedia
+      cg.fillStyle(i % 2 === 0 ? 0x6b3fa0 : 0xb55088, 0.42 * skyBlend);
+      cg.fillRect(bx - 5, by - 3, 12, 6);
+      // Núcleo luminoso crema / cian
+      if (i % 2 === 0) {
+        cg.fillStyle(i % 4 === 0 ? 0xead4aa : 0x2ce8f5, 0.42 * skyBlend);
+        cg.fillRect(bx - 2, by - 1, 5, 2);
+      }
     }
 
-    // 2. Banda luminosa de la Vía Láctea cruzando en diagonal la bóveda
-    const mwShift = ((camCx * 0.1) % 320);
-    for (let i = 0; i < 12; i++) {
-      const mx = view.left + ((i * 28 - mwShift + 640) % 340) - 10;
-      const my = view.top + 38 - i * 2.4 + Math.sin(i * 0.7) * 3;
-      cg.fillStyle(i % 2 === 0 ? 0x3b4d8f : 0x6c4c8f, 0.13 * skyBlend);
-      cg.fillEllipse(mx, my, 42, 16);
-    }
-
-    // 3. Estrellas multicolores con paralaje suave y parpadeo natural
-    const parallaxX = camCx * 0.16;
+    // 3. Estrellas en píxeles nítidos y destellos de 4 puntas
+    const parallaxX = camCx * 0.14;
     for (const s of this.nightStars) {
-      const sx = view.left + (((s.ox - parallaxX) % 330) + 330) % 330 - 5;
-      const sy = view.top + s.oy;
-      const horizonFade = s.oy < 42 ? 1 : Phaser.Math.Clamp(1 - (s.oy - 42) / 18, 0, 1);
-      const twinkle = 0.45 + 0.55 * Math.sin(time * s.speed + s.phase);
-      const alpha = horizonFade * twinkle * skyBlend;
-      if (alpha <= 0.04) continue;
+      const sx = Math.round(view.left + ((((s.ox - parallaxX) % 330) + 330) % 330) - 4);
+      const sy = Math.round(view.top + (s.oy / 54) * (canopyH - 3));
+      const twinkle = 0.5 + 0.5 * Math.sin(time * s.speed + s.phase);
+      const alpha = twinkle * skyBlend;
+      if (alpha <= 0.08) continue;
       cg.fillStyle(s.color, alpha);
-      cg.fillCircle(sx, sy, s.r);
-      if (s.r >= 1.2) {
-        cg.fillStyle(s.color, alpha * 0.35);
-        cg.fillRect(sx - 2, sy - 0.3, 4, 0.6);
-        cg.fillRect(sx - 0.3, sy - 2, 0.6, 4);
+      cg.fillRect(sx, sy, s.size, s.size);
+      if (s.sparkle) {
+        cg.fillStyle(0xffffff, alpha * 0.85);
+        cg.fillRect(sx - 2, sy, 5, 1);
+        cg.fillRect(sx, sy - 2, 1, 5);
+        cg.fillStyle(s.color, alpha * 0.45);
+        cg.fillRect(sx - 3, sy, 1, 1);
+        cg.fillRect(sx + 3, sy, 1, 1);
       }
     }
 
-    // 4. Auroras marcianas discretas cuando una CME roza el planeta (aurora_tonight)
+    // 4. Auroras marcianas cuando una CME roza el planeta (aurora_tonight)
     if (night && state.activeEvents.includes('aurora_tonight')) {
-      for (let i = 0; i < 16; i++) {
-        const ax = view.left + 12 + i * 20;
+      for (let i = 0; i < 18; i++) {
+        const ax = Math.round(view.left + 8 + i * 18);
         const wave = Math.sin(time * 0.0022 + i * 0.55);
-        const ay = view.top + 14 + wave * 5;
-        const ah = 14 + Math.cos(time * 0.0017 + i) * 5;
-        cg.fillStyle(i % 3 === 0 ? 0xb55088 : 0x63c74d, (0.22 + wave * 0.08) * skyBlend);
-        cg.fillRect(ax, ay, 8, ah);
+        const ay = Math.round(view.top + 10 + wave * 4);
+        const ah = Math.round(Math.min(canopyH - 14, 14 + Math.cos(time * 0.0017 + i) * 5));
+        cg.fillStyle(i % 3 === 0 ? 0xb55088 : i % 2 === 0 ? 0x63c74d : 0x2ce8f5, (0.24 + wave * 0.08) * skyBlend);
+        cg.fillRect(ax, ay, 8, Math.max(4, ah));
       }
     }
 
-    // 5. Fobos (grande e irregular, con cráteres) y Deimos (brillante punto lejano)
-    const phobosX = view.left + 252 - (camCx * 0.03) % 40;
-    const phobosY = view.top + 15;
-    cg.fillStyle(0xead4aa, 0.16 * skyBlend);
-    cg.fillCircle(phobosX, phobosY, 9);
-    cg.fillStyle(0xead4aa, 0.92 * skyBlend);
-    cg.fillCircle(phobosX - 1, phobosY, 4.2);
-    cg.fillCircle(phobosX + 2.5, phobosY + 0.8, 2.8);
-    cg.fillStyle(0xb86f50, 0.7 * skyBlend);
-    cg.fillCircle(phobosX - 2, phobosY - 1, 1.1);
-    cg.fillCircle(phobosX + 1.5, phobosY + 1.2, 0.8);
+    // 5. Fobos (pequeña e irregular con cráteres) y Deimos / luna marciana visible entre el banner y el radar
+    const m1x = Math.round(view.left + 206 - ((camCx * 0.02) % 14));
+    const m1y = Math.round(view.top + Math.min(20, canopyH * 0.36));
+    cg.fillStyle(0xc0cbdc, 0.92 * skyBlend);
+    cg.fillCircle(m1x, m1y, 3.2);
+    cg.fillCircle(m1x + 2, m1y + 0.6, 2.1);
+    cg.fillStyle(0x5a6988, 0.8 * skyBlend);
+    cg.fillRect(m1x - 1, m1y - 1, 1, 1);
+    cg.fillRect(m1x + 1, m1y + 1, 1, 1);
 
-    const deimosX = view.left + 84 - (camCx * 0.02) % 30;
-    const deimosY = view.top + 20;
-    cg.fillStyle(0xc0cbdc, 0.2 * skyBlend);
-    cg.fillCircle(deimosX, deimosY, 4.5);
-    cg.fillStyle(0xffffff, 0.95 * skyBlend);
-    cg.fillCircle(deimosX, deimosY, 1.5);
+    const m2x = Math.round(view.left + 234 - ((camCx * 0.025) % 18));
+    const m2y = Math.round(view.top + Math.min(21, canopyH * 0.38));
+    cg.fillStyle(0xead4aa, 0.16 * skyBlend);
+    cg.fillCircle(m2x, m2y, 8);
+    cg.fillStyle(0x8b9bb4, 0.95 * skyBlend);
+    cg.fillCircle(m2x, m2y, 5);
+    cg.fillStyle(0x5a6988, 0.85 * skyBlend);
+    cg.fillRect(m2x - 2, m2y - 2, 2, 2);
+    cg.fillRect(m2x + 1, m2y + 1, 2, 1);
+    cg.fillStyle(0xc0cbdc, 0.75 * skyBlend);
+    cg.fillRect(m2x - 3, m2y + 1, 1, 1);
 
     // 6. Estrellas fugaces ocasionales durante la noche
     if (night) {
       if (!this.meteorState.active && time >= this.meteorState.nextAt) {
         this.meteorState.active = true;
         this.meteorState.startedAt = time;
-        this.meteorState.sx = Phaser.Math.Between(35, 280);
-        this.meteorState.sy = Phaser.Math.Between(4, 24);
+        this.meteorState.sx = Phaser.Math.Between(35, 250);
+        this.meteorState.sy = Phaser.Math.Between(4, 22);
         this.meteorState.dx = Phaser.Math.Between(-58, -32);
-        this.meteorState.dy = Phaser.Math.Between(14, 24);
+        this.meteorState.dy = Phaser.Math.Between(12, 22);
       }
       if (this.meteorState.active) {
         const p = (time - this.meteorState.startedAt) / 520;
@@ -968,28 +1024,77 @@ export class Mundo extends Phaser.Scene {
           cg.lineStyle(1.4, 0x2ce8f5, (1 - p) * 0.85);
           cg.lineBetween(tx, ty, hx, hy);
           cg.fillStyle(0xffffff, 1 - p * 0.7);
-          cg.fillCircle(hx, hy, 1.3);
+          cg.fillRect(Math.round(hx), Math.round(hy), 2, 2);
         }
       }
     }
 
-    // 7. Luz del visor del astronauta y faros cálidos en la Base, Refugio y Depósito
+    // 7. Silueta de cordillera/meseta marciana dividiendo cielo estelar y superficie
+    const ridgeBaseY = Math.round(horizonY);
+    const stepW = 8;
+    const startCol = Math.floor((view.left - 8) / stepW);
+    const endCol = Math.ceil((view.right + 8) / stepW);
+    for (let col = startCol; col <= endCol; col++) {
+      const rx = col * stepW;
+      const hOff = Math.round(Math.sin(col * 0.35) * 2.5 + Math.cos(col * 0.78) * 1.5);
+      const topY = ridgeBaseY + hOff;
+      cg.fillStyle(0x2b1b24, skyAlpha);
+      cg.fillRect(rx, topY, stepW + 1, 7);
+      cg.fillStyle(0x4a2c31, skyAlpha * 0.85);
+      cg.fillRect(rx, topY, stepW + 1, 1.5);
+      cg.fillStyle(0x181425, 0.32 * skyBlend);
+      cg.fillRect(rx, topY + 6, stepW + 1, 3);
+    }
+
+    // 8. Haz direccional cálido de la linterna del traje (como en image_4.png)
     const px = this.player.x;
     const py = this.player.y;
-    lg.fillStyle(0xfee761, 0.055 * skyBlend);
-    lg.fillCircle(px, py, 32);
+    const handX = px + Math.cos(this.flashAngle + 0.5) * 4;
+    const handY = py + 2 + Math.sin(this.flashAngle + 0.5) * 3;
+    const maxReach = 78;
+    const halfCone = 0.32;
+
+    // Aro suave alrededor del traje + foco en la mano
     lg.fillStyle(0xead4aa, 0.08 * skyBlend);
-    lg.fillCircle(px, py, 19);
-    const dirVec =
-      this.facingDir === 'left'
-        ? [-14, 0]
-        : this.facingDir === 'right'
-          ? [14, 0]
-          : this.facingDir === 'up'
-            ? [0, -14]
-            : [0, 14];
-    lg.fillStyle(0x2ce8f5, 0.085 * skyBlend);
-    lg.fillCircle(px + dirVec[0], py + dirVec[1], 14);
+    lg.fillCircle(px, py + 2, 16);
+    lg.fillStyle(0xfee761, 0.9 * skyBlend);
+    lg.fillRect(Math.round(handX) - 1, Math.round(handY) - 1, 2, 2);
+
+    const layers: [number, number, number][] = [
+      [1.0, 0.045, 0xead4aa],
+      [0.78, 0.065, 0xead4aa],
+      [0.54, 0.09, 0xfee761],
+      [0.32, 0.13, 0xfee761],
+      [0.16, 0.18, 0xffffff],
+    ];
+    for (const [reachFrac, alpha, col] of layers) {
+      const r = maxReach * reachFrac;
+      const a1 = this.flashAngle - halfCone * (0.7 + reachFrac * 0.3);
+      const a2 = this.flashAngle + halfCone * (0.7 + reachFrac * 0.3);
+      const x1 = handX + Math.cos(a1) * r;
+      const y1 = Math.max(horizonY + 1, handY + Math.sin(a1) * r);
+      const x2 = handX + Math.cos(a2) * r;
+      const y2 = Math.max(horizonY + 1, handY + Math.sin(a2) * r);
+      lg.fillStyle(col, alpha * skyBlend);
+      lg.fillTriangle(handX, handY, x1, y1, x2, y2);
+    }
+
+    // Parche iluminado en tierra al extremo del haz
+    const spotX = handX + Math.cos(this.flashAngle) * (maxReach * 0.72);
+    const spotY = Math.max(horizonY + 4, handY + Math.sin(this.flashAngle) * (maxReach * 0.72));
+    lg.fillStyle(0xead4aa, 0.11 * skyBlend);
+    lg.fillEllipse(spotX, spotY, 28, 12);
+
+    // 9. Resplandor cian suave en sitios de muestras activos + luces de Base, Refugio y Depósito
+    for (const pt of this.interactPoints) {
+      if (pt.kind !== 'sample' || pt.collected) continue;
+      if (pt.x < view.left - 24 || pt.x > view.right + 24) continue;
+      if (pt.y < horizonY - 4 || pt.y > view.bottom + 24) continue;
+      lg.fillStyle(0x2ce8f5, 0.09 * skyBlend);
+      lg.fillCircle(pt.x, pt.y - 4, 16);
+      lg.fillStyle(0x2ce8f5, 0.16 * skyBlend);
+      lg.fillCircle(pt.x, pt.y - 12, 9);
+    }
 
     const beacons: [number, number, number][] = [
       [640, 480, 0xfee761],
@@ -997,9 +1102,10 @@ export class Mundo extends Phaser.Scene {
       [940, 490, 0x2ce8f5],
     ];
     for (const [bx, by, col] of beacons) {
-      lg.fillStyle(col, 0.08 * skyBlend);
+      if (by < horizonY - 6) continue;
+      lg.fillStyle(col, 0.09 * skyBlend);
       lg.fillCircle(bx, by, 24);
-      lg.fillStyle(col, 0.12 * skyBlend);
+      lg.fillStyle(col, 0.14 * skyBlend);
       lg.fillCircle(bx, by, 11);
     }
   }
@@ -1024,7 +1130,6 @@ export class Mundo extends Phaser.Scene {
       }
     }
 
-    // Ráfagas dinámicas y velos móviles de arena por toda la cámara visible
     const wg = this.windGfx;
     wg.clear();
 
@@ -1132,6 +1237,7 @@ export class Mundo extends Phaser.Scene {
   }
 
   private activatePoint(pt: InteractPoint): void {
+    const uiText = I18n.ui();
     const state = gameStore.state;
     if (this.isAnyMinigameActive() || state.clock.paused || Dialogo.isDialogBlocking()) return;
 
@@ -1197,6 +1303,7 @@ export class Mundo extends Phaser.Scene {
   }
 
   private startSampleCollection(pt: InteractPoint): void {
+    const uiText = I18n.ui();
     const state = gameStore.state;
     if (state.tubes.findIndex((t) => t === null) === -1) {
       bus.emit('interact:prompt', { text: uiText.hud.radioBoxFull });
@@ -1220,6 +1327,7 @@ export class Mundo extends Phaser.Scene {
   }
 
   private updateCurrentZone(): void {
+    const uiText = I18n.ui();
     let found = uiText.hud.zoneDefault;
     for (const z of this.zones) {
       if (z.bounds.contains(this.player.x, this.player.y)) {

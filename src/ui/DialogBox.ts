@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
-import uiText from '../../content/ui_text.json';
 import { AudioSystem } from '../systems/Audio';
+import { I18n } from '../systems/I18n';
 import type { Label, Mood } from '../types';
 
 export interface DialogBoxConfig {
@@ -65,6 +65,7 @@ export class DialogBox {
   }
 
   private buildBigDialog(config: DialogBoxConfig): void {
+    const uiText = I18n.ui();
     // Cuadro de texto color crema #ead4aa con borde #181425 y línea interior #e4a672
     const boxX = 148;
     const boxY = 278;
@@ -219,6 +220,7 @@ export class DialogBox {
     label: Label,
     maxTotalW = 320
   ): void {
+    const uiText = I18n.ui();
     // Sello amarillo #fee761 con estrella naranja #f77622 y etiqueta de honestidad compacta arriba del cuadro
     const sealTextStr = `${uiText.transmision.nasaSealPrefix} · ${source}`;
     const sealText = this.scene.add.text(x + 15, y + 2, sealTextStr, {
@@ -240,7 +242,7 @@ export class DialogBox {
     });
 
     const tagX = x + sealW + 4;
-    const tagText = this.scene.add.text(tagX + 5, y + 2, `▪ ${label}`, {
+    const tagText = this.scene.add.text(tagX + 5, y + 2, `▪ ${I18n.formatLabel(label)}`, {
       fontFamily: 'PixelifySans, monospace',
       fontSize: '9px',
       color: '#262b44',

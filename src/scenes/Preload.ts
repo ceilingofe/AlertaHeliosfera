@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
-import uiText from '../../content/ui_text.json';
 import { AudioSystem } from '../systems/Audio';
 import { Data } from '../systems/Data';
+import { I18n } from '../systems/I18n';
 import { VIEW_H, VIEW_W } from '../ui/installCameraDefaults';
 import { createProceduralTextures } from '../ui/ProceduralTextures';
 
@@ -105,9 +105,11 @@ export class Preload extends Phaser.Scene {
   preload(): void {
     const width = VIEW_W;
     const height = VIEW_H;
+    const uiText = I18n.ui();
 
     // Fondo ilustrado de la pantalla de carga (cargado en Boot)
     if (this.textures.exists('loading_bg')) {
+      this.textures.get('loading_bg').setFilter(Phaser.Textures.FilterMode.NEAREST);
       this.add.image(width / 2, height / 2, 'loading_bg').setDisplaySize(width, height);
     } else {
       this.add.rectangle(width / 2, height / 2, width, height, 0x181425);
@@ -132,8 +134,9 @@ export class Preload extends Phaser.Scene {
       .setStrokeStyle(2, 0x181425);
 
     const barFill = this.add
-      .rectangle(width / 2 - 130, height - 34, 0, 12, 0x63c74d)
-      .setOrigin(0, 0.5);
+      .rectangle(width / 2 - 130, height - 34, 1, 12, 0x63c74d)
+      .setOrigin(0, 0.5)
+      .setVisible(false);
 
     const pctLabel = this.add
       .text(width / 2, height - 34, '0 %', {
@@ -144,12 +147,15 @@ export class Preload extends Phaser.Scene {
       .setOrigin(0.5);
 
     this.load.on('progress', (value: number) => {
-      barFill.width = Math.round(260 * value);
+      const w = Math.round(260 * value);
+      barFill.setVisible(w > 0);
+      barFill.setSize(Math.max(1, w), 12).updateDisplayOrigin();
       pctLabel.setText(`${Math.round(value * 100)} %`);
     });
 
     this.load.on('complete', () => {
-      barFill.width = 260;
+      barFill.setVisible(true);
+      barFill.setSize(260, 12).updateDisplayOrigin();
       pctLabel.setText('100 %');
       void cardBg;
       void barBg;
@@ -186,6 +192,18 @@ export class Preload extends Phaser.Scene {
       meda: this.cache.json.get('nasa_meda'),
       horizons: this.cache.json.get('nasa_horizons'),
     });
+
+    for (const key of [
+      ...SPRITE_KEYS,
+      ...WALK_SHEET_KEYS,
+      ...CHAR_SPRITE_KEYS,
+      ...UI_ICON_KEYS,
+      'menu_bg',
+    ]) {
+      if (this.textures.exists(key)) {
+        this.textures.get(key).setFilter(Phaser.Textures.FilterMode.NEAREST);
+      }
+    }
 
     createProceduralTextures(this);
     AudioSystem.installUnlock();

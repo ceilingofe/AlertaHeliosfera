@@ -1,28 +1,33 @@
 import Phaser from 'phaser';
-import uiText from '../../content/ui_text.json';
 import { gameStore } from '../state/GameState';
 import { Save } from '../state/Save';
 import { AudioSystem } from '../systems/Audio';
+import { I18n } from '../systems/I18n';
+import { LanguageFlags } from '../ui/LanguageFlags';
 import { Quota } from '../systems/Quota';
 import { button, txt } from '../minigames/widgets';
 
-const T = uiText.title;
-
 /**
- * Pantalla de título: deja elegir entre continuar o empezar de nuevo, explica en 4 líneas
- * cómo se gana y cómo se pierde, y arranca la música (los navegadores piden un toque primero).
+ * Pantalla de título: deja elegir entre continuar o empezar de nuevo, explica
+ * cómo se gana y cómo se pierde, permite cambiar idioma (EN/ES) y arranca la música.
  */
 export class Titulo extends Phaser.Scene {
   private howTo: Phaser.GameObjects.Container | null = null;
+  private confirmArmed = false;
 
   constructor() {
     super('Titulo');
   }
 
   create(): void {
+    this.confirmArmed = false;
+    this.howTo = null;
     AudioSystem.installUnlock();
     AudioSystem.playMusic('starboard');
     AudioSystem.stopAllLoops();
+
+    const uiText = I18n.ui();
+    const T = uiText.title;
 
     // Fondo marciano ilustrado (Sprite-0002-Menu2.jpeg)
     if (this.textures.exists('menu_bg')) {
@@ -78,6 +83,17 @@ export class Titulo extends Phaser.Scene {
       .setShadow(2, 2, '#a22633', 0, false, true);
     txt(this, 320, 62, T.tagline, 11, '#ead4aa').setOrigin(0.5);
     txt(this, 320, 78, uiText.subtitle, 9, '#c0cbdc').setOrigin(0.5);
+
+    // Selector de idioma con banderitas EN / ES justo debajo de la esquina superior derecha
+    LanguageFlags.create(
+      this,
+      546,
+      103,
+      () => {
+        this.scene.restart();
+      },
+      60
+    );
 
     // Consola inferior estética en cuadrícula 2×2 para dejar libre la ilustración central de la base
     this.add
@@ -150,6 +166,7 @@ export class Titulo extends Phaser.Scene {
   }
 
   private toggleHowTo(): void {
+    const T = I18n.ui().title;
     AudioSystem.play('ui_open');
     if (this.howTo) {
       this.howTo.destroy();
@@ -175,13 +192,14 @@ export class Titulo extends Phaser.Scene {
   }
 
   private newGame(overwrite: boolean): void {
+    const T = I18n.ui().title;
     if (overwrite && !this.confirmArmed) {
       // Un segundo clic confirma: evita borrar la partida por accidente
       this.confirmArmed = true;
       AudioSystem.play('ui_question');
       const warn = txt(this, 320, 122, T.overwriteWarn, 11, '#feae34').setOrigin(0.5);
       this.time.delayedCall(2500, () => {
-        warn.destroy();
+        if (warn.active) warn.destroy();
         this.confirmArmed = false;
       });
       return;
@@ -194,6 +212,4 @@ export class Titulo extends Phaser.Scene {
     Quota.applyDailyQuota(gameStore.state);
     this.scene.start('Despegue');
   }
-
-  private confirmArmed = false;
 }

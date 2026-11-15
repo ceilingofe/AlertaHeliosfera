@@ -1,13 +1,11 @@
 import Phaser from 'phaser';
-import MG from '../../content/minigames.json';
 import { AudioSystem } from '../systems/Audio';
+import { I18n } from '../systems/I18n';
 import { MinigameBase } from './MinigameBase';
 import { TimingBar, button, panel, shuffle, txt } from './widgets';
 
 type Phase = 'scoop' | 'sieve' | 'choose' | 'done';
 type Grain = 'coarse' | 'medium' | 'fine';
-
-const T = MG.suelo;
 
 /**
  * Muestra de regolito.
@@ -28,11 +26,16 @@ export class MinijuegoSuelo extends MinigameBase {
   private pebbleTimer = 0;
   private grains: Phaser.GameObjects.Rectangle[] = [];
 
+  private get t() {
+    return I18n.mg().suelo;
+  }
+
   constructor() {
     super('MinijuegoSuelo');
   }
 
   create(): void {
+    const T = this.t;
     this.pebbles = [];
     this.drawHeader(T.title, T.steps, T.instScoop);
     this.stage = this.add.container(0, 0);
@@ -42,6 +45,7 @@ export class MinijuegoSuelo extends MinigameBase {
   // ------------------------------------------------------------------ 1. palear
 
   private buildScoop(): void {
+    const T = this.t;
     this.phase = 'scoop';
     this.setActiveStep(0);
     this.stage.removeAll(true);
@@ -53,13 +57,14 @@ export class MinijuegoSuelo extends MinigameBase {
     this.stage.add(panel(this, 250, 120, 370, 120));
     this.bar = new TimingBar(this, 270, 186, 330, d === 1 ? 0.28 : d === 2 ? 0.2 : 0.15, 0.7 + d * 0.15, T.scoopTitle);
     this.stage.add(this.bar.objects);
-    this.stage.add(txt(this, 270, 204, 'poca', 10, '#8b9bb4'));
-    this.stage.add(txt(this, 600, 204, 'mucha', 10, '#8b9bb4').setOrigin(1, 0));
+    this.stage.add(txt(this, 270, 204, T.lowLabel, 10, '#8b9bb4'));
+    this.stage.add(txt(this, 600, 204, T.highLabel, 10, '#8b9bb4').setOrigin(1, 0));
     const b = button(this, 435, 280, 180, 34, T.scoopButton, () => this.tryScoop());
     this.stage.add([b.bg, b.label]);
   }
 
   private tryScoop(): void {
+    const T = this.t;
     if (this.phase !== 'scoop' || this.finished || !this.bar) return;
     AudioSystem.play('brush', { volume: 0.7 });
     if (this.bar.hit()) {
@@ -73,6 +78,7 @@ export class MinijuegoSuelo extends MinigameBase {
   // ------------------------------------------------------------------ 2. tamizar
 
   private buildSieve(): void {
+    const T = this.t;
     this.phase = 'sieve';
     this.setActiveStep(1);
     this.setInstruction(T.instSieve);
@@ -111,7 +117,7 @@ export class MinijuegoSuelo extends MinigameBase {
     this.stage.add(panel(this, 420, 84, 206, 186));
     this.stage.add(txt(this, 432, 94, T.sieveProgress, 12, '#ead4aa'));
     this.stage.add(this.add.rectangle(432, 122, 180, 14, 0x3a4466).setOrigin(0, 0.5).setStrokeStyle(2, 0x181425));
-    this.progressFill = this.add.rectangle(434, 122, 0, 10, 0x63c74d).setOrigin(0, 0.5);
+    this.progressFill = this.add.rectangle(434, 122, 1, 10, 0x63c74d).setOrigin(0, 0.5).setVisible(false);
     this.stage.add(this.progressFill);
     this.stage.add(txt(this, 432, 140, T.sameSide, 10, '#c0cbdc', 184));
     const l = button(this, 470, 238, 84, 32, T.left, () => this.shake(-1), 0x5a6988);
@@ -119,7 +125,14 @@ export class MinijuegoSuelo extends MinigameBase {
     this.stage.add([l.bg, l.label, r.bg, r.label]);
   }
 
+  private updateProgressFill(): void {
+    const pw = Math.round((176 * this.progress) / 100);
+    this.progressFill.setVisible(pw > 0);
+    if (pw > 0) this.progressFill.setSize(pw, 10).updateDisplayOrigin();
+  }
+
   private shake(side: -1 | 1): void {
+    const T = this.t;
     if (this.phase !== 'sieve' || this.finished) return;
     AudioSystem.play('sieve', { volume: 0.5, pitchJitter: 0.1 });
     this.tweens.add({ targets: this.sieve, x: 250 + side * 14, duration: 70, yoyo: true });
@@ -135,7 +148,7 @@ export class MinijuegoSuelo extends MinigameBase {
     this.lastSide = side;
     const remaining = Math.round(this.grains.length * (1 - this.progress / 100));
     this.grains.forEach((gr, i) => gr.setVisible(i < remaining));
-    this.progressFill.width = Math.round((176 * this.progress) / 100);
+    this.updateProgressFill();
     if (this.progress >= 100) this.buildChoose();
   }
 
@@ -163,6 +176,7 @@ export class MinijuegoSuelo extends MinigameBase {
   }
 
   private updateSieve(dt: number): void {
+    const T = this.t;
     if (this.keyJustDown('left') || this.keyJustDown('a')) this.shake(-1);
     if (this.keyJustDown('right') || this.keyJustDown('d')) this.shake(1);
     // ↓/S o la mira sirven para quitar piedras con el teclado
@@ -184,7 +198,7 @@ export class MinijuegoSuelo extends MinigameBase {
       if (p.ttl <= 0) {
         this.removePebble(p);
         this.progress = Math.max(0, this.progress - 15);
-        this.progressFill.width = Math.round((176 * this.progress) / 100);
+        this.updateProgressFill();
         if (!this.addStrike(T.pebbleTore, T.fail)) return;
       }
     }
@@ -193,6 +207,7 @@ export class MinijuegoSuelo extends MinigameBase {
   // ------------------------------------------------------------------ 3. elegir grano
 
   private buildChoose(): void {
+    const T = this.t;
     this.phase = 'choose';
     for (const p of this.pebbles.slice()) this.removePebble(p);
     this.clearCursorTargets();
@@ -231,6 +246,7 @@ export class MinijuegoSuelo extends MinigameBase {
   private chooseOrder: Grain[] = [];
 
   private pickJar(grain: Grain): void {
+    const T = this.t;
     if (this.phase !== 'choose' || this.finished) return;
     if (grain === 'fine') {
       this.phase = 'done';

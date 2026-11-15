@@ -1,12 +1,11 @@
 import Phaser from 'phaser';
-import MG from '../../content/minigames.json';
 import { AudioSystem } from '../systems/Audio';
+import { I18n } from '../systems/I18n';
 import { MinigameBase } from './MinigameBase';
 import { button, panel, txt } from './widgets';
 
 type Phase = 'couple' | 'fill' | 'close' | 'done';
 
-const T = MG.aire;
 const MAX_MBAR = 10;
 
 /**
@@ -39,11 +38,16 @@ export class MinijuegoAire extends MinigameBase {
   private pumpPiston: Phaser.GameObjects.Rectangle | null = null;
   private pumpTime = 0;
 
+  private get t() {
+    return I18n.mg().aire;
+  }
+
   constructor() {
     super('MinijuegoAire');
   }
 
   create(): void {
+    const T = this.t;
     this.drawHeader(T.title, T.steps, T.instCouple);
     this.stage = this.add.container(0, 0);
     this.buildCouple();
@@ -52,6 +56,7 @@ export class MinijuegoAire extends MinigameBase {
   // ------------------------------------------------------------------ 1. acoplar
 
   private buildCouple(): void {
+    const T = this.t;
     this.phase = 'couple';
     this.setActiveStep(0);
     this.stage.removeAll(true);
@@ -78,6 +83,7 @@ export class MinijuegoAire extends MinigameBase {
 
   private tryCouple(): void {
     if (this.phase !== 'couple' || this.finished) return;
+    const T = this.t;
     const tol = [16, 11, 8][this.inputData.difficulty - 1];
     const a = Phaser.Math.Angle.WrapDegrees(this.ringAngle);
     AudioSystem.play('clank', { volume: 0.6 });
@@ -91,6 +97,7 @@ export class MinijuegoAire extends MinigameBase {
   // ------------------------------------------------------------------ 2. llenar
 
   private buildFill(): void {
+    const T = this.t;
     this.phase = 'fill';
     this.setActiveStep(1);
     this.setInstruction(T.instFill);
@@ -124,17 +131,17 @@ export class MinijuegoAire extends MinigameBase {
     this.stage.add(panel(this, 174, 76, 448, 134));
     this.stage.add(txt(this, 188, 86, T.holdTitle, 11, '#ead4aa'));
     this.stage.add(this.add.rectangle(188, 112, 320, 14, 0x3a4466).setOrigin(0, 0.5).setStrokeStyle(2, 0x181425));
-    this.stableFill = this.add.rectangle(190, 112, 0, 10, 0x2ce8f5).setOrigin(0, 0.5);
+    this.stableFill = this.add.rectangle(190, 112, 1, 10, 0x2ce8f5).setOrigin(0, 0.5).setVisible(false);
     this.stage.add(this.stableFill);
     this.stage.add(txt(this, 188, 134, `${T.co2}   ${T.n2}   ${T.ar}`, 11, '#c0cbdc'));
-    this.stage.add(txt(this, 188, 154, 'Tierra: 1 013 mbar · Marte: ~6 mbar', 10, '#8b9bb4'));
+    this.stage.add(txt(this, 188, 154, T.pressureCompare, 10, '#8b9bb4'));
 
     // Bomba neumática y tubo de muestra a la derecha del panel
     this.stage.add(this.add.rectangle(544, 154, 24, 48, 0x5a6988).setStrokeStyle(2, 0x181425));
     this.stage.add(this.add.rectangle(544, 154, 16, 40, 0x181425));
     this.pumpPiston = this.add.rectangle(544, 144, 14, 12, 0x2ce8f5).setStrokeStyle(1, 0xffffff);
     this.stage.add(this.pumpPiston);
-    this.stage.add(txt(this, 544, 186, 'BOMBA', 8, '#ead4aa').setOrigin(0.5));
+    this.stage.add(txt(this, 544, 186, T.pumpLabel, 8, '#ead4aa').setOrigin(0.5));
     if (this.textures.exists('tube_sample')) {
       this.stage.add(this.add.image(586, 154, 'tube_sample').setScale(2.4).setTint(0x2ce8f5));
     }
@@ -147,6 +154,7 @@ export class MinijuegoAire extends MinigameBase {
   }
 
   private updateFill(dt: number): void {
+    const T = this.t;
     const d = this.inputData.difficulty;
     const open = this.holding || this.actionHeld();
     if (open) {
@@ -179,7 +187,9 @@ export class MinijuegoAire extends MinigameBase {
     this.needle.y = 112 + 160 - (160 * this.pressure) / MAX_MBAR;
     this.needle.setFillStyle(inBand ? 0x63c74d : 0xfee761);
     this.pressureText.setText(`${this.pressure.toFixed(1)} mbar`);
-    this.stableFill.width = Math.round(316 * this.stable);
+    const sw = Math.round(316 * this.stable);
+    this.stableFill.setVisible(sw > 0);
+    if (sw > 0) this.stableFill.setSize(sw, 10).updateDisplayOrigin();
 
     if (this.pressure >= 9) {
       this.pressure = 2;
@@ -195,6 +205,7 @@ export class MinijuegoAire extends MinigameBase {
   // ------------------------------------------------------------------ 3. cerrar
 
   private buildClose(): void {
+    const T = this.t;
     this.phase = 'close';
     this.holding = false;
     this.pumpPiston = null;
@@ -220,6 +231,7 @@ export class MinijuegoAire extends MinigameBase {
   }
 
   private tryClose(): void {
+    const T = this.t;
     if (this.phase !== 'close' || this.finished) return;
     this.phase = 'done';
     AudioSystem.play('tube_seal');
@@ -227,6 +239,7 @@ export class MinijuegoAire extends MinigameBase {
   }
 
   update(_t: number, delta: number): void {
+    const T = this.t;
     const dt = delta / 1000;
     if (this.finished) {
       this.actionJustDown();
@@ -241,7 +254,9 @@ export class MinijuegoAire extends MinigameBase {
       this.updateFill(dt);
     } else if (this.phase === 'close') {
       this.closeWindow -= dt;
-      this.closeFill.width = Math.max(0, Math.round((276 * this.closeWindow) / this.closeTotal()));
+      const cw = Math.max(0, Math.round((276 * this.closeWindow) / this.closeTotal()));
+      this.closeFill.setVisible(cw > 0);
+      if (cw > 0) this.closeFill.setSize(cw, 10).updateDisplayOrigin();
       if (this.actionJustDown()) {
         this.tryClose();
         return;

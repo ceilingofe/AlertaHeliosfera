@@ -1,11 +1,11 @@
 import Phaser from 'phaser';
-import uiText from '../../content/ui_text.json';
 import { gameStore } from '../state/GameState';
 import { Save } from '../state/Save';
 import { AudioSystem } from '../systems/Audio';
 import { Clock } from '../systems/Clock';
 import { Customization } from '../systems/Customization';
 import { Data, type FactEntry } from '../systems/Data';
+import { I18n } from '../systems/I18n';
 import type { RescueCause } from '../types';
 import { AstronautAppearance } from '../ui/AstronautAppearance';
 
@@ -17,9 +17,7 @@ interface DiplomaData {
 /**
  * Escena Diploma (fiel al storyboard s13_diploma.png y sección 9.8):
  * Muestra el certificado final de la misión LUNA-7 con la personalización del astronauta,
- * insignia del parche de misión y medallón orbital sin empalmarse con las estadísticas,
- * días sobrevividos, muestras por tipo, kg de O₂ de MOXIE, tormentas en refugio,
- * % del límite de radiación del juego, dato favorito y descarga como PNG.
+ * insignia del parche de misión y medallón orbital sin empalmarse con las estadísticas.
  */
 export class Diploma extends Phaser.Scene {
   private cause: RescueCause = 'oxigeno';
@@ -39,6 +37,7 @@ export class Diploma extends Phaser.Scene {
   }
 
   create(): void {
+    const uiText = I18n.ui();
     const state = gameStore.state;
     Clock.setPaused(state, true);
     AudioSystem.stopAllLoops();
@@ -92,7 +91,7 @@ export class Diploma extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    // 4. Medallón espacial en la esquina superior derecha (x = 556, y = 64, r = 22) lejos de la tabla de datos
+    // 4. Medallón espacial en la esquina superior derecha
     const badgeX = 556;
     const badgeY = 64;
     this.add.circle(badgeX, badgeY, 22, 0x262b44).setStrokeStyle(2, 0x181425);
@@ -104,7 +103,7 @@ export class Diploma extends Phaser.Scene {
     this.add.circle(badgeX - 6, badgeY - 6, 6, 0xfee761);
     this.add.circle(badgeX + 6, badgeY + 6, 7, 0xb86f50);
 
-    // 5. Columna izquierda (x = 114): Astronauta personalizado + insignia del Parche + Corvi orgulloso
+    // 5. Columna izquierda (x = 114)
     AstronautAppearance.createFullAstronautContainer(
       this,
       114,
@@ -113,7 +112,6 @@ export class Diploma extends Phaser.Scene {
       state.customization
     );
 
-    // Insignia del parche de misión debajo del astronauta, en su propia columna (sin empalmarse con las filas)
     this.add
       .rectangle(114, 244, 118, 18, 0x262b44)
       .setStrokeStyle(1, 0x181425);
@@ -157,20 +155,24 @@ export class Diploma extends Phaser.Scene {
       )
       .setOrigin(0.5);
 
-    // 7. Tabla de estadísticas de la misión (x = 192..576, libre de colisiones con el astronauta y el medallón)
+    // 7. Tabla de estadísticas de la misión
     const labelX = 192;
     const valueX = 324;
     const rowStart = 138;
     const rowStep = 15;
 
     const s = summary.samplesByType;
-    const samplesBreakdown = `${summary.totalSamples} (${s.roca} roca, ${s.suelo} suelo, ${s.minerales} min., ${s.aire} aire)`;
+    const rName = I18n.sampleName('roca').toLowerCase();
+    const sName = I18n.sampleName('suelo').toLowerCase();
+    const mName = I18n.getLang() === 'es' ? 'min.' : 'min.';
+    const aName = I18n.sampleName('aire').toLowerCase();
+    const samplesBreakdown = `${summary.totalSamples} (${s.roca} ${rName}, ${s.suelo} ${sName}, ${s.minerales} ${mName}, ${s.aire} ${aName})`;
 
     const rows: [string, string][] = [
       [uiText.diploma.samplesLabel, samplesBreakdown],
       [
         uiText.diploma.moxieLabel,
-        `Tu base produjo ${summary.moxieKgFormatted} kg de O₂`,
+        `${uiText.diploma.moxieProducedPrefix} ${summary.moxieKgFormatted} ${uiText.diploma.moxieProducedSuffix}`,
       ],
       [
         uiText.diploma.stormsLabel,
@@ -182,7 +184,7 @@ export class Diploma extends Phaser.Scene {
       ],
       [
         uiText.diploma.scienceLabel,
-        `${state.sciencePoints} pts · ${uiText.diploma.triviaLabel} ${state.stats.triviaCorrect}/${state.stats.triviaAsked}`,
+        `${state.sciencePoints} ${uiText.diploma.ptsUnit} · ${uiText.diploma.triviaLabel} ${state.stats.triviaCorrect}/${state.stats.triviaAsked}`,
       ],
     ];
 
@@ -230,7 +232,7 @@ export class Diploma extends Phaser.Scene {
       );
     });
 
-    // 8. Recuadro salmón de causa de rescate y consejo positivo (nunca dice "perdiste")
+    // 8. Recuadro salmón de causa de rescate y consejo positivo
     this.add.rectangle(384, 274, 384, 42, 0xe8b796);
     const summaryLine =
       this.cause === 'radiacion'

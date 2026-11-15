@@ -1,9 +1,10 @@
 <!DOCTYPE html>
-<html lang="es-MX">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <title>Alerta Heliosfera</title>
+    <title>Heliosphere Alert</title>
+    <link rel="icon" href="data:," />
     <style>
       @font-face {
         font-family: 'PixelifySans';
@@ -60,7 +61,8 @@
       }
       canvas {
         display: block;
-        image-rendering: auto;
+        image-rendering: pixelated;
+        image-rendering: crisp-edges;
       }
       #mobile-fs-btn {
         position: fixed;
@@ -86,7 +88,7 @@
   </head>
   <body>
     <div id="game"></div>
-    <button id="mobile-fs-btn" type="button" aria-label="Pantalla completa">⛶ Pantalla completa</button>
+    <button id="mobile-fs-btn" type="button" aria-label="Fullscreen">⛶ Fullscreen</button>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

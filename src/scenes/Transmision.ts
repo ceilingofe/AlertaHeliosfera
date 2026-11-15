@@ -1,10 +1,10 @@
 import Phaser from 'phaser';
-import uiText from '../../content/ui_text.json';
 import { gameStore } from '../state/GameState';
 import { AudioSystem } from '../systems/Audio';
 import { Clock } from '../systems/Clock';
 import { Data } from '../systems/Data';
 import { Events } from '../systems/Events';
+import { I18n } from '../systems/I18n';
 import { Quota } from '../systems/Quota';
 import type { Label, SampleType } from '../types';
 import { StaticEffect } from '../ui/StaticEffect';
@@ -12,9 +12,7 @@ import { StaticEffect } from '../ui/StaticEffect';
 /**
  * Escena Transmision (08:00, fiel al storyboard s02_transmision.png):
  * Animación del sobre viajando de la Tierra a Marte con el retraso real,
- * 4 tarjetas visuales (Pronóstico de Jezero con ventana segura 09:00-17:00, Alerta Solar DONKI
- * con diagrama Sol->CME->Marte, Cuota y envío con iconos de muestras, Dato del día)
- * con sus etiquetas de honestidad y fuentes bien contenidas sin empalmes.
+ * 4 tarjetas visuales con sus etiquetas de honestidad y fuentes bien contenidas sin empalmes.
  */
 export class Transmision extends Phaser.Scene {
   private envelopeContainer!: Phaser.GameObjects.Container;
@@ -27,6 +25,7 @@ export class Transmision extends Phaser.Scene {
   create(): void {
     AudioSystem.playMusic('blueprints');
     const state = gameStore.state;
+    const uiText = I18n.ui();
     Clock.setPaused(state, true);
     Quota.applyDailyQuota(state);
     Events.initDay(state);
@@ -265,11 +264,12 @@ export class Transmision extends Phaser.Scene {
       minerales: 'rock_sparkle',
       aire: 'air_station',
     };
+    const isEs = I18n.getLang() === 'es';
     const sampleNameShort: Record<SampleType, string> = {
-      roca: 'Roca',
-      suelo: 'Suelo',
-      minerales: 'Min.',
-      aire: 'Aire',
+      roca: isEs ? 'Roca' : 'Rock',
+      suelo: isEs ? 'Suelo' : 'Soil',
+      minerales: isEs ? 'Min.' : 'Min.',
+      aire: isEs ? 'Aire' : 'Air',
     };
 
     const quotaEntries = (['roca', 'suelo', 'minerales', 'aire'] as SampleType[]).filter(
@@ -302,7 +302,7 @@ export class Transmision extends Phaser.Scene {
       color: '#ead4aa',
     });
 
-    this.drawHonestyTag(336, 234, 'SIMULADO', 'Regla del juego', 274);
+    this.drawHonestyTag(336, 234, 'SIMULADO', uiText.transmision.gameRuleSource, 274);
 
     // 6. Tarjeta 4 (abajo derecha): DATO DEL DÍA (facts.json)
     const dayFacts = Data.getFactsForDay(state.day);
@@ -394,7 +394,7 @@ export class Transmision extends Phaser.Scene {
     source: string,
     maxWidth = 274
   ): void {
-    const textObj = this.add.text(x + 5, y + 2, `▪ ${label} · ${source}`, {
+    const textObj = this.add.text(x + 5, y + 2, `▪ ${I18n.formatLabel(label)} · ${source}`, {
       fontFamily: 'PixelifySans, monospace',
       fontSize: '8px',
       color: '#262b44',
@@ -413,10 +413,11 @@ export class Transmision extends Phaser.Scene {
     source: string,
     label: Label
   ): void {
+    const uiText = I18n.ui();
     const sealTxt = this.add.text(
       x + 14,
       y + 2,
-      `${uiText.transmision.nasaSealPrefix} · ${label} · ${source}`,
+      `${uiText.transmision.nasaSealPrefix} · ${I18n.formatLabel(label)} · ${source}`,
       {
         fontFamily: 'PixelifySans, monospace',
         fontSize: '8px',

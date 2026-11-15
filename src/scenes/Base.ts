@@ -1,7 +1,5 @@
 import Phaser from 'phaser';
 import balance from '../../content/balance.json';
-import factsData from '../../content/facts.json';
-import uiText from '../../content/ui_text.json';
 import { bus } from '../state/bus';
 import { gameStore } from '../state/GameState';
 import { Save } from '../state/Save';
@@ -10,6 +8,7 @@ import { BaseSystem } from '../systems/BaseSystem';
 import { Clock } from '../systems/Clock';
 import { Data, type CorviQAEntry } from '../systems/Data';
 import { Events } from '../systems/Events';
+import { I18n } from '../systems/I18n';
 import { Quota } from '../systems/Quota';
 import { Vitals } from '../systems/Vitals';
 import { AstronautAppearance, type AstronautDirection } from '../ui/AstronautAppearance';
@@ -38,11 +37,7 @@ interface BaseStation {
 }
 
 /**
- * Escena interior de la base marciana (fiel al storyboard s04_base.png) + Cámara del Refugio Blindado:
- * En lugar de botones flotantes, todas las acciones son estaciones físicas acogedoras dentro del hábitat:
- * - Estación MOXIE de O₂, Calentador Térmico, Consola Central (Examen), Escritorio de Bitácora,
- *   Armario de Trajes, Cama, Percha de Corvi (cuervo de cuerpo entero proporcional), Mesa de Muestras,
- *   Esclusa de Salida y Cámara del Refugio Blindado con muros gruesos de regolito compactado (dosis ×0.05).
+ * Escena interior de la base marciana (fiel al storyboard s04_base.png) + Cámara del Refugio Blindado.
  */
 export class Base extends Phaser.Scene {
   private player!: Phaser.Physics.Arcade.Sprite;
@@ -57,6 +52,7 @@ export class Base extends Phaser.Scene {
   private walkBobTime = 0;
   private facingDir: AstronautDirection = 'down';
   private sceneEnteredAt = 0;
+  private openPauseAfterRestart = false;
 
   private energyText!: Phaser.GameObjects.Text;
   private energyBarFill!: Phaser.GameObjects.Rectangle;
@@ -87,13 +83,17 @@ export class Base extends Phaser.Scene {
     super('Base');
   }
 
+  init(data?: { openPauseAfterRestart?: boolean }): void {
+    this.openPauseAfterRestart = data?.openPauseAfterRestart ?? false;
+  }
+
   create(): void {
+    const uiText = I18n.ui();
     const state = gameStore.state;
     if (state.location !== 'refugio') {
       state.location = 'base';
     }
-    // Asegurar que el reloj no quede pausado tras volver de Personaliza o Trivia
-    Clock.setPaused(state, false);
+    Clock.setPaused(state, this.openPauseAfterRestart);
     state.astronaut.suitTempC = balance.heater.suitC;
     this.sceneEnteredAt = this.time.now;
 
@@ -114,7 +114,6 @@ export class Base extends Phaser.Scene {
     const g = this.add.graphics();
     g.fillStyle(0x5a6988, 1);
     g.fillRect(0, 0, 640, 88);
-    // Franja decorativa cálida en la pared del hábitat
     g.fillStyle(0x3a4466, 1);
     g.fillRect(0, 74, 500, 12);
     g.fillStyle(0x181425, 1);
@@ -150,29 +149,29 @@ export class Base extends Phaser.Scene {
     // Claramente diferenciada de la base con muros gruesos de ladrillos de regolito compactado
     this.drawRefugeChamber(g, state.location === 'refugio');
 
-    // 3. Monitor central en la pared: estado de la base + Examen diario (x = 298, y = 55)
+    // 3. Monitor central en la pared: estado de la base + Examen diario (x = 318, y = 55)
     const consoleMonitor = this.add
-      .rectangle(298, 55, 168, 56, 0x262b44)
+      .rectangle(318, 55, 148, 56, 0x262b44)
       .setStrokeStyle(2, 0x181425)
       .setInteractive({ useHandCursor: true });
-    this.add.rectangle(298, 55, 158, 46, 0x124e89);
-    this.add.text(224, 33, uiText.base.panelTitle, {
+    this.add.rectangle(318, 55, 138, 46, 0x124e89);
+    this.add.text(253, 33, uiText.base.panelTitle, {
       fontFamily: 'PixelifySans, monospace',
       fontSize: '9px',
       color: '#2ce8f5',
     });
-    this.add.image(230, 52, 'icon_bolt').setScale(1.3);
+    this.add.image(259, 52, 'icon_bolt').setScale(1.3);
     this.energyText = this.add
-      .text(372, 46, '100 %', { fontFamily: 'PixelifySans, monospace', fontSize: '9px', color: '#ffffff' })
+      .text(383, 46, '100 %', { fontFamily: 'PixelifySans, monospace', fontSize: '9px', color: '#ffffff' })
       .setOrigin(1, 0);
-    this.add.rectangle(240, 52, 96, 6, 0x3a4466).setOrigin(0, 0.5);
-    this.energyBarFill = this.add.rectangle(240, 52, 96, 6, 0xfee761).setOrigin(0, 0.5);
-    this.add.image(230, 68, 'icon_o2').setScale(1.3);
+    this.add.rectangle(268, 52, 82, 6, 0x3a4466).setOrigin(0, 0.5);
+    this.energyBarFill = this.add.rectangle(268, 52, 82, 6, 0xfee761).setOrigin(0, 0.5);
+    this.add.image(259, 68, 'icon_o2').setScale(1.3);
     this.moxieText = this.add
-      .text(372, 62, '80 %', { fontFamily: 'PixelifySans, monospace', fontSize: '9px', color: '#ffffff' })
+      .text(383, 62, '80 %', { fontFamily: 'PixelifySans, monospace', fontSize: '9px', color: '#ffffff' })
       .setOrigin(1, 0);
-    this.add.rectangle(240, 68, 96, 6, 0x3a4466).setOrigin(0, 0.5);
-    this.moxieBarFill = this.add.rectangle(240, 68, 96, 6, 0x2ce8f5).setOrigin(0, 0.5);
+    this.add.rectangle(268, 68, 82, 6, 0x3a4466).setOrigin(0, 0.5);
+    this.moxieBarFill = this.add.rectangle(268, 68, 82, 6, 0x2ce8f5).setOrigin(0, 0.5);
     consoleMonitor.on('pointerdown', () => this.openTrivia());
 
     // 4. Estaciones físicas interactivas del hábitat
@@ -186,26 +185,26 @@ export class Base extends Phaser.Scene {
     // Pared superior
     addBlock(320, 44, 640, 88);
 
-    // 4a. Estación de Oxígeno MOXIE (tanques cian con manómetro en la pared norte, x = 198, y = 84)
-    const o2Pad = this.add.ellipse(198, 108, 42, 16, 0x124e89, 0.55).setStrokeStyle(1, 0x2ce8f5);
+    // 4a. Estación de Oxígeno MOXIE (tanques cian con manómetro en la pared norte, x = 218, y = 84)
+    const o2Pad = this.add.ellipse(218, 108, 42, 16, 0x124e89, 0.55).setStrokeStyle(1, 0x2ce8f5);
     const o2TankLeft = this.add
-      .rectangle(189, 76, 14, 34, 0x0099db)
+      .rectangle(209, 76, 14, 34, 0x0099db)
       .setStrokeStyle(2, 0x181425)
       .setInteractive({ useHandCursor: true });
     const o2TankRight = this.add
-      .rectangle(207, 76, 14, 34, 0x2ce8f5)
+      .rectangle(227, 76, 14, 34, 0x2ce8f5)
       .setStrokeStyle(2, 0x181425)
       .setInteractive({ useHandCursor: true });
-    this.add.circle(198, 66, 5, 0xffffff).setStrokeStyle(1, 0x181425);
-    this.add.image(198, 84, 'icon_o2').setScale(1.2);
+    this.add.circle(218, 66, 5, 0xffffff).setStrokeStyle(1, 0x181425);
+    this.add.image(218, 84, 'icon_o2').setScale(1.2);
     this.add
-      .text(198, 48, uiText.base.o2StationSign, {
+      .text(218, 127, uiText.base.o2StationSign, {
         fontFamily: 'PixelifySans, monospace',
         fontSize: '8px',
         color: '#2ce8f5',
       })
       .setOrigin(0.5);
-    addBlock(198, 82, 38, 22);
+    addBlock(218, 82, 38, 22);
     o2TankLeft.on('pointerdown', () => this.triggerRefillO2());
     o2TankRight.on('pointerdown', () => this.triggerRefillO2());
     o2Pad.setInteractive({ useHandCursor: true }).on('pointerdown', () => this.triggerRefillO2());
@@ -238,52 +237,52 @@ export class Base extends Phaser.Scene {
     addBlock(138, 188, 34, 28);
     heaterBody.on('pointerdown', () => this.triggerHeatSuit());
 
-    // 4c. Escritorio de Bitácora con lámpara cálida, taza y planta hidropónica (x = 412, y = 84)
+    // 4c. Escritorio de Bitácora con lámpara cálida, taza y planta hidropónica (x = 420, y = 84)
     const deskRect = this.add
-      .rectangle(412, 84, 54, 26, 0x733e39)
+      .rectangle(420, 84, 46, 26, 0x733e39)
       .setStrokeStyle(2, 0x181425)
       .setInteractive({ useHandCursor: true });
     // Cuaderno abierto
-    this.add.rectangle(406, 83, 18, 13, 0xead4aa).setStrokeStyle(1, 0x181425);
-    this.add.rectangle(406, 83, 2, 13, 0xbe4a2f);
+    this.add.rectangle(414, 83, 18, 13, 0xead4aa).setStrokeStyle(1, 0x181425);
+    this.add.rectangle(414, 83, 2, 13, 0xbe4a2f);
     // Lámpara cálida de escritorio
-    this.add.circle(426, 78, 10, 0xfee761, 0.28);
-    this.add.circle(426, 78, 4, 0xfee761).setStrokeStyle(1, 0x181425);
+    this.add.circle(433, 78, 10, 0xfee761, 0.28);
+    this.add.circle(433, 78, 4, 0xfee761).setStrokeStyle(1, 0x181425);
     // Planta hidropónica marciana junto al escritorio (toque de vida en la base)
-    this.add.rectangle(376, 86, 12, 10, 0xb86f50).setStrokeStyle(1, 0x181425);
-    this.add.circle(376, 78, 6, 0x3e8948);
-    this.add.circle(373, 76, 4, 0x63c74d);
-    this.add.circle(379, 76, 4, 0x63c74d);
+    this.add.rectangle(450, 86, 12, 10, 0xb86f50).setStrokeStyle(1, 0x181425);
+    this.add.circle(450, 78, 6, 0x3e8948);
+    this.add.circle(447, 76, 4, 0x63c74d);
+    this.add.circle(453, 76, 4, 0x63c74d);
     this.add
-      .text(412, 60, uiText.base.journalButton, {
+      .text(420, 60, uiText.base.journalButton, {
         fontFamily: 'PixelifySans, monospace',
         fontSize: '8px',
         color: '#ead4aa',
       })
       .setOrigin(0.5);
-    addBlock(412, 86, 56, 24);
+    addBlock(420, 86, 48, 24);
     deskRect.on('pointerdown', () => this.openJournal());
 
-    // 4d. Armario de Trajes (x = 468, y = 78)
+    // 4d. Armario de Trajes (x = 476, y = 78)
     const suitLocker = this.add
-      .rectangle(468, 74, 38, 48, 0x3a4466)
+      .rectangle(476, 74, 36, 48, 0x3a4466)
       .setStrokeStyle(2, 0x181425)
       .setInteractive({ useHandCursor: true });
-    this.add.rectangle(468, 76, 28, 36, 0x262b44);
+    this.add.rectangle(476, 76, 26, 36, 0x262b44);
     const miniSuitPreview = AstronautAppearance.getMiniTextureKey(
       this,
       state.customization.hair,
       state.customization.suit
     );
-    this.add.image(468, 77, miniSuitPreview).setScale(1.3);
+    this.add.image(476, 77, miniSuitPreview).setScale(0.65);
     this.add
-      .text(468, 42, uiText.base.suitButton, {
+      .text(476, 42, uiText.base.suitButton, {
         fontFamily: 'PixelifySans, monospace',
         fontSize: '8px',
         color: '#fee761',
       })
       .setOrigin(0.5);
-    addBlock(468, 82, 38, 28);
+    addBlock(476, 82, 36, 28);
     suitLocker.on('pointerdown', () => this.openSuitCustomization());
 
     // 4e. Cama a la izquierda (sprite Cama_base.png de Karmin)
@@ -333,12 +332,9 @@ export class Base extends Phaser.Scene {
       .setStrokeStyle(2, 0x181425)
       .setInteractive({ useHandCursor: true });
     this.add.rectangle(382, 224, 148, 10, 0x181425);
-    // Gradilla de los tubos
     this.add.rectangle(366, 206, 80, 6, 0x5a6988).setStrokeStyle(1, 0x181425);
-    // Microscopio/analizador en la esquina derecha
     this.add.rectangle(444, 192, 12, 16, 0x3a4466).setStrokeStyle(1, 0x181425);
     this.add.circle(444, 184, 4, 0x2ce8f5);
-    // Matraces con reactivos (Erlenmeyer verde y matraz azul con corcho)
     if (this.textures.exists('flask_conical')) {
       this.add.image(424, 198, 'flask_conical').setTint(0x63c74d);
     }
@@ -391,17 +387,17 @@ export class Base extends Phaser.Scene {
     this.stations = [
       { id: 'bed', x: 112, y: 252, prompt: uiText.base.interactBed },
       { id: 'heaterStation', x: 138, y: 214, prompt: uiText.base.interactHeaterStation },
-      { id: 'o2Station', x: 198, y: 110, prompt: uiText.base.interactO2Station },
+      { id: 'o2Station', x: 218, y: 110, prompt: uiText.base.interactO2Station },
       { id: 'corvi', x: 228, y: 232, prompt: uiText.base.interactCorvi },
-      { id: 'console', x: 298, y: 108, prompt: uiText.base.interactConsole },
-      { id: 'journalDesk', x: 412, y: 112, prompt: uiText.base.interactJournalDesk },
-      { id: 'suitLocker', x: 468, y: 112, prompt: uiText.base.interactSuitLocker },
+      { id: 'console', x: 318, y: 108, prompt: uiText.base.interactConsole },
+      { id: 'journalDesk', x: 420, y: 112, prompt: uiText.base.interactJournalDesk },
+      { id: 'suitLocker', x: 476, y: 112, prompt: uiText.base.interactSuitLocker },
       { id: 'table', x: 382, y: 242, prompt: uiText.base.interactTable },
       { id: 'refugeDoor', x: 484, y: 190, prompt: uiText.base.interactRefugeDoor },
       { id: 'exitDoor', x: 284, y: 280, prompt: uiText.base.interactExitDoor },
     ];
 
-    // 6. Astronauta en el interior (escala ×2) con vista en 4 direcciones y animación al caminar
+    // 6. Astronauta en el interior (sprite 32×64 a escala 1 = 32×64 px)
     const startKey = AstronautAppearance.getDirectionalMiniKey(
       this,
       state.customization.hair,
@@ -413,7 +409,7 @@ export class Base extends Phaser.Scene {
     const startY = state.location === 'refugio' ? 192 : 164;
     this.player = this.physics.add
       .sprite(startX, startY, startKey)
-      .setScale(2)
+      .setScale(1)
       .setCollideWorldBounds(true)
       .setDepth(15);
 
@@ -493,8 +489,11 @@ export class Base extends Phaser.Scene {
     );
 
     if (!this.scene.isActive('HUD')) {
-      this.scene.launch('HUD');
+      this.scene.launch('HUD', { startPaused: this.openPauseAfterRestart });
+    } else if (this.openPauseAfterRestart) {
+      bus.emit('clock:pauseChanged', { paused: true });
     }
+    this.openPauseAfterRestart = false;
     if (!this.scene.isActive('Dialogo')) {
       this.scene.launch('Dialogo');
     }
@@ -530,11 +529,9 @@ export class Base extends Phaser.Scene {
 
   /**
    * Dibuja la Cámara del Refugio Blindado a la derecha (x = 500..632, y = 90..294)
-   * con muros gruesos de ladrillos de regolito marciano compactado (#733e39 / #b86f50),
-   * puerta blindada de esclusa y escudo antirradiación (dosis ×0.05).
    */
   private drawRefugeChamber(g: Phaser.GameObjects.Graphics, insideRefuge: boolean): void {
-    // Piso interior blindado oscuro
+    const uiText = I18n.ui();
     g.fillStyle(0x262b44, 1);
     g.fillRect(504, 90, 128, 204);
     for (let ry = 98; ry < 288; ry += 24) {
@@ -542,12 +539,10 @@ export class Base extends Phaser.Scene {
       g.fillRect(512, ry, 112, 2);
     }
 
-    // Aura de protección activa cuando el astronauta está en el refugio
     this.refugeChamberGlow = this.add
       .rectangle(568, 192, 112, 184, 0x3e8948, insideRefuge ? 0.28 : 0.06)
       .setStrokeStyle(1, 0x63c74d, insideRefuge ? 0.85 : 0.3);
 
-    // Muros gruesos de ladrillos de regolito compactado alrededor del refugio
     const drawBrickWall = (wx: number, wy: number, ww: number, wh: number): void => {
       g.fillStyle(0x733e39, 1);
       g.fillRect(wx, wy, ww, wh);
@@ -561,14 +556,12 @@ export class Base extends Phaser.Scene {
       }
     };
 
-    // Muro norte, sur, este y divisor oeste (con abertura en y = 166..214 para la esclusa blindada)
     drawBrickWall(500, 88, 134, 14);
     drawBrickWall(500, 282, 134, 14);
     drawBrickWall(622, 88, 12, 208);
     drawBrickWall(498, 88, 14, 78);
     drawBrickWall(498, 214, 14, 82);
 
-    // Equipamiento interior del refugio: banco acolchado, suministros de agua (escudo H₂O) y dosímetro
     this.add.rectangle(604, 152, 18, 52, 0x0099db).setStrokeStyle(2, 0x181425);
     this.add
       .text(604, 152, 'H₂O', {
@@ -577,9 +570,7 @@ export class Base extends Phaser.Scene {
         color: '#ffffff',
       })
       .setOrigin(0.5);
-    // Banco de emergencia dentro del refugio
     this.add.rectangle(568, 256, 72, 18, 0x5a6988).setStrokeStyle(2, 0x181425);
-    // Emblema de escudo de radiación en el centro del refugio
     this.add.circle(564, 152, 16, 0x181425).setStrokeStyle(2, 0x63c74d);
     this.add.image(564, 152, 'icon_rad').setScale(1.5);
 
@@ -591,14 +582,13 @@ export class Base extends Phaser.Scene {
       })
       .setOrigin(0.5);
     this.add
-      .text(566, 224, 'DOSIS ×0.05', {
+      .text(566, 224, uiText.base.refugeDoseBadge, {
         fontFamily: 'PixelifySans, monospace',
         fontSize: '9px',
         color: '#fee761',
       })
       .setOrigin(0.5);
 
-    // Puerta blindada interactiva entre la Base y el Refugio (x = 504, y = 190)
     this.refugeDoorPanel = this.add
       .rectangle(505, 190, 16, 48, insideRefuge ? 0x3e8948 : 0xe4a672)
       .setStrokeStyle(2, 0x181425)
@@ -617,6 +607,7 @@ export class Base extends Phaser.Scene {
   }
 
   update(time: number, delta: number): void {
+    const uiText = I18n.ui();
     const state = gameStore.state;
 
     // Parpadeo periódico de Corvi en su percha
@@ -633,9 +624,17 @@ export class Base extends Phaser.Scene {
     const energy = Math.round(state.base.energy);
     const reserve = Math.round(state.base.o2Reserve);
     this.energyText.setText(`${energy} %`);
-    this.energyBarFill.width = Math.round((96 * energy) / 100);
+    const ew = Math.round((82 * energy) / 100);
+    this.energyBarFill
+      .setVisible(ew > 0)
+      .setSize(Math.max(1, ew), 6)
+      .updateDisplayOrigin();
     this.moxieText.setText(`${reserve} %`);
-    this.moxieBarFill.width = Math.round((96 * reserve) / 100);
+    const rw = Math.round((82 * reserve) / 100);
+    this.moxieBarFill
+      .setVisible(rw > 0)
+      .setSize(Math.max(1, rw), 6)
+      .updateDisplayOrigin();
 
     if (state.clock.paused) {
       this.player.setVelocity(0, 0);
@@ -755,6 +754,7 @@ export class Base extends Phaser.Scene {
    * Abre el menú de preguntas científicas de Corvi (sección 9.5 y 10.6).
    */
   private openCorviFaqMenu(): void {
+    const uiText = I18n.ui();
     this.closeCorviFaqMenu();
     const state = gameStore.state;
     Clock.setPaused(state, true);
@@ -892,6 +892,7 @@ export class Base extends Phaser.Scene {
   }
 
   private triggerRefillO2(): void {
+    const uiText = I18n.ui();
     const state = gameStore.state;
     if (state.base.energy <= 0 || state.base.o2Reserve <= 0) {
       bus.emit('interact:prompt', { text: uiText.base.noReserveMsg });
@@ -904,6 +905,7 @@ export class Base extends Phaser.Scene {
   }
 
   private triggerHeatSuit(): void {
+    const uiText = I18n.ui();
     const state = gameStore.state;
     BaseSystem.rechargeHeater(state, 1);
     this.activeHeat = true;
@@ -912,6 +914,7 @@ export class Base extends Phaser.Scene {
   }
 
   private deliverSamplesAtTable(): void {
+    const uiText = I18n.ui();
     const state = gameStore.state;
     const count = BaseSystem.deliverTubes(state, 1);
     if (count > 0) {
@@ -947,6 +950,7 @@ export class Base extends Phaser.Scene {
   }
 
   private toggleRefuge(): void {
+    const uiText = I18n.ui();
     const state = gameStore.state;
     this.player.setVelocity(0, 0);
     if (state.location === 'refugio') {
@@ -975,6 +979,7 @@ export class Base extends Phaser.Scene {
   }
 
   private tryExitToWorld(confirmedNight = false): void {
+    const uiText = I18n.ui();
     const state = gameStore.state;
     if (!BaseSystem.canExitToWorld(state)) {
       bus.emit('interact:prompt', { text: uiText.base.curfewBlocked });
@@ -994,8 +999,8 @@ export class Base extends Phaser.Scene {
   }
 
   private goToSleep(confirmed = false): void {
+    const uiText = I18n.ui();
     const state = gameStore.state;
-    // Los tubos en la caja se entregan solos antes de revisar la cuota
     if (this.tubesPending() > 0) this.deliverSamplesAtTable();
     if (!confirmed && !Quota.isAllMet(state)) {
       this.openConfirm(uiText.base.sleepConfirmText, uiText.base.sleepConfirmYes, () => this.goToSleep(true));
@@ -1012,7 +1017,6 @@ export class Base extends Phaser.Scene {
   private getNearestStation(): BaseStation | null {
     const state = gameStore.state;
     if (state.location === 'refugio') {
-      // Dentro del refugio blindado, la estación activa es la puerta de la esclusa para volver al hábitat
       return this.stations.find((s) => s.id === 'refugeDoor') ?? null;
     }
     let best: BaseStation | null = null;
@@ -1028,15 +1032,16 @@ export class Base extends Phaser.Scene {
   }
 
   private updateNearestPrompt(): void {
+    const uiText = I18n.ui();
     const st = this.getNearestStation();
     if (st) {
       const label =
         st.id === 'refugeDoor' && gameStore.state.location === 'refugio'
-          ? '[E] Salir del Refugio Blindado'
+          ? uiText.base.interactExitRefuge
           : st.prompt;
       this.promptLabel.setText(label);
-      const w = Math.max(120, Math.round(this.promptLabel.width + 18));
-      this.promptBg.setSize(w, 20);
+      const w = Math.max(120, Math.round(this.promptLabel.width + 20));
+      this.promptBg.setSize(w, 20).updateDisplayOrigin();
       this.promptContainer.setPosition(
         Math.min(540, Math.max(100, Math.round(this.player.x))),
         Math.max(96, Math.round(this.player.y - 34))
@@ -1099,6 +1104,7 @@ export class Base extends Phaser.Scene {
   }
 
   private openTrivia(): void {
+    const uiText = I18n.ui();
     const state = gameStore.state;
     if (state.triviaDoneDay === state.day) {
       bus.emit('interact:prompt', { text: uiText.trivia.alreadyDone });
@@ -1114,12 +1120,12 @@ export class Base extends Phaser.Scene {
 
   /** Bitácora visual: todo lo aprendido en la misión, con iconos grandes y sello de fuente sin empalmes. */
   private openJournal(page = 0): void {
+    const uiText = I18n.ui();
+    const factsData = I18n.facts();
     this.closeModal();
     const state = gameStore.state;
     const ids = [...state.journal, ...state.learnedToday.filter((id) => !state.journal.includes(id))];
-    const facts = (factsData as { id: string; text: string; source: string; label: string; icon: string }[]).filter((f) =>
-      ids.includes(f.id)
-    );
+    const facts = factsData.filter((f) => ids.includes(f.id));
     Clock.setPaused(state, true);
     this.input.keyboard?.resetKeys();
     AudioSystem.play('ui_open');
@@ -1127,7 +1133,7 @@ export class Base extends Phaser.Scene {
     items.push(this.add.rectangle(320, 180, 640, 360, 0x181425, 0.75).setInteractive());
     items.push(this.add.rectangle(320, 184, 484, 286, 0xead4aa).setStrokeStyle(3, 0x181425));
     items.push(
-      this.add.text(92, 52, `${uiText.base.journalTitle} · ${facts.length}/${(factsData as unknown[]).length}`, {
+      this.add.text(92, 52, `${uiText.base.journalTitle} · ${facts.length}/${factsData.length}`, {
         fontFamily: 'PixelifySans, monospace',
         fontSize: '15px',
         color: '#733e39',
@@ -1151,10 +1157,9 @@ export class Base extends Phaser.Scene {
       items.push(this.add.rectangle(92, y, 456, 48, 0xffffff).setOrigin(0, 0).setStrokeStyle(1, 0xc0cbdc));
       items.push(this.add.rectangle(92, y, 36, 48, 0x262b44).setOrigin(0, 0));
       items.push(this.add.image(110, y + 24, `icon_${f.icon}`).setScale(1.8));
-      // Encabezado de fuente arriba a la derecha dentro de la tarjeta para nunca empalmarse con el texto
       items.push(
         this.add
-          .text(542, y + 4, `★ ${f.label} · ${f.source}`, {
+          .text(542, y + 4, `★ ${I18n.formatLabel(f.label)} · ${f.source}`, {
             fontFamily: 'PixelifySans, monospace',
             fontSize: '8px',
             color: '#124e89',
@@ -1184,6 +1189,7 @@ export class Base extends Phaser.Scene {
   }
 
   private openConfirm(text: string, yesLabel: string, onYes: () => void): void {
+    const uiText = I18n.ui();
     this.closeModal();
     Clock.setPaused(gameStore.state, true);
     this.input.keyboard?.resetKeys();

@@ -1,17 +1,16 @@
 import Phaser from 'phaser';
 import balance from '../../content/balance.json';
-import uiText from '../../content/ui_text.json';
 import { gameStore } from '../state/GameState';
 import { Save } from '../state/Save';
 import { bus } from '../state/bus';
 import { AudioSystem } from '../systems/Audio';
 import { Clock } from '../systems/Clock';
+import { I18n } from '../systems/I18n';
 import { TRIVIA_PER_EXAM, questionsForDay, type TriviaQuestion } from '../systems/TriviaBank';
 import { button, panel, txt } from '../minigames/widgets';
 
 type Question = TriviaQuestion;
 
-const T = uiText.trivia;
 const PER_EXAM = TRIVIA_PER_EXAM;
 const TIME_PER_Q = 25;
 
@@ -43,6 +42,7 @@ export class Trivia extends Phaser.Scene {
 
   create(): void {
     const state = gameStore.state;
+    const T = I18n.ui().trivia;
     Clock.setPaused(state, true);
     AudioSystem.setMusicDuck(0.5);
     this.questions = questionsForDay(state.day);
@@ -90,6 +90,8 @@ export class Trivia extends Phaser.Scene {
   private answer(i: number): void {
     if (this.answered) return;
     this.answered = true;
+    const uiText = I18n.ui();
+    const T = uiText.trivia;
     const state = gameStore.state;
     const q = this.questions[this.index];
     const ok = i === q.answer;
@@ -127,6 +129,7 @@ export class Trivia extends Phaser.Scene {
   }
 
   private showSummary(): void {
+    const T = I18n.ui().trivia;
     const state = gameStore.state;
     this.layer.removeAll(true);
     state.triviaDoneDay = state.day;
@@ -158,7 +161,9 @@ export class Trivia extends Phaser.Scene {
   update(_t: number, delta: number): void {
     if (this.index <= PER_EXAM - 1 && !this.answered) {
       this.timeLeft -= delta / 1000;
-      this.timerFill.width = Math.max(0, (560 * this.timeLeft) / TIME_PER_Q);
+      const w = Math.max(0, Math.round((560 * this.timeLeft) / TIME_PER_Q));
+      this.timerFill.setVisible(w > 0);
+      this.timerFill.setSize(Math.max(1, w), 6).updateDisplayOrigin();
       this.timerFill.setFillStyle(this.timeLeft < 6 ? 0xe43b44 : 0x2ce8f5);
       if (this.timeLeft <= 0) this.answer(-1);
       this.keys.forEach((k, i) => {

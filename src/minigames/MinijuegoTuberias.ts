@@ -1,13 +1,11 @@
 import Phaser from 'phaser';
-import MG from '../../content/minigames.json';
 import { gameStore } from '../state/GameState';
 import { AudioSystem } from '../systems/Audio';
 import { Events } from '../systems/Events';
+import { I18n } from '../systems/I18n';
 import { MinigameBase } from './MinigameBase';
 import { button, panel, txt } from './widgets';
 import { generatePipePuzzle, rotateMask, traceFlow, type PipePuzzle } from './pipePuzzle';
-
-const T = MG.tuberias;
 
 interface Tile {
   r: number;
@@ -48,11 +46,16 @@ export class MinijuegoTuberias extends MinigameBase {
   private soxeCoreGlow!: Phaser.GameObjects.Arc;
   private soxeStatusText!: Phaser.GameObjects.Text;
 
+  private get t() {
+    return I18n.mg().tuberias;
+  }
+
   constructor() {
     super('MinijuegoTuberias');
   }
 
   create(): void {
+    const T = this.t;
     this.phase = 'pipes';
     this.soxeHeating = false;
     this.system = this.inputData.type === 'antenna' ? 'antenna' : 'moxie_pipes';
@@ -134,6 +137,7 @@ export class MinijuegoTuberias extends MinigameBase {
   }
 
   private tap(t: Tile): void {
+    const T = this.t;
     if (this.phase !== 'pipes' || this.finished) return;
     if (t.clog > 0) {
       t.clog -= 1;
@@ -156,6 +160,7 @@ export class MinijuegoTuberias extends MinigameBase {
   }
 
   private test(): void {
+    const T = this.t;
     if (this.phase !== 'pipes' || this.finished) return;
     const flow = traceFlow(this.puzzle);
     for (const t of this.tiles) this.drawTile(t, flow.reached.has(t.r * this.puzzle.cols + t.c));
@@ -179,6 +184,7 @@ export class MinijuegoTuberias extends MinigameBase {
   // ------------------------------------------------------------------ 2. Electrólisis SOXE real (800 °C)
 
   private buildSoxeStage(): void {
+    const T = this.t;
     this.phase = 'soxe';
     this.setActiveStep(1);
     this.setInstruction(T.soxeInst);
@@ -229,7 +235,7 @@ export class MinijuegoTuberias extends MinigameBase {
     // Barra de producción de oxígeno
     this.stage.add(txt(this, 224, 174, T.soxeFlowLabel, 11, '#ead4aa'));
     this.stage.add(this.add.rectangle(barX, 200, barW, 16, 0x3a4466).setOrigin(0, 0.5).setStrokeStyle(2, 0x181425));
-    this.soxeProgressFill = this.add.rectangle(barX + 2, 200, 0, 12, 0x2ce8f5).setOrigin(0, 0.5);
+    this.soxeProgressFill = this.add.rectangle(barX + 2, 200, 1, 12, 0x2ce8f5).setOrigin(0, 0.5).setVisible(false);
     this.stage.add(this.soxeProgressFill);
 
     this.soxeStatusText = txt(this, 224, 218, '', 10, '#feae34', 376);
@@ -243,6 +249,7 @@ export class MinijuegoTuberias extends MinigameBase {
   }
 
   private updateSoxe(dt: number): void {
+    const T = this.t;
     const d = this.inputData.difficulty;
     const heating = this.soxeHeating || this.actionHeld();
     if (heating) {
@@ -268,7 +275,7 @@ export class MinijuegoTuberias extends MinigameBase {
     const inIdeal = this.soxeTemp >= 775 && this.soxeTemp <= 825;
     if (inIdeal) {
       this.soxeProgress = Math.min(1, this.soxeProgress + dt / (3.4 + d * 0.6));
-      this.soxeStatusText.setText('✓ 800 °C óptimo · produciendo O₂').setColor('#63c74d');
+      this.soxeStatusText.setText(T.soxeOptimal).setColor('#63c74d');
       this.soxeTempText.setColor('#63c74d');
       this.soxeCoreGlow.setFillStyle(0x2ce8f5, 0.38);
     } else if (this.soxeTemp > 860) {
@@ -287,7 +294,9 @@ export class MinijuegoTuberias extends MinigameBase {
       this.soxeCoreGlow.setFillStyle(0xfee761, 0.25);
     }
 
-    this.soxeProgressFill.width = Math.round(372 * this.soxeProgress);
+    const spw = Math.round(372 * this.soxeProgress);
+    this.soxeProgressFill.setVisible(spw > 0);
+    if (spw > 0) this.soxeProgressFill.setSize(spw, 12).updateDisplayOrigin();
 
     if (this.soxeTemp >= 895) {
       this.soxeHeating = false;

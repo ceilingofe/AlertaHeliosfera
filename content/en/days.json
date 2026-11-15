@@ -1,0 +1,39 @@
+[
+  {
+    "day": 1,
+    "durationSec": 150,
+    "quota": { "roca": 1 },
+    "events": [],
+    "endHook": "storm_warning_day3",
+    "factIds": ["luz", "radiacion", "cheyava"],
+    "corviIntro": "Welcome to Jezero, LUNA-7! We don't have air, but we do have style."
+  },
+  {
+    "day": 2,
+    "durationSec": 300,
+    "quota": { "roca": 1, "suelo": 1 },
+    "events": [{ "type": "dust", "at": "11:00", "panels": ["p2"] }],
+    "factIds": ["polvo", "percloratos", "moxie"]
+  },
+  {
+    "day": 3,
+    "durationSec": 300,
+    "quota": { "roca": 2, "aire": 1 },
+    "events": [{ "type": "cme_hit", "at": "13:00", "eventId": "cme_mayo_2024" }],
+    "factIds": ["radiacion", "aire"]
+  },
+  {
+    "day": 4,
+    "durationSec": 300,
+    "quota": { "suelo": 1, "minerales": 1, "aire": 1 },
+    "events": [{ "type": "moxie_pipes", "at": "10:00" }, { "type": "cold_night" }],
+    "factIds": ["moxie", "frio", "agua_rocas"]
+  },
+  {
+    "day": 5,
+    "durationSec": 300,
+    "quota": { "roca": 2, "suelo": 1, "minerales": 1 },
+    "events": [{ "type": "cme_miss", "at": "12:00", "eventId": "cme_falsa_alarma" }],
+    "factIds": ["luz"]
+  }
+]

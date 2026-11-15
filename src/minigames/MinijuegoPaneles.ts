@@ -1,13 +1,12 @@
 import Phaser from 'phaser';
-import MG from '../../content/minigames.json';
 import { gameStore } from '../state/GameState';
 import { AudioSystem } from '../systems/Audio';
 import { Events } from '../systems/Events';
+import { I18n } from '../systems/I18n';
 import { AstronautAppearance } from '../ui/AstronautAppearance';
 import { MinigameBase } from './MinigameBase';
 import { panel, txt } from './widgets';
 
-const T = MG.paneles;
 const COLS = 10;
 const ROWS = 5;
 const PX = 150;
@@ -31,6 +30,10 @@ export class MinijuegoPaneles extends MinigameBase {
   private timeFill!: Phaser.GameObjects.Rectangle;
   private cleanText!: Phaser.GameObjects.Text;
 
+  private get t() {
+    return I18n.mg().paneles;
+  }
+
   constructor() {
     super('MinijuegoPaneles');
   }
@@ -40,6 +43,7 @@ export class MinijuegoPaneles extends MinigameBase {
   }
 
   create(): void {
+    const T = this.t;
     this.drawHeader(T.title, T.steps, T.instBrush);
     this.dust = [];
     this.dustRects = [];
@@ -64,7 +68,7 @@ export class MinijuegoPaneles extends MinigameBase {
       gameStore.state.customization.hair,
       gameStore.state.customization.suit
     );
-    this.add.image(90, 220, suitKey).setScale(3);
+    this.add.image(90, 220, suitKey).setScale(1.5);
 
     panel(this, 14, 76, 126, 92);
     txt(this, 24, 84, T.time, 11, '#ead4aa');
@@ -111,6 +115,7 @@ export class MinijuegoPaneles extends MinigameBase {
   }
 
   update(_t: number, delta: number): void {
+    const T = this.t;
     const dt = delta / 1000;
     if (this.finished) {
       this.actionJustDown();
@@ -146,7 +151,9 @@ export class MinijuegoPaneles extends MinigameBase {
 
     this.timeLeft -= dt;
     const frac = Math.max(0, this.timeLeft / this.totalTime());
-    this.timeFill.width = Math.round(104 * frac);
+    const tw = Math.round(104 * frac);
+    this.timeFill.setVisible(tw > 0);
+    if (tw > 0) this.timeFill.setSize(tw, 8).updateDisplayOrigin();
     this.timeFill.setFillStyle(frac < 0.25 ? 0xe43b44 : frac < 0.5 ? 0xfee761 : 0x63c74d);
     const clean = this.cleanFraction();
     this.cleanText.setText(`${Math.round(clean * 100)} %`).setColor(clean >= 0.9 ? '#63c74d' : '#ffffff');
