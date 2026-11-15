@@ -8,8 +8,17 @@ import { DialogBox } from '../ui/DialogBox';
 /**
  * Escena en paralelo Dialogo: escucha el evento 'dialog:open' en el bus.
  * Si el modo es 'big', pausa el reloj mientras el diálogo está abierto.
+ * Expone `Dialogo.isDialogBlocking()` con un margen de enfriamiento tras cerrarse
+ * para que presionar Espacio/E al saltar el diálogo nunca dispare interacciones del mapa.
  */
 export class Dialogo extends Phaser.Scene {
+  private static currentlyOpen = false;
+  private static lastClosedAt = 0;
+
+  static isDialogBlocking(): boolean {
+    return Dialogo.currentlyOpen || Date.now() - Dialogo.lastClosedAt < 300;
+  }
+
   private activeDialog: DialogBox | null = null;
   private unsubscribers: (() => void)[] = [];
 
@@ -18,13 +27,22 @@ export class Dialogo extends Phaser.Scene {
   }
 
   create(): void {
+    Dialogo.currentlyOpen = false;
     this.unsubscribers = [
       bus.on('dialog:open', (payload) => {
         this.openDialog(payload);
       }),
+      bus.on('input:action', () => {
+        if (this.activeDialog) {
+          this.activeDialog.advanceOrFinish();
+        }
+      }),
     ];
 
     this.input.keyboard?.on('keydown-SPACE', () => {
+      this.activeDialog?.advanceOrFinish();
+    });
+    this.input.keyboard?.on('keydown-E', () => {
       this.activeDialog?.advanceOrFinish();
     });
 
@@ -35,11 +53,13 @@ export class Dialogo extends Phaser.Scene {
       this.unsubscribers = [];
       this.activeDialog?.destroy();
       this.activeDialog = null;
+      Dialogo.currentlyOpen = false;
     });
   }
 
   private openDialog(msg: DialogMessage): void {
     this.activeDialog?.destroy();
+    Dialogo.currentlyOpen = true;
 
     const state = gameStore.state;
     const pausedByDialog = msg.mode === 'big' && !state.clock.paused;
@@ -55,6 +75,8 @@ export class Dialogo extends Phaser.Scene {
       label: msg.label,
       onComplete: () => {
         this.activeDialog = null;
+        Dialogo.currentlyOpen = false;
+        Dialogo.lastClosedAt = Date.now();
         if (pausedByDialog) {
           Clock.setPaused(state, false);
         }

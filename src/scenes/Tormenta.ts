@@ -12,6 +12,7 @@ import { StaticEffect } from '../ui/StaticEffect';
  * 2) Interferencia suave de señal tipo TV en toda la pantalla cada ciertos segundos (StaticEffect),
  * junto con el cartel central de cuenta regresiva (120 s reales + 30 s de impacto) y el ID de DONKI,
  * ubicado en la franja central superior (x = 214..502) para no empalmarse con ningún panel del HUD ni de la Base.
+ * En el Día 5 (cme_miss), anuncia primero como vigilancia preventiva (corviAlertWatch) antes de confirmar la falsa alarma.
  */
 export class Tormenta extends Phaser.Scene {
   private rootContainer!: Phaser.GameObjects.Container;
@@ -65,7 +66,6 @@ export class Tormenta extends Phaser.Scene {
     this.bannerText = this.add
       .text(centerX, 16, '', {
         fontFamily: 'PixelifySans, monospace',
-        resolution: 2,
         fontSize: '11px',
         color: '#fee761',
       })
@@ -83,7 +83,6 @@ export class Tormenta extends Phaser.Scene {
         `${uiText.storm.signalsTitle}: cielo ocre + interferencia de señal`,
         {
           fontFamily: 'PixelifySans, monospace',
-          resolution: 2,
           fontSize: '9px',
           color: '#ead4aa',
         }
@@ -93,7 +92,6 @@ export class Tormenta extends Phaser.Scene {
     this.honestyTagText = this.add
       .text(centerX, 49, '', {
         fontFamily: 'PixelifySans, monospace',
-        resolution: 2,
         fontSize: '9px',
         color: '#2ce8f5',
       })
@@ -143,10 +141,14 @@ export class Tormenta extends Phaser.Scene {
       this.lastAnnouncedStormId = stormKey;
       AudioSystem.play('stormAlarm');
       this.staticEffect.setEnabled(true, true);
+      const alertText =
+        storm.type === 'cme_miss'
+          ? uiText.storm.corviAlertWatch
+          : uiText.storm.corviAlertHit;
       bus.emit('dialog:open', {
         mode: 'big',
         mood: 'alert',
-        text: uiText.storm.corviAlertHit,
+        text: alertText,
         source: uiText.storm.sealSource,
         label: 'ARCHIVO REAL',
       });

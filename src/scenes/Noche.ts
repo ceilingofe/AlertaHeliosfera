@@ -106,7 +106,6 @@ export class Noche extends Phaser.Scene {
 
     this.add.text(350, 22, uiText.night.learnedTitle, {
       fontFamily: 'PixelifySans, monospace',
-      resolution: 2,
       fontSize: '18px',
       color: '#181425',
     });
@@ -117,7 +116,6 @@ export class Noche extends Phaser.Scene {
       `${uiText.night.dayPassedPrefix} ${completedDay} ${uiText.night.dayPassedSuffix}`,
       {
         fontFamily: 'PixelifySans, monospace',
-        resolution: 2,
         fontSize: '11px',
         color: '#5a6988',
       }
@@ -141,20 +139,21 @@ export class Noche extends Phaser.Scene {
 
     dayFacts.slice(0, 2).forEach((fact, idx) => {
       const fy = 126 + idx * 52;
-      this.add.rectangle(350, fy, 264, 46, 0xffffff).setOrigin(0, 0);
-      this.add.image(364, fy + 16, `icon_${fact.icon}`).setScale(1.8);
-      this.add.text(378, fy + 6, fact.text, {
+      this.add.rectangle(350, fy, 264, 48, 0xffffff).setOrigin(0, 0).setStrokeStyle(1, 0x5a6988);
+      this.add.rectangle(350, fy, 30, 48, 0x262b44).setOrigin(0, 0);
+      this.add.image(365, fy + 24, `icon_${fact.icon}`).setScale(1.7);
+      this.add
+        .text(608, fy + 3, `★ ${fact.label} · ${fact.source}`, {
+          fontFamily: 'PixelifySans, monospace',
+          fontSize: '8px',
+          color: '#124e89',
+        })
+        .setOrigin(1, 0);
+      this.add.text(384, fy + 15, fact.text, {
         fontFamily: 'PixelifySans, monospace',
-        resolution: 2,
-        fontSize: '11px',
+        fontSize: '9px',
         color: '#181425',
-        wordWrap: { width: 230 },
-      });
-      this.add.text(378, fy + 33, `★ ${fact.label} · ${fact.source}`, {
-        fontFamily: 'PixelifySans, monospace',
-        resolution: 2,
-        fontSize: '10px',
-        color: '#5a6988',
+        wordWrap: { width: 226 },
       });
     });
 
@@ -175,13 +174,11 @@ export class Noche extends Phaser.Scene {
     this.add.rectangle(350, 232, 264, 38, 0xfee761).setOrigin(0, 0);
     this.add.text(360, 234, unlockTitle, {
       fontFamily: 'PixelifySans, monospace',
-      resolution: 2,
       fontSize: '11px',
       color: '#181425',
     });
     this.add.text(360, 250, unlockSub, {
       fontFamily: 'PixelifySans, monospace',
-      resolution: 2,
       fontSize: '10px',
       color: '#be4a2f',
     });
@@ -196,7 +193,6 @@ export class Noche extends Phaser.Scene {
     this.add
       .text(482, 292, missionCancelled ? T.missionOverButton : `${uiText.night.sleepButtonPrefix} ${nextDay}`, {
         fontFamily: 'PixelifySans, monospace',
-        resolution: 2,
         fontSize: '14px',
         color: '#ffffff',
       })
@@ -206,18 +202,16 @@ export class Noche extends Phaser.Scene {
     const dialogBox = this.add.rectangle(94, 282, 232, 70, 0xead4aa).setOrigin(0, 0);
     dialogBox.setStrokeStyle(2, 0x181425);
 
-    const namePlate = this.add.rectangle(122, 254, 114, 30, 0x262b44).setOrigin(0, 0);
+    const namePlate = this.add.rectangle(122, 254, 96, 28, 0x262b44).setOrigin(0, 0);
     namePlate.setStrokeStyle(2, 0x181425);
-    this.add.text(130, 256, uiText.night.corviTitle, {
+    this.add.text(128, 256, uiText.night.corviTitle, {
       fontFamily: 'PixelifySans, monospace',
-      resolution: 2,
-      fontSize: '14px',
+      fontSize: '13px',
       color: '#fee761',
     });
-    this.add.text(130, 271, uiText.night.corviRole, {
+    this.add.text(128, 269, uiText.night.corviRole, {
       fontFamily: 'PixelifySans, monospace',
-      resolution: 2,
-      fontSize: '10px',
+      fontSize: '9px',
       color: '#c0cbdc',
     });
 
@@ -239,21 +233,21 @@ export class Noche extends Phaser.Scene {
         ? uiText.night.nasaSealDonki
         : uiText.night.nasaSeal;
 
-    this.add.text(124, 290, hookText, {
+    // Sello en la barra superior derecha del cuadro de Corvi para nunca tapar el texto
+    const seal = this.add.rectangle(220, 264, 106, 15, 0xfee761).setOrigin(0, 0);
+    seal.setStrokeStyle(1, 0x181425);
+    this.add.text(224, 266, `★ ${sealLabel}`, {
       fontFamily: 'PixelifySans, monospace',
-      resolution: 2,
-      fontSize: '11px',
+      fontSize: '8px',
       color: '#181425',
-      lineSpacing: 2,
     });
 
-    const seal = this.add.rectangle(124, 330, 194, 16, 0xfee761).setOrigin(0, 0);
-    seal.setStrokeStyle(1, 0x181425);
-    this.add.text(130, 332, `★ ${sealLabel}`, {
+    this.add.text(120, 290, hookText, {
       fontFamily: 'PixelifySans, monospace',
-      resolution: 2,
       fontSize: '10px',
       color: '#181425',
+      lineSpacing: 2,
+      wordWrap: { width: 198 },
     });
 
     // Efecto suave de estática tipo TV en toda la pantalla cuando el Día 1 avisa de la tormenta solar

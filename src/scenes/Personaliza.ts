@@ -1,8 +1,9 @@
 import Phaser from 'phaser';
-import { AudioSystem } from '../systems/Audio';
 import uiText from '../../content/ui_text.json';
 import { gameStore } from '../state/GameState';
 import { Save } from '../state/Save';
+import { AudioSystem } from '../systems/Audio';
+import { Clock } from '../systems/Clock';
 import {
   ACCESSORY_ORDER,
   ACCESSORY_UNLOCK_DAY,
@@ -22,11 +23,14 @@ interface PersonalizaInitData {
  * Escena Personaliza (sección 9.6):
  * Permite elegir color de traje (blanco, naranja, azul, verde, rosa),
  * peinado (1 o 2), accesorio desbloqueado por día y parche de misión.
+ * Al salir, despausa el reloj antes de guardar para que el jugador nunca quede paralizado.
  */
 export class Personaliza extends Phaser.Scene {
   private nextScene = 'Transmision';
   private previewContainer!: Phaser.GameObjects.Container;
-  private miniPreviewImg!: Phaser.GameObjects.Image;
+  private miniFrontImg!: Phaser.GameObjects.Image;
+  private miniSideImg!: Phaser.GameObjects.Image;
+  private miniBackImg!: Phaser.GameObjects.Image;
   private patchLabelText!: Phaser.GameObjects.Text;
 
   constructor() {
@@ -40,7 +44,7 @@ export class Personaliza extends Phaser.Scene {
   create(): void {
     AudioSystem.playMusic('starboard');
     const state = gameStore.state;
-    state.clock.paused = true;
+    Clock.setPaused(state, true);
 
     // 1. Fondo espacial oscuro y marco principal
     this.add.rectangle(320, 180, 640, 360, 0x181425);
@@ -52,27 +56,25 @@ export class Personaliza extends Phaser.Scene {
     this.add
       .text(320, 26, uiText.personaliza.header, {
         fontFamily: 'PixelifySans, monospace',
-        resolution: 2,
         fontSize: '14px',
         color: '#fee761',
       })
       .setOrigin(0.5);
 
-    // 2. Columna izquierda: Vista previa del astronauta a escala ×3 + vista mini ×2
+    // 2. Columna izquierda: Vista previa del astronauta a escala ×3 + vistas mini en 3 ángulos (frente, perfil, espalda)
     const previewCard = this.add.rectangle(136, 188, 212, 272, 0x3a4466);
     previewCard.setStrokeStyle(2, 0x181425);
 
-    this.add.ellipse(136, 250, 82, 16, 0x181425);
+    this.add.ellipse(116, 236, 76, 14, 0x181425);
 
-    this.previewContainer = this.add.container(136, 168);
-    this.miniPreviewImg = this.add
-      .image(204, 232, 'astronaut_mini_hair1')
-      .setScale(2);
+    this.previewContainer = this.add.container(116, 156);
+    this.miniFrontImg = this.add.image(204, 142, 'astronaut_mini_hair1').setScale(1.8);
+    this.miniSideImg = this.add.image(204, 188, 'astronaut_mini_hair1').setScale(1.8);
+    this.miniBackImg = this.add.image(204, 234, 'astronaut_mini_hair1').setScale(1.8);
 
     this.patchLabelText = this.add
-      .text(136, 282, '', {
+      .text(136, 284, '', {
         fontFamily: 'PixelifySans, monospace',
-        resolution: 2,
         fontSize: '11px',
         color: '#fee761',
       })
@@ -95,13 +97,14 @@ export class Personaliza extends Phaser.Scene {
     this.add
       .text(438, 326, uiText.personaliza.saveAndContinue, {
         fontFamily: 'PixelifySans, monospace',
-        resolution: 2,
         fontSize: '13px',
         color: '#ffffff',
       })
       .setOrigin(0.5);
 
     const finish = (): void => {
+      Clock.setPaused(state, false);
+      this.input.keyboard?.resetKeys();
       Save.save(state);
       this.scene.start(this.nextScene);
     };
@@ -119,17 +122,35 @@ export class Personaliza extends Phaser.Scene {
       this,
       0,
       0,
-      3,
+      2.8,
       state.customization
     );
     this.previewContainer.add(fullAstro);
 
-    const miniKey = AstronautAppearance.getMiniTextureKey(
+    const frontKey = AstronautAppearance.getDirectionalMiniKey(
       this,
       state.customization.hair,
-      state.customization.suit
+      state.customization.suit,
+      'down',
+      0
     );
-    this.miniPreviewImg.setTexture(miniKey);
+    const sideKey = AstronautAppearance.getDirectionalMiniKey(
+      this,
+      state.customization.hair,
+      state.customization.suit,
+      'right',
+      1
+    );
+    const backKey = AstronautAppearance.getDirectionalMiniKey(
+      this,
+      state.customization.hair,
+      state.customization.suit,
+      'up',
+      0
+    );
+    this.miniFrontImg.setTexture(frontKey);
+    this.miniSideImg.setTexture(sideKey);
+    this.miniBackImg.setTexture(backKey);
     this.patchLabelText.setText(`★ PARCHE: ${state.customization.patch}`);
   }
 
@@ -137,7 +158,6 @@ export class Personaliza extends Phaser.Scene {
     const state = gameStore.state;
     this.add.text(x, y, uiText.personaliza.suitColorTitle, {
       fontFamily: 'PixelifySans, monospace',
-      resolution: 2,
       fontSize: '11px',
       color: '#ead4aa',
     });
@@ -157,7 +177,6 @@ export class Personaliza extends Phaser.Scene {
       this.add
         .text(bx, by, unlocked ? palette.name : '🔒', {
           fontFamily: 'PixelifySans, monospace',
-          resolution: 2,
           fontSize: '10px',
           color: suitColor === 'blanco' || suitColor === 'azul' ? '#181425' : '#ffffff',
         })
@@ -165,6 +184,7 @@ export class Personaliza extends Phaser.Scene {
 
       swatch.on('pointerdown', () => {
         if (Customization.setSuitColor(state, suitColor)) {
+          AudioSystem.play('ui_click');
           Save.save(state);
           this.scene.restart({ nextScene: this.nextScene });
         }
@@ -176,7 +196,6 @@ export class Personaliza extends Phaser.Scene {
     const state = gameStore.state;
     this.add.text(x, y, uiText.personaliza.hairTitle, {
       fontFamily: 'PixelifySans, monospace',
-      resolution: 2,
       fontSize: '11px',
       color: '#ead4aa',
     });
@@ -198,7 +217,6 @@ export class Personaliza extends Phaser.Scene {
       this.add
         .text(bx, by, unlocked ? label : `${label} 🔒`, {
           fontFamily: 'PixelifySans, monospace',
-          resolution: 2,
           fontSize: '11px',
           color: isSelected ? '#fee761' : '#ffffff',
         })
@@ -206,6 +224,7 @@ export class Personaliza extends Phaser.Scene {
 
       btn.on('pointerdown', () => {
         if (Customization.setHair(state, hairNum)) {
+          AudioSystem.play('ui_click');
           Save.save(state);
           this.scene.restart({ nextScene: this.nextScene });
         }
@@ -217,7 +236,6 @@ export class Personaliza extends Phaser.Scene {
     const state = gameStore.state;
     this.add.text(x, y, uiText.personaliza.accessoryTitle, {
       fontFamily: 'PixelifySans, monospace',
-      resolution: 2,
       fontSize: '11px',
       color: '#ead4aa',
     });
@@ -239,7 +257,6 @@ export class Personaliza extends Phaser.Scene {
         this.add
           .text(bx, by, 'Ninguno', {
             fontFamily: 'PixelifySans, monospace',
-            resolution: 2,
             fontSize: '9px',
             color: '#181425',
           })
@@ -259,7 +276,6 @@ export class Personaliza extends Phaser.Scene {
           this.add
             .text(bx, by + 13, `Día ${minDay}`, {
               fontFamily: 'PixelifySans, monospace',
-              resolution: 2,
               fontSize: '8px',
               color: '#fee761',
             })
@@ -269,6 +285,7 @@ export class Personaliza extends Phaser.Scene {
 
       box.on('pointerdown', () => {
         if (Customization.setAccessory(state, acc)) {
+          AudioSystem.play('ui_click');
           Save.save(state);
           this.scene.restart({ nextScene: this.nextScene });
         }
@@ -280,7 +297,6 @@ export class Personaliza extends Phaser.Scene {
     const state = gameStore.state;
     this.add.text(x, y, uiText.personaliza.patchTitle, {
       fontFamily: 'PixelifySans, monospace',
-      resolution: 2,
       fontSize: '11px',
       color: '#ead4aa',
     });
@@ -299,7 +315,6 @@ export class Personaliza extends Phaser.Scene {
       this.add
         .text(bx, by, patch, {
           fontFamily: 'PixelifySans, monospace',
-          resolution: 2,
           fontSize: '9px',
           color: isSelected ? '#fee761' : '#ffffff',
         })
@@ -307,6 +322,7 @@ export class Personaliza extends Phaser.Scene {
 
       btn.on('pointerdown', () => {
         if (Customization.setPatch(state, patch)) {
+          AudioSystem.play('ui_click');
           Save.save(state);
           this.scene.restart({ nextScene: this.nextScene });
         }

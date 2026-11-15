@@ -12,9 +12,10 @@ import { Events } from '../systems/Events';
 import { generateSampleSites, type SampleSite } from '../systems/SampleSites';
 import { Vitals } from '../systems/Vitals';
 import type { SampleType } from '../types';
-import { AstronautAppearance } from '../ui/AstronautAppearance';
+import { AstronautAppearance, type AstronautDirection } from '../ui/AstronautAppearance';
 import { getSharedJoystickVector } from '../ui/Joystick';
 import { StaticEffect } from '../ui/StaticEffect';
+import { Dialogo } from './Dialogo';
 
 interface InteractPoint {
   id: string;
@@ -73,8 +74,9 @@ export class Mundo extends Phaser.Scene {
   private keyA!: Phaser.Input.Keyboard.Key;
   private keyS!: Phaser.Input.Keyboard.Key;
   private keyD!: Phaser.Input.Keyboard.Key;
-  private playerOriginY = 0;
   private walkBobTime = 0;
+  private facingDir: AstronautDirection = 'down';
+  private sceneEnteredAt = 0;
 
   private nightOverlay!: Phaser.GameObjects.Rectangle;
   private interactPoints: InteractPoint[] = [];
@@ -99,6 +101,10 @@ export class Mundo extends Phaser.Scene {
   create(): void {
     const state = gameStore.state;
     state.location = 'mundo';
+    Clock.setPaused(state, false);
+    this.sceneEnteredAt = this.time.now;
+    this.facingDir = 'down';
+    this.walkBobTime = 0;
     this.rescueTriggered = false;
     this.interactPoints = [];
     this.activeSamplePoint = null;
@@ -245,11 +251,16 @@ export class Mundo extends Phaser.Scene {
     ];
     this.drawZoneSigns();
 
-    // 4. Astronauta con su color de traje y peinado actuales
-    const hairKey = AstronautAppearance.getMiniTextureKey(this, state.customization.hair, state.customization.suit);
+    // 4. Astronauta con su color de traje, peinado y vista en 4 direcciones
+    const hairKey = AstronautAppearance.getDirectionalMiniKey(
+      this,
+      state.customization.hair,
+      state.customization.suit,
+      'down',
+      0
+    );
     this.player = this.physics.add.sprite(state.astronaut.pos.x, state.astronaut.pos.y, hairKey);
     this.player.setCollideWorldBounds(true).setDepth(10);
-    this.playerOriginY = this.player.displayOriginY;
     const body = this.player.body as Phaser.Physics.Arcade.Body;
     body.setSize(10, 10);
     body.setOffset(2, 13);
@@ -276,6 +287,7 @@ export class Mundo extends Phaser.Scene {
     // 8. Controles de teclado
     const keyboard = this.input.keyboard;
     if (keyboard) {
+      keyboard.resetKeys();
       this.cursors = keyboard.createCursorKeys();
       this.keyW = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W);
       this.keyA = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
@@ -292,6 +304,11 @@ export class Mundo extends Phaser.Scene {
         bus.emit('clock:pauseChanged', { paused });
       });
     }
+
+    const onBlur = (): void => {
+      this.input.keyboard?.resetKeys();
+    };
+    window.addEventListener('blur', onBlur);
 
     this.unsubscribers.push(
       bus.on('input:action', () => this.handleInteraction()),
@@ -323,6 +340,7 @@ export class Mundo extends Phaser.Scene {
     }
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      window.removeEventListener('blur', onBlur);
       for (const unsub of this.unsubscribers) unsub();
       this.unsubscribers = [];
       this.staticEffect?.destroy();
@@ -588,6 +606,7 @@ export class Mundo extends Phaser.Scene {
     const inMinigame = this.isAnyMinigameActive();
     if (inMinigame !== this.wasInMinigame) {
       this.wasInMinigame = inMinigame;
+      this.input.keyboard?.resetKeys();
       AudioSystem.setMusicDuck(inMinigame ? 0.45 : 1);
       if (inMinigame) bus.emit('prompt:near', { text: null });
     }
@@ -604,14 +623,23 @@ export class Mundo extends Phaser.Scene {
     if (state.clock.paused) {
       this.player.setVelocity(0, 0);
       this.walkBobTime = 0;
-      this.player.setDisplayOrigin(this.player.displayOriginX, this.playerOriginY);
+      AstronautAppearance.updatePlayerWalk(
+        this,
+        this.player,
+        state.customization.hair,
+        state.customization.suit,
+        0,
+        0,
+        0,
+        this.facingDir
+      );
       return;
     }
 
     this.staticEffect?.update(time);
     const dt = delta / 1000;
 
-    // 1. Movimiento (WASD, flechas o joystick)
+    // 1. Movimiento (WASD, flechas o joystick) con vistas en 4 direcciones y pasos animados
     let vx = 0;
     let vy = 0;
     if (this.cursors) {
@@ -632,17 +660,23 @@ export class Mundo extends Phaser.Scene {
       const len = Math.hypot(vx, vy);
       const speed = balance.player.speed;
       this.player.setVelocity((vx / len) * speed, (vy / len) * speed);
-      if (vx < 0) this.player.setFlipX(true);
-      else if (vx > 0) this.player.setFlipX(false);
       this.walkBobTime += delta;
-      const bob = Math.sin(this.walkBobTime * 0.018) * 0.8;
-      this.player.setDisplayOrigin(this.player.displayOriginX, this.playerOriginY + bob);
       this.leaveFootprint(time);
     } else {
       this.player.setVelocity(0, 0);
       this.walkBobTime = 0;
-      this.player.setDisplayOrigin(this.player.displayOriginX, this.playerOriginY);
     }
+
+    this.facingDir = AstronautAppearance.updatePlayerWalk(
+      this,
+      this.player,
+      state.customization.hair,
+      state.customization.suit,
+      vx,
+      vy,
+      this.walkBobTime,
+      this.facingDir
+    );
     this.fadeFootprints(time);
 
     state.astronaut.pos.x = Math.round(this.player.x);
@@ -801,7 +835,15 @@ export class Mundo extends Phaser.Scene {
 
   private handleInteraction(): void {
     const state = gameStore.state;
-    if (state.clock.paused || this.rescueTriggered || this.isAnyMinigameActive()) return;
+    if (
+      state.clock.paused ||
+      this.rescueTriggered ||
+      this.isAnyMinigameActive() ||
+      Dialogo.isDialogBlocking() ||
+      this.time.now - this.sceneEnteredAt < 350
+    ) {
+      return;
+    }
     const nearest = this.getNearestInteractPoint();
     if (!nearest) return;
     this.activatePoint(nearest);
@@ -809,7 +851,7 @@ export class Mundo extends Phaser.Scene {
 
   private activatePoint(pt: InteractPoint): void {
     const state = gameStore.state;
-    if (this.isAnyMinigameActive() || state.clock.paused) return;
+    if (this.isAnyMinigameActive() || state.clock.paused || Dialogo.isDialogBlocking()) return;
 
     switch (pt.kind) {
       case 'door':

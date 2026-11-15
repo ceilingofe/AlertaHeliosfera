@@ -1,14 +1,15 @@
 import Phaser from 'phaser';
-import { AudioSystem } from '../systems/Audio';
 import uiText from '../../content/ui_text.json';
 import { gameStore } from '../state/GameState';
+import { AudioSystem } from '../systems/Audio';
 import { AstronautAppearance } from '../ui/AstronautAppearance';
 import { DialogBox } from '../ui/DialogBox';
 
 /**
  * Escena Despegue (fiel al storyboard s01_despegue.png):
  * Pantalla del día 1 con cohete aterrizado, astronauta en traje por defecto o personalizado,
- * botón "¡Despegue rápido!", vista de la personalización y saludo grande de Corvi.
+ * botón "¡Despegue rápido!", vista de la personalización (con candado en esquina sin tapar iconos)
+ * y saludo grande de Corvi.
  */
 export class Despegue extends Phaser.Scene {
   private dialogBox: DialogBox | null = null;
@@ -36,11 +37,10 @@ export class Despegue extends Phaser.Scene {
     horizon.fillStyle(0xb86f50, 1);
     horizon.fillEllipse(310, 340, 680, 156);
 
-    // 2. Título superior "DÍA 1 · BIENVENIDA A JEZERO" y botón de Fuentes NASA
+    // 2. Título superior "DÍA 1 · TE DAMOS LA BIENVENIDA A JEZERO" y botón de Fuentes NASA
     this.add
       .text(320, 22, uiText.despegue.header, {
         fontFamily: 'PixelifySans, monospace',
-        resolution: 2,
         fontSize: '18px',
         color: '#ffffff',
       })
@@ -53,7 +53,6 @@ export class Despegue extends Phaser.Scene {
     this.add
       .text(64, 22, '★ Fuentes NASA', {
         fontFamily: 'PixelifySans, monospace',
-        resolution: 2,
         fontSize: '10px',
         color: '#fee761',
       })
@@ -84,7 +83,6 @@ export class Despegue extends Phaser.Scene {
     this.add
       .text(522, 74, uiText.despegue.quickLaunchButton, {
         fontFamily: 'PixelifySans, monospace',
-        resolution: 2,
         fontSize: '18px',
         color: '#ffffff',
       })
@@ -99,23 +97,21 @@ export class Despegue extends Phaser.Scene {
           : uiText.despegue.defaultSuitLabel,
         {
           fontFamily: 'PixelifySans, monospace',
-          resolution: 2,
           fontSize: '11px',
           color: '#c0cbdc',
         }
       )
       .setOrigin(0.5);
 
-    // 5. Vista previa de personalización "PREMIO DEL DÍA 1" (bloqueada con candado en el Día 1)
+    // 5. Vista previa de personalización "PREMIO DEL DÍA 1"
     const prizePanel = this.add
-      .rectangle(416, 118, 212, 122, 0x5a6988)
+      .rectangle(416, 118, 212, 116, 0x5a6988)
       .setOrigin(0, 0)
       .setStrokeStyle(2, 0x3a4466)
       .setInteractive({ useHandCursor: state.unlocks.customization });
 
-    this.add.text(428, 125, uiText.despegue.prizeTitle, {
+    this.add.text(426, 124, uiText.despegue.prizeTitle, {
       fontFamily: 'PixelifySans, monospace',
-      resolution: 2,
       fontSize: '11px',
       color: '#181425',
     });
@@ -134,24 +130,21 @@ export class Despegue extends Phaser.Scene {
     accKeys.forEach((accKey, idx) => {
       const ax = 448 + idx * 48;
       this.add
-        .rectangle(ax, 202, 42, 46, 0x8b9bb4)
+        .rectangle(ax, 202, 42, 44, 0x8b9bb4)
         .setStrokeStyle(2, 0x3a4466);
       this.add.image(ax, 206, 'astronaut_mini_hair1').setScale(1.6);
       this.add.image(ax, 198, accKey).setScale(0.75);
     });
 
     if (!state.unlocks.customization) {
-      // Candado grande amarillo en el centro de la tarjeta (s01_despegue.png)
-      const lockBox = this.add
-        .rectangle(522, 180, 52, 40, 0xfee761)
+      // Candado compacto en la esquina superior derecha de la tarjeta para no tapar los accesorios
+      this.add
+        .rectangle(604, 134, 34, 24, 0xfee761)
         .setStrokeStyle(2, 0x181425);
-      const lockBody = this.add.rectangle(522, 184, 22, 18, 0x181425);
+      this.add.rectangle(604, 137, 14, 11, 0x181425);
       const lockArc = this.add.graphics();
-      lockArc.lineStyle(3, 0x181425, 1);
-      lockArc.strokeCircle(522, 172, 7);
-      void prizePanel;
-      void lockBox;
-      void lockBody;
+      lockArc.lineStyle(2, 0x181425, 1);
+      lockArc.strokeCircle(604, 130, 4.5);
     } else {
       prizePanel.on('pointerdown', () => {
         this.dialogBox?.destroy();
@@ -160,7 +153,7 @@ export class Despegue extends Phaser.Scene {
       });
     }
 
-    // 6. Diálogo grande de Corvi con placa de nombre y sello NASA
+    // 6. Diálogo grande de Corvi
     this.dialogBox = new DialogBox(this, {
       mode: 'big',
       mood: 'happy',

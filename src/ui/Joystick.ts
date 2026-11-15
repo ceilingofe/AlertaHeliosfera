@@ -25,6 +25,7 @@ export class TouchControls {
   private joyStick: VirtualJoyStick;
   private actionBg: Phaser.GameObjects.Arc;
   private actionText: Phaser.GameObjects.Text;
+  private onBlur: () => void;
 
   constructor(scene: Phaser.Scene, x = 44, y = 316, actionX = 598, actionY = 316) {
     const base = scene.add.circle(0, 0, 26, 0x262b44, 0.78).setStrokeStyle(2, 0x181425);
@@ -51,7 +52,6 @@ export class TouchControls {
     this.actionText = scene.add
       .text(actionX, actionY, uiText.hud.actionButton, {
         fontFamily: 'PixelifySans, monospace',
-        resolution: 2,
         fontSize: '16px',
         color: '#ffffff',
       })
@@ -71,10 +71,36 @@ export class TouchControls {
       this.actionBg.setFillStyle(0xf77622, 0.88);
     });
 
+    this.onBlur = () => this.reset();
+    if (typeof window !== 'undefined') {
+      window.addEventListener('blur', this.onBlur);
+    }
+    scene.input.on('gameout', this.onBlur);
+
     activeControls = this;
   }
 
+  reset(): void {
+    const raw = this.joyStick as unknown as {
+      clearVector?: () => void;
+      pointer?: Phaser.Input.Pointer | null;
+    };
+    raw.pointer = null;
+    raw.clearVector?.();
+  }
+
   getVector(): JoystickVector {
+    const raw = this.joyStick as unknown as {
+      clearVector?: () => void;
+      pointer?: Phaser.Input.Pointer | null;
+    };
+    if (!raw.pointer || !raw.pointer.isDown || !raw.pointer.active) {
+      if (this.joyStick.left || this.joyStick.right || this.joyStick.up || this.joyStick.down) {
+        this.reset();
+      }
+      return { x: 0, y: 0 };
+    }
+
     let vx = 0;
     let vy = 0;
     if (this.joyStick.left) vx -= 1;
@@ -85,6 +111,9 @@ export class TouchControls {
   }
 
   destroy(): void {
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('blur', this.onBlur);
+    }
     if (activeControls === this) {
       activeControls = null;
     }

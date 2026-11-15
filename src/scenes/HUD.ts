@@ -25,12 +25,19 @@ const RADAR = { x: 576, y: 104, r: 44, range: 360 };
  */
 export class HUD extends Phaser.Scene {
   private missionsBg!: Phaser.GameObjects.Rectangle;
+  private missionsHeaderTitle!: Phaser.GameObjects.Text;
+  private missionsToggleText!: Phaser.GameObjects.Text;
+  private missionsCollapsed = false;
   private missionRows: { box: Phaser.GameObjects.Rectangle; label: Phaser.GameObjects.Text }[] = [];
 
   private dayText!: Phaser.GameObjects.Text;
   private timeText!: Phaser.GameObjects.Text;
+  private windowBadgeBg!: Phaser.GameObjects.Rectangle;
+  private windowBadgeText!: Phaser.GameObjects.Text;
   private dayBarFill!: Phaser.GameObjects.Rectangle;
-  private skyIcon!: Phaser.GameObjects.Image;
+  private dialGfx!: Phaser.GameObjects.Graphics;
+  private dialSun!: Phaser.GameObjects.Image;
+  private dialMoon!: Phaser.GameObjects.Image;
 
   private zoneText!: Phaser.GameObjects.Text;
   private zoneBg!: Phaser.GameObjects.Rectangle;
@@ -176,7 +183,24 @@ export class HUD extends Phaser.Scene {
 
   private buildMissions(): void {
     this.missionsBg = this.panel(6, 74, 184, 20, 0x262b44);
-    this.label(12, 77, uiText.hud.missionsTitle, 11, '#fee761');
+    const headerHit = this.add
+      .rectangle(6, 74, 184, 20, 0xffffff, 0)
+      .setOrigin(0, 0)
+      .setInteractive({ useHandCursor: true });
+    this.missionsHeaderTitle = this.label(12, 77, `▼ ${uiText.hud.missionsTitle}`, 10, '#fee761');
+    this.missionsToggleText = this.label(184, 77, '[−]', 10, '#ead4aa').setOrigin(1, 0);
+
+    const toggleMissions = (): void => {
+      this.missionsCollapsed = !this.missionsCollapsed;
+      AudioSystem.play('ui_switch', { volume: 0.4 });
+      this.updateMissions();
+    };
+    headerHit.on('pointerdown', toggleMissions);
+    this.input.keyboard?.on('keydown-TAB', (ev: KeyboardEvent) => {
+      ev.preventDefault?.();
+      toggleMissions();
+    });
+
     for (let i = 0; i < 6; i++) {
       const y = 94 + i * 14;
       const box = this.add.rectangle(16, y + 6, 8, 8, 0xffffff).setStrokeStyle(1, 0x181425);
@@ -186,24 +210,40 @@ export class HUD extends Phaser.Scene {
   }
 
   private buildClock(): void {
-    const clockPanel = this.panel(520, 6, 114, 34).setInteractive({ useHandCursor: true });
+    const clockPanel = this.panel(512, 6, 122, 36).setInteractive({ useHandCursor: true });
     clockPanel.on('pointerdown', () => {
       const paused = Clock.togglePause(gameStore.state);
       bus.emit('clock:pauseChanged', { paused });
     });
-    this.dayText = this.label(526, 8, `${uiText.hud.dayPrefix} 1`, 13, '#181425');
-    this.timeText = this.label(612, 8, '09:00', 13, '#181425').setOrigin(1, 0);
-    this.skyIcon = this.add.image(622, 15, 'icon_sun').setScale(1.2);
-    this.add.rectangle(526, 32, 102, 4, 0x3a4466).setOrigin(0, 0.5);
-    this.dayBarFill = this.add.rectangle(526, 32, 0, 4, 0xfee761).setOrigin(0, 0.5);
+    this.dayText = this.label(518, 8, `${uiText.hud.dayPrefix} 1`, 11, '#181425');
+    this.timeText = this.label(594, 8, '08:00', 11, '#181425').setOrigin(1, 0);
+
+    // Indicador visual de tiempo disponible AFUERA vs ADENTRO + barra dividida en las 17:00
+    this.windowBadgeBg = this.add
+      .rectangle(518, 21, 76, 10, 0x265c42)
+      .setOrigin(0, 0)
+      .setStrokeStyle(1, 0x181425);
+    this.windowBadgeText = this.label(556, 21, uiText.hud.outdoorWindowLabel, 8, '#ffffff').setOrigin(0.5, 0);
+
+    // Barra de tiempo del día: tramo verde/ámbar (08:00–17:00 afuera) y tramo nocturno (17:00–20:00 adentro)
+    this.add.rectangle(518, 36, 57, 4, 0x3a4466).setOrigin(0, 0.5);
+    this.add.rectangle(575, 36, 19, 4, 0x181425).setOrigin(0, 0.5);
+    this.dayBarFill = this.add.rectangle(518, 36, 0, 4, 0x63c74d).setOrigin(0, 0.5);
+    // Marca divisoria de las 17:00 (toque de queda térmico)
+    this.add.rectangle(575, 36, 2, 6, 0xe43b44).setOrigin(0.5);
+
+    // Reloj giratorio estilo Minecraft (Sol y Luna orbitando según la hora marciana)
+    this.dialGfx = this.add.graphics();
+    this.dialSun = this.add.image(614, 18, 'icon_sun').setScale(0.95);
+    this.dialMoon = this.add.image(614, 30, 'icon_moon').setScale(0.9);
 
     // Confianza de Control de Misión + puntos de ciencia
-    this.panel(520, 42, 114, 16, 0x262b44);
+    this.panel(512, 44, 122, 16, 0x262b44);
     for (let i = 0; i < balance.mission.maxTrust; i++) {
-      this.trustStars.push(this.label(526 + i * 12, 43, '★', 12, '#fee761'));
+      this.trustStars.push(this.label(518 + i * 12, 45, '★', 12, '#fee761'));
     }
-    this.scienceText = this.label(628, 44, '0 pts', 10, '#2ce8f5').setOrigin(1, 0);
-    const trustHit = this.add.rectangle(520, 42, 60, 16, 0, 0).setOrigin(0, 0).setInteractive();
+    this.scienceText = this.label(628, 46, '0 pts', 10, '#2ce8f5').setOrigin(1, 0);
+    const trustHit = this.add.rectangle(512, 44, 60, 16, 0, 0).setOrigin(0, 0).setInteractive();
     trustHit.on('pointerdown', () => this.showRadioMessage(uiText.hud.trustExplain));
   }
 
@@ -398,12 +438,18 @@ export class HUD extends Phaser.Scene {
     }
 
     const shown = missions.slice(0, 6);
-    this.missionsBg.height = 22 + shown.length * 14;
+    const doneCount = shown.filter((m) => m.done).length;
+    const arrow = this.missionsCollapsed ? '►' : '▼';
+    this.missionsHeaderTitle.setText(`${arrow} ${uiText.hud.missionsTitle} (${doneCount}/${shown.length})`);
+    this.missionsToggleText.setText(this.missionsCollapsed ? '[+]' : '[−]');
+    this.missionsBg.height = this.missionsCollapsed ? 20 : 22 + shown.length * 14;
+
     this.missionRows.forEach((row, idx) => {
       const item = shown[idx];
-      row.box.setVisible(!!item);
-      row.label.setVisible(!!item);
-      if (!item) return;
+      const visible = !this.missionsCollapsed && !!item;
+      row.box.setVisible(visible);
+      row.label.setVisible(visible);
+      if (!item || !visible) return;
       row.label.setText(item.label);
       row.box.setFillStyle(item.done ? 0x63c74d : 0xffffff);
       row.label.setColor(item.done ? '#8b9bb4' : '#ffffff');
@@ -452,10 +498,54 @@ export class HUD extends Phaser.Scene {
 
   private updateClockAndTrust(): void {
     const state = gameStore.state;
+    const mins = state.clock.minutes;
     this.dayText.setText(`${uiText.hud.dayPrefix} ${state.day}`);
-    this.timeText.setText(Clock.formatTime(state.clock.minutes));
-    this.dayBarFill.width = Math.round(102 * Clock.getProgress(state.clock.minutes));
-    this.skyIcon.setTexture(Clock.isNight(state.clock.minutes) ? 'icon_moon' : 'icon_sun');
+    this.timeText.setText(Clock.formatTime(mins));
+
+    const progress = Clock.getProgress(mins);
+    this.dayBarFill.width = Math.round(76 * progress);
+
+    const isNight = Clock.isNight(mins);
+    const isWarn = mins >= balance.dayClock.warnMin && !isNight;
+    if (isNight) {
+      this.dayBarFill.setFillStyle(0xe43b44);
+      this.windowBadgeBg.setFillStyle(0x262b44);
+      this.windowBadgeText.setText(`🌙 ${uiText.hud.indoorCurfewLabel}`).setColor('#2ce8f5');
+    } else if (isWarn) {
+      const remHrs = Math.max(0, Math.ceil((balance.dayClock.curfewMin - mins) / 60));
+      this.dayBarFill.setFillStyle(0xfee761);
+      this.windowBadgeBg.setFillStyle(0xb86f50);
+      this.windowBadgeText.setText(`☀️ ${uiText.hud.outdoorWindowLabel} · ${remHrs}h`).setColor('#fee761');
+    } else {
+      const remHrs = Math.max(1, Math.ceil((balance.dayClock.curfewMin - mins) / 60));
+      this.dayBarFill.setFillStyle(0x63c74d);
+      this.windowBadgeBg.setFillStyle(0x265c42);
+      this.windowBadgeText.setText(`☀️ ${uiText.hud.outdoorWindowLabel} · ${remHrs}h`).setColor('#ffffff');
+    }
+
+    // Dial giratorio estilo Minecraft: el Sol está arriba al mediodía (12:30) y se oculta a las 17:00
+    const cx = 614;
+    const cy = 24;
+    const r = 13;
+    const skyColor = isNight ? 0x181425 : isWarn ? 0xb86f50 : 0x0099db;
+    this.dialGfx.clear();
+    this.dialGfx.fillStyle(skyColor, 1).fillCircle(cx, cy, r);
+    // Horizonte marciano en la parte baja del dial
+    this.dialGfx.fillStyle(0x733e39, 1).slice(cx, cy, r, Phaser.Math.DegToRad(20), Phaser.Math.DegToRad(160), false).fillPath();
+    this.dialGfx.lineStyle(2, 0x181425, 1).strokeCircle(cx, cy, r);
+
+    // Ángulo celeste: 08:00 -> -155°, 12:30 -> -90° (cenit), 17:00 -> -15° (ocaso), 20:00 -> +75° (noche)
+    const sunAngle = Phaser.Math.DegToRad(-155 + progress * 230);
+    const moonAngle = sunAngle + Math.PI;
+    const orbitR = 7.5;
+    const sx = cx + Math.cos(sunAngle) * orbitR;
+    const sy = cy + Math.sin(sunAngle) * orbitR;
+    const mx = cx + Math.cos(moonAngle) * orbitR;
+    const my = cy + Math.sin(moonAngle) * orbitR;
+
+    this.dialSun.setPosition(sx, sy).setVisible(sy <= cy + 4);
+    this.dialMoon.setPosition(mx, my).setVisible(my <= cy + 4);
+
     this.trustStars.forEach((s, i) => s.setColor(i < state.missionTrust ? '#fee761' : '#3a4466'));
     this.scienceText.setText(`${state.sciencePoints} pts`);
   }
@@ -551,8 +641,8 @@ export class HUD extends Phaser.Scene {
     AudioSystem.play('ui_open', { volume: 0.6 });
     const dim = this.add.rectangle(320, 180, 640, 360, 0x181425, 0.8).setInteractive();
     dim.on('pointerdown', () => this.toggleMap());
-    const frame = this.add.rectangle(320, 172, 420, 318, 0x262b44).setStrokeStyle(2, 0xfee761);
-    const title = this.label(320, 22, uiText.hud.mapTitle, 14, '#fee761').setOrigin(0.5, 0);
+    const frame = this.add.rectangle(320, 166, 424, 304, 0x262b44).setStrokeStyle(2, 0xfee761);
+    const title = this.label(320, 20, uiText.hud.mapTitle, 14, '#fee761').setOrigin(0.5, 0);
     this.mapGfx = this.add.graphics();
     const zoneLabels: [string, number, number][] = [
       ['Bright Angel', 640, 110],
@@ -565,7 +655,7 @@ export class HUD extends Phaser.Scene {
       const p = this.mapPoint(wx, wy);
       items.push(this.label(p.x, p.y, name, 10, '#ead4aa').setOrigin(0.5).setAlpha(0.85));
     }
-    // Leyenda
+    // Leyenda dentro del recuadro del mapa (arriba de la barra de herramientas inferior)
     const legend: [string, number][] = [
       [uiText.hud.legendRock, SAMPLE_COLORS.roca],
       [uiText.hud.legendSoil, SAMPLE_COLORS.suelo],
@@ -573,17 +663,17 @@ export class HUD extends Phaser.Scene {
       [uiText.hud.legendAir, SAMPLE_COLORS.aire],
     ];
     legend.forEach(([name, color], i) => {
-      const lx = 130 + i * 92;
-      items.push(this.add.circle(lx, 322, 4, color).setStrokeStyle(1, 0x181425));
-      items.push(this.label(lx + 8, 316, name, 10, '#ffffff'));
+      const lx = 136 + i * 92;
+      items.push(this.add.circle(lx, 294, 4, color).setStrokeStyle(1, 0x181425));
+      items.push(this.label(lx + 8, 288, name, 10, '#ffffff'));
     });
-    items.push(this.label(320, 336, uiText.hud.mapLegendExtra, 10, '#c0cbdc').setOrigin(0.5, 0));
+    items.push(this.label(320, 303, uiText.hud.mapLegendExtra, 9, '#c0cbdc').setOrigin(0.5, 0));
     this.mapContainer = this.add.container(0, 0, items).setDepth(90);
   }
 
   private mapPoint(wx: number, wy: number): { x: number; y: number } {
-    // Mundo 1280×960 → caja de 384×288 centrada
-    return { x: 128 + (wx / 1280) * 384, y: 30 + 10 + (wy / 960) * 268 };
+    // Mundo 1280×960 → caja de 384×244 centrada dentro del marco
+    return { x: 128 + (wx / 1280) * 384, y: 38 + (wy / 960) * 244 };
   }
 
   private drawFullMap(): void {

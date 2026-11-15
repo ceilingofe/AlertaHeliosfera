@@ -42,6 +42,23 @@ const SPRITE_KEYS = [
   'tube_full',
 ] as const;
 
+const CHAR_SPRITE_KEYS = [
+  'girl_front',
+  'girl_side',
+  'girl_front_mini',
+  'girl_side_mini',
+  'boy1_front',
+  'boy1_side',
+  'boy1_front_mini',
+  'boy1_side_mini',
+  'boy2_front',
+  'boy2_side',
+  'boy2_front_mini',
+  'boy2_side_mini',
+  'character_back',
+  'character_back_mini',
+] as const;
+
 const UI_ICON_KEYS = [
   'icon_bolt',
   'icon_brush',
@@ -78,7 +95,6 @@ export class Preload extends Phaser.Scene {
     const loadingLabel = this.add
       .text(width / 2, height / 2 - 6, uiText.loading, {
         fontFamily: 'PixelifySans, monospace',
-        resolution: 2,
         fontSize: '16px',
         color: '#ead4aa',
       })
@@ -96,6 +112,10 @@ export class Preload extends Phaser.Scene {
 
     for (const key of SPRITE_KEYS) {
       this.load.image(key, `assets/sprites/${key}.png`);
+    }
+
+    for (const key of CHAR_SPRITE_KEYS) {
+      this.load.image(key, `assets/sprites/char/${key}.png`);
     }
 
     for (const key of UI_ICON_KEYS) {

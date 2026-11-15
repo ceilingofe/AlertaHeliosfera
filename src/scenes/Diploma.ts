@@ -1,8 +1,9 @@
 import Phaser from 'phaser';
-import { AudioSystem } from '../systems/Audio';
 import uiText from '../../content/ui_text.json';
 import { gameStore } from '../state/GameState';
 import { Save } from '../state/Save';
+import { AudioSystem } from '../systems/Audio';
+import { Clock } from '../systems/Clock';
 import { Customization } from '../systems/Customization';
 import { Data, type FactEntry } from '../systems/Data';
 import type { RescueCause } from '../types';
@@ -15,7 +16,8 @@ interface DiplomaData {
 
 /**
  * Escena Diploma (fiel al storyboard s13_diploma.png y sección 9.8):
- * Muestra el certificado final de la misión LUNA-7 con la personalización del astronauta a ×2,
+ * Muestra el certificado final de la misión LUNA-7 con la personalización del astronauta,
+ * insignia del parche de misión y medallón orbital sin empalmarse con las estadísticas,
  * días sobrevividos, muestras por tipo, kg de O₂ de MOXIE, tormentas en refugio,
  * % del límite de radiación del juego, dato favorito y descarga como PNG.
  */
@@ -38,7 +40,7 @@ export class Diploma extends Phaser.Scene {
 
   create(): void {
     const state = gameStore.state;
-    state.clock.paused = true;
+    Clock.setPaused(state, true);
     AudioSystem.stopAllLoops();
     AudioSystem.playMusic('starboard');
     AudioSystem.play('ui_confirm_big');
@@ -75,56 +77,65 @@ export class Diploma extends Phaser.Scene {
 
     // 3. Encabezado del diploma
     this.add
-      .text(320, 46, uiText.diploma.title, {
+      .text(320, 44, uiText.diploma.title, {
         fontFamily: 'PixelifySans, monospace',
-        resolution: 2,
         fontSize: '18px',
         color: '#733e39',
       })
       .setOrigin(0.5);
 
     this.add
-      .text(320, 67, uiText.diploma.subtitle, {
+      .text(320, 64, uiText.diploma.subtitle, {
         fontFamily: 'PixelifySans, monospace',
-        resolution: 2,
         fontSize: '11px',
         color: '#b86f50',
       })
       .setOrigin(0.5);
 
-    // 4. Medallón espacial arriba a la derecha (Sol, Marte y arco de trayectoria)
-    const badgeX = 538;
-    const badgeY = 114;
-    this.add.circle(badgeX, badgeY, 34, 0x262b44).setStrokeStyle(2, 0x181425);
+    // 4. Medallón espacial en la esquina superior derecha (x = 556, y = 64, r = 22) lejos de la tabla de datos
+    const badgeX = 556;
+    const badgeY = 64;
+    this.add.circle(badgeX, badgeY, 22, 0x262b44).setStrokeStyle(2, 0x181425);
     const orbit = this.add.graphics();
     orbit.lineStyle(2, 0x2ce8f5, 1);
     orbit.beginPath();
-    orbit.arc(badgeX - 2, badgeY + 4, 24, Phaser.Math.DegToRad(200), Phaser.Math.DegToRad(330), false);
+    orbit.arc(badgeX - 1, badgeY + 3, 15, Phaser.Math.DegToRad(200), Phaser.Math.DegToRad(330), false);
     orbit.strokePath();
-    this.add.circle(badgeX - 9, badgeY - 9, 10, 0xfee761);
-    this.add.circle(badgeX + 9, badgeY + 9, 12, 0xb86f50);
+    this.add.circle(badgeX - 6, badgeY - 6, 6, 0xfee761);
+    this.add.circle(badgeX + 6, badgeY + 6, 7, 0xb86f50);
 
-    // 5. Columna izquierda: Astronauta personalizado a ×2 y Corvi orgulloso abajo
+    // 5. Columna izquierda (x = 114): Astronauta personalizado + insignia del Parche + Corvi orgulloso
     AstronautAppearance.createFullAstronautContainer(
       this,
-      118,
-      184,
-      2.6,
+      114,
+      166,
+      2.4,
       state.customization
     );
 
-    this.add.image(118, 294, 'corvi_proud').setScale(1.1);
+    // Insignia del parche de misión debajo del astronauta, en su propia columna (sin empalmarse con las filas)
+    this.add
+      .rectangle(114, 244, 118, 18, 0x262b44)
+      .setStrokeStyle(1, 0x181425);
+    this.add
+      .text(114, 244, `★ ${state.customization.patch}`, {
+        fontFamily: 'PixelifySans, monospace',
+        fontSize: '9px',
+        color: '#fee761',
+      })
+      .setOrigin(0.5);
+
+    this.add.image(114, 294, 'corvi_proud').setScale(1.0);
     const sparkles = this.add.graphics();
     sparkles.fillStyle(0xfee761, 1);
-    sparkles.fillRect(98, 270, 4, 4);
-    sparkles.fillRect(136, 274, 4, 4);
+    sparkles.fillRect(92, 272, 4, 4);
+    sparkles.fillRect(134, 276, 4, 4);
 
     // 6. Centro: Nombre de misión y días sobrevividos
     this.add
-      .text(320, 96, summary.missionCode, {
+      .text(350, 92, summary.missionCode, {
         fontFamily: 'PixelifySans, monospace',
-        resolution: 2,
-        fontSize: '20px',
+        fontSize: '19px',
         color: '#181425',
       })
       .setOrigin(0.5);
@@ -135,26 +146,25 @@ export class Diploma extends Phaser.Scene {
         : uiText.diploma.daysPlural;
     this.add
       .text(
-        320,
-        122,
+        350,
+        116,
         `${uiText.diploma.daysPrefix} ${summary.daysSurvived} ${daysWord}`,
         {
           fontFamily: 'PixelifySans, monospace',
-          resolution: 2,
-          fontSize: '15px',
+          fontSize: '14px',
           color: '#be4a2f',
         }
       )
       .setOrigin(0.5);
 
-    // 7. Tabla de estadísticas de la misión
-    const labelX = 200;
-    const valueX = 334;
-    const rowStart = 144;
+    // 7. Tabla de estadísticas de la misión (x = 192..576, libre de colisiones con el astronauta y el medallón)
+    const labelX = 192;
+    const valueX = 324;
+    const rowStart = 138;
     const rowStep = 15;
 
     const s = summary.samplesByType;
-    const samplesBreakdown = `${summary.totalSamples}: ${s.roca} rocas, ${s.suelo} suelo, ${s.minerales} minerales y ${s.aire} aire`;
+    const samplesBreakdown = `${summary.totalSamples} (${s.roca} roca, ${s.suelo} suelo, ${s.minerales} min., ${s.aire} aire)`;
 
     const rows: [string, string][] = [
       [uiText.diploma.samplesLabel, samplesBreakdown],
@@ -180,23 +190,20 @@ export class Diploma extends Phaser.Scene {
       const ry = rowStart + i * rowStep;
       this.add.text(labelX, ry, lbl, {
         fontFamily: 'PixelifySans, monospace',
-        resolution: 2,
-        fontSize: '11px',
+        fontSize: '10px',
         color: '#733e39',
       });
       this.add.text(valueX, ry, val, {
         fontFamily: 'PixelifySans, monospace',
-        resolution: 2,
-        fontSize: '11px',
+        fontSize: '10px',
         color: '#181425',
       });
     });
 
     // Nota de honestidad sobre la escala de radiación del juego vs NASA
-    this.add.text(labelX, 222, uiText.diploma.doseScaleNote, {
+    this.add.text(labelX, 216, uiText.diploma.doseScaleNote, {
       fontFamily: 'PixelifySans, monospace',
-      resolution: 2,
-      fontSize: '9px',
+      fontSize: '8px',
       color: '#5a6988',
     });
 
@@ -204,13 +211,13 @@ export class Diploma extends Phaser.Scene {
     this.favFactTextObj = this.add
       .text(
         labelX,
-        235,
+        229,
         `${uiText.diploma.favoriteFactLabel} ${summary.favoriteFact.text} (◄/►)`,
         {
           fontFamily: 'PixelifySans, monospace',
-          resolution: 2,
-          fontSize: '9px',
+          fontSize: '8px',
           color: '#3e8948',
+          wordWrap: { width: 382 },
         }
       )
       .setInteractive({ useHandCursor: true });
@@ -224,7 +231,7 @@ export class Diploma extends Phaser.Scene {
     });
 
     // 8. Recuadro salmón de causa de rescate y consejo positivo (nunca dice "perdiste")
-    this.add.rectangle(386, 272, 374, 44, 0xe8b796);
+    this.add.rectangle(384, 274, 384, 42, 0xe8b796);
     const summaryLine =
       this.cause === 'radiacion'
         ? uiText.diploma.rescueRadSummary
@@ -238,18 +245,17 @@ export class Diploma extends Phaser.Scene {
           ? uiText.diploma.rescueMisionAdvice
           : uiText.diploma.rescueO2Advice;
 
-    this.add.text(208, 253, summaryLine, {
+    this.add.text(200, 256, summaryLine, {
       fontFamily: 'PixelifySans, monospace',
-      resolution: 2,
-      fontSize: '10px',
+      fontSize: '9px',
       color: '#181425',
-      lineSpacing: 1,
+      wordWrap: { width: 368 },
     });
-    this.add.text(208, 281, adviceLine, {
+    this.add.text(200, 281, adviceLine, {
       fontFamily: 'PixelifySans, monospace',
-      resolution: 2,
-      fontSize: '10px',
+      fontSize: '9px',
       color: '#733e39',
+      wordWrap: { width: 368 },
     });
 
     // 9. Botones inferiores: "Descargar diploma" y "Jugar otra vez"
@@ -260,7 +266,6 @@ export class Diploma extends Phaser.Scene {
     this.add
       .text(286, 316, uiText.diploma.downloadButton, {
         fontFamily: 'PixelifySans, monospace',
-        resolution: 2,
         fontSize: '11px',
         color: '#ffffff',
       })
@@ -273,16 +278,14 @@ export class Diploma extends Phaser.Scene {
     this.add
       .text(452, 316, uiText.diploma.playAgainButton, {
         fontFamily: 'PixelifySans, monospace',
-        resolution: 2,
         fontSize: '11px',
         color: '#181425',
       })
       .setOrigin(0.5);
 
     this.downloadFeedbackText = this.add
-      .text(535, 316, '', {
+      .text(530, 316, '', {
         fontFamily: 'PixelifySans, monospace',
-        resolution: 2,
         fontSize: '9px',
         color: '#3e8948',
       })
@@ -320,6 +323,7 @@ export class Diploma extends Phaser.Scene {
     // Conservar los desbloqueos logrados para que el jugador pueda usar su traje personalizado
     gameStore.state.unlocks = prevUnlocks;
     gameStore.state.customization = prevCustom;
+    Clock.setPaused(gameStore.state, false);
     Save.save(gameStore.state);
 
     this.scene.start('Despegue');

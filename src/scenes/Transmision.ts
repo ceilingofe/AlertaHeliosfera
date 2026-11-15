@@ -6,15 +6,15 @@ import { Clock } from '../systems/Clock';
 import { Data } from '../systems/Data';
 import { Events } from '../systems/Events';
 import { Quota } from '../systems/Quota';
-import type { Label } from '../types';
+import type { Label, SampleType } from '../types';
 import { StaticEffect } from '../ui/StaticEffect';
 
 /**
  * Escena Transmision (08:00, fiel al storyboard s02_transmision.png):
  * Animación del sobre viajando de la Tierra a Marte con el retraso real,
- * 4 tarjetas (Pronóstico de Jezero con ventana segura 09:00-17:00, Alerta Solar DONKI,
- * Cuota y envío, Dato del día) con sus etiquetas de honestidad y fuentes bien contenidas sin empalmes.
- * Si hay alerta solar o la antena está dañada, activa un efecto suave de estática tipo TV cada ciertos segundos.
+ * 4 tarjetas visuales (Pronóstico de Jezero con ventana segura 09:00-17:00, Alerta Solar DONKI
+ * con diagrama Sol->CME->Marte, Cuota y envío con iconos de muestras, Dato del día)
+ * con sus etiquetas de honestidad y fuentes bien contenidas sin empalmes.
  */
 export class Transmision extends Phaser.Scene {
   private envelopeContainer!: Phaser.GameObjects.Container;
@@ -45,7 +45,6 @@ export class Transmision extends Phaser.Scene {
       `${uiText.transmision.headerPrefix} ${state.day} · ${uiText.transmision.headerTime}`,
       {
         fontFamily: 'PixelifySans, monospace',
-        resolution: 2,
         fontSize: '12px',
         color: '#ffffff',
       }
@@ -53,7 +52,6 @@ export class Transmision extends Phaser.Scene {
     this.add
       .text(612, 20, uiText.transmision.clockPaused, {
         fontFamily: 'PixelifySans, monospace',
-        resolution: 2,
         fontSize: '11px',
         color: '#c0cbdc',
       })
@@ -99,14 +97,13 @@ export class Transmision extends Phaser.Scene {
         `${uiText.transmision.delayPrefix} ${delayInfo.minutes} ${uiText.transmision.delaySuffix} · ${delayInfo.distanceMkm ?? '?'} ${uiText.transmision.distanceSuffix}`,
         {
           fontFamily: 'PixelifySans, monospace',
-          resolution: 2,
           fontSize: '12px',
           color: '#ffffff',
         }
       )
       .setOrigin(0.5);
 
-    this.drawHonestyTag(226, 86, delayInfo.label, delayInfo.source, 260);
+    this.drawHonestyTag(210, 86, delayInfo.label, delayInfo.source, 280);
 
     // 3. Tarjeta 1 (izquierda): PRONÓSTICO DE JEZERO (meda_jezero.json)
     const meda = Data.getMedaForecast(state.day);
@@ -117,7 +114,6 @@ export class Transmision extends Phaser.Scene {
 
     this.add.text(34, 118, uiText.transmision.forecastTitle, {
       fontFamily: 'PixelifySans, monospace',
-      resolution: 2,
       fontSize: '12px',
       color: '#fee761',
     });
@@ -126,7 +122,6 @@ export class Transmision extends Phaser.Scene {
       this.add
         .text(192, 134, uiText.transmision.safeWindowLabel, {
           fontFamily: 'PixelifySans, monospace',
-          resolution: 2,
           fontSize: '10px',
           color: '#fee761',
         })
@@ -158,7 +153,6 @@ export class Transmision extends Phaser.Scene {
       for (const hl of hourLabels) {
         this.add.text(hl.x, 223, hl.h, {
           fontFamily: 'PixelifySans, monospace',
-          resolution: 2,
           fontSize: '10px',
           color: '#c0cbdc',
         });
@@ -168,23 +162,21 @@ export class Transmision extends Phaser.Scene {
     } else {
       this.add.text(34, 156, uiText.transmision.antennaBrokenNotice, {
         fontFamily: 'PixelifySans, monospace',
-        resolution: 2,
         fontSize: '11px',
         color: '#c0cbdc',
         wordWrap: { width: 266 },
       });
     }
 
-    // 4. Tarjeta 2 (arriba derecha): ALERTA SOLAR (events.json DONKI)
+    // 4. Tarjeta 2 (arriba derecha): ALERTA SOLAR (events.json DONKI) + Diagrama visual Sol -> CME -> Marte
     const solar = Data.getSolarAlert(state.day);
     this.add
       .rectangle(326, 112, 292, 68, 0x262b44)
       .setOrigin(0, 0)
       .setStrokeStyle(1, 0x3a4466);
 
-    this.add.text(336, 116, uiText.transmision.solarAlertTitle, {
+    this.add.text(336, 115, uiText.transmision.solarAlertTitle, {
       fontFamily: 'PixelifySans, monospace',
-      resolution: 2,
       fontSize: '11px',
       color: '#fee761',
     });
@@ -199,17 +191,37 @@ export class Transmision extends Phaser.Scene {
               ? uiText.transmision.solarAlertStorm
               : uiText.transmision.solarAlertCalm;
 
-      this.add.text(336, 131, alertDesc, {
+      this.add.text(336, 129, alertDesc, {
         fontFamily: 'PixelifySans, monospace',
-        resolution: 2,
-        fontSize: '10px',
+        fontSize: '9px',
         color: '#ffffff',
         lineSpacing: 1,
       });
 
+      // Mini diagrama visual Sol -> onda CME -> Marte a la derecha de la tarjeta
+      const sg = this.add.graphics();
+      this.add.circle(558, 138, 7, 0xfee761);
+      this.add.circle(602, 138, 5, 0xb86f50);
+      if (state.day === 3 || solar.hasAlert) {
+        sg.lineStyle(2, state.day === 5 ? 0x2ce8f5 : 0xe43b44, 1);
+        sg.beginPath();
+        sg.arc(
+          558,
+          138,
+          24,
+          Phaser.Math.DegToRad(state.day === 5 ? -55 : -30),
+          Phaser.Math.DegToRad(state.day === 5 ? -10 : 30),
+          false
+        );
+        sg.strokePath();
+      } else {
+        sg.lineStyle(1, 0x63c74d, 0.7);
+        sg.lineBetween(568, 138, 594, 138);
+      }
+
       this.drawHonestyTag(
         336,
-        161,
+        162,
         solar.label,
         `${solar.source} · ${solar.activityId}`,
         274
@@ -217,35 +229,53 @@ export class Transmision extends Phaser.Scene {
     } else {
       this.add.text(336, 136, uiText.transmision.antennaBrokenNotice, {
         fontFamily: 'PixelifySans, monospace',
-        resolution: 2,
         fontSize: '10px',
         color: '#c0cbdc',
         wordWrap: { width: 274 },
       });
     }
 
-    // 5. Tarjeta 3 (centro derecha): CUOTA Y ENVÍO (SIMULADO - siempre llega)
+    // 5. Tarjeta 3 (centro derecha): CUOTA Y ENVÍO con iconos visuales de muestras (×N)
     this.add
       .rectangle(326, 184, 292, 68, 0x262b44)
       .setOrigin(0, 0)
       .setStrokeStyle(1, 0x3a4466);
 
-    this.add.text(336, 188, uiText.transmision.quotaTitle, {
+    this.add.text(336, 187, uiText.transmision.quotaTitle, {
       fontFamily: 'PixelifySans, monospace',
-      resolution: 2,
       fontSize: '11px',
       color: '#fee761',
     });
 
-    const quotaParts: string[] = [];
-    if (state.quotaToday.roca > 0)
-      quotaParts.push(
-        `${state.quotaToday.roca} ${state.quotaToday.roca > 1 ? 'rocas' : 'roca'}`
-      );
-    if (state.quotaToday.suelo > 0) quotaParts.push(`${state.quotaToday.suelo} suelo`);
-    if (state.quotaToday.minerales > 0)
-      quotaParts.push(`${state.quotaToday.minerales} minerales`);
-    if (state.quotaToday.aire > 0) quotaParts.push(`${state.quotaToday.aire} aire`);
+    const sampleSpriteMap: Record<SampleType, string> = {
+      roca: 'rock_leopard',
+      suelo: 'rock_sandstone',
+      minerales: 'rock_sparkle',
+      aire: 'air_station',
+    };
+    const sampleNameShort: Record<SampleType, string> = {
+      roca: 'Roca',
+      suelo: 'Suelo',
+      minerales: 'Min.',
+      aire: 'Aire',
+    };
+
+    const quotaEntries = (['roca', 'suelo', 'minerales', 'aire'] as SampleType[]).filter(
+      (k) => state.quotaToday[k] > 0
+    );
+    quotaEntries.forEach((type, idx) => {
+      const chipX = 336 + idx * 68;
+      this.add
+        .rectangle(chipX, 201, 64, 16, 0x181425)
+        .setOrigin(0, 0)
+        .setStrokeStyle(1, 0x5a6988);
+      this.add.image(chipX + 9, 209, sampleSpriteMap[type]).setScale(0.85);
+      this.add.text(chipX + 18, 203, `×${state.quotaToday[type]} ${sampleNameShort[type]}`, {
+        fontFamily: 'PixelifySans, monospace',
+        fontSize: '9px',
+        color: '#ffffff',
+      });
+    });
 
     const supplyLine =
       state.supplyBonus === 'extra'
@@ -254,15 +284,13 @@ export class Transmision extends Phaser.Scene {
           ? uiText.transmision.supplyMenos
           : uiText.transmision.supplyNormal;
 
-    this.add.text(336, 203, `${quotaParts.join(' + ')}.\n${supplyLine}`, {
+    this.add.text(336, 219, supplyLine, {
       fontFamily: 'PixelifySans, monospace',
-      resolution: 2,
-      fontSize: '10px',
-      color: '#ffffff',
-      lineSpacing: 1,
+      fontSize: '9px',
+      color: '#ead4aa',
     });
 
-    this.drawHonestyTag(336, 233, 'SIMULADO', 'Regla del juego', 274);
+    this.drawHonestyTag(336, 234, 'SIMULADO', 'Regla del juego', 274);
 
     // 6. Tarjeta 4 (abajo derecha): DATO DEL DÍA (facts.json)
     const dayFacts = Data.getFactsForDay(state.day);
@@ -272,27 +300,25 @@ export class Transmision extends Phaser.Scene {
       .setOrigin(0, 0)
       .setStrokeStyle(1, 0x3a4466);
 
-    this.add.text(336, 260, uiText.transmision.factTitle, {
+    this.add.text(336, 259, uiText.transmision.factTitle, {
       fontFamily: 'PixelifySans, monospace',
-      resolution: 2,
       fontSize: '11px',
       color: '#fee761',
     });
 
     if (state.base.antennaOk) {
-      this.add.text(336, 275, mainFact.text, {
+      this.add.image(346, 284, `icon_${mainFact.icon}`).setScale(1.4);
+      this.add.text(360, 273, mainFact.text, {
         fontFamily: 'PixelifySans, monospace',
-        resolution: 2,
-        fontSize: '10px',
+        fontSize: '9px',
         color: '#ffffff',
-        wordWrap: { width: 274 },
+        wordWrap: { width: 250 },
       });
 
-      this.drawNasaSealAndTag(336, 310, mainFact.source, mainFact.label);
+      this.drawNasaSealAndTag(336, 312, mainFact.source, mainFact.label);
     } else {
       this.add.text(336, 280, uiText.transmision.antennaBrokenNotice, {
         fontFamily: 'PixelifySans, monospace',
-        resolution: 2,
         fontSize: '10px',
         color: '#c0cbdc',
         wordWrap: { width: 274 },
@@ -302,7 +328,6 @@ export class Transmision extends Phaser.Scene {
     // 7. Nota inferior izquierda y botón "Empezar el día"
     this.add.text(24, 274, uiText.transmision.footerNote, {
       fontFamily: 'PixelifySans, monospace',
-      resolution: 2,
       fontSize: '11px',
       color: '#c0cbdc',
     });
@@ -316,7 +341,6 @@ export class Transmision extends Phaser.Scene {
     this.add
       .text(169, 313, uiText.transmision.startDayButton, {
         fontFamily: 'PixelifySans, monospace',
-        resolution: 2,
         fontSize: '15px',
         color: '#181425',
       })
@@ -360,13 +384,12 @@ export class Transmision extends Phaser.Scene {
   ): void {
     const textObj = this.add.text(x + 5, y + 2, `▪ ${label} · ${source}`, {
       fontFamily: 'PixelifySans, monospace',
-      resolution: 2,
-      fontSize: '9px',
+      fontSize: '8px',
       color: '#262b44',
     });
     const w = Math.min(maxWidth, Math.round(textObj.width + 10));
     const bg = this.add
-      .rectangle(x, y, w, 14, 0xffffff)
+      .rectangle(x, y, w, 13, 0xffffff)
       .setOrigin(0, 0)
       .setStrokeStyle(1, 0x5a6988);
     textObj.setDepth(bg.depth + 1);
@@ -384,20 +407,18 @@ export class Transmision extends Phaser.Scene {
       `${uiText.transmision.nasaSealPrefix} · ${label} · ${source}`,
       {
         fontFamily: 'PixelifySans, monospace',
-        resolution: 2,
-        fontSize: '9px',
+        fontSize: '8px',
         color: '#181425',
       }
     );
     const sealW = Math.min(274, Math.round(sealTxt.width + 18));
     const sealBg = this.add
-      .rectangle(x, y, sealW, 14, 0xfee761)
+      .rectangle(x, y, sealW, 13, 0xfee761)
       .setOrigin(0, 0)
       .setStrokeStyle(1, 0x181425);
     const star = this.add.text(x + 3, y + 1, '★', {
       fontFamily: 'PixelifySans, monospace',
-      resolution: 2,
-      fontSize: '9px',
+      fontSize: '8px',
       color: '#f77622',
     });
     sealTxt.setDepth(sealBg.depth + 1);

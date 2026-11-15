@@ -111,10 +111,10 @@ export class DialogBox {
 
     this.bodyText = this.scene.add.text(184, 286, '', {
       fontFamily: 'PixelifySans, monospace',
-      fontSize: '14px',
+      fontSize: '13px',
       color: '#181425',
-      lineSpacing: 3,
-      wordWrap: { width: 416 },
+      lineSpacing: 2,
+      wordWrap: { width: 422 },
     });
 
     // Indicador ▼ abajo a la derecha
@@ -144,7 +144,8 @@ export class DialogBox {
     ]);
 
     if (config.source) {
-      this.appendNasaSeal(184, 328, config.source, config.label ?? 'ARCHIVO REAL');
+      // Colocar el sello arriba del cuadro de diálogo (junto a la placa de Corvi) para no tapar nunca el texto
+      this.appendNasaSeal(308, 256, config.source, config.label ?? 'ARCHIVO REAL', 318);
     }
 
     // Parpadeo cada 3 a 5 s en el retrato grande
@@ -189,18 +190,18 @@ export class DialogBox {
     // Retrato mediano a ×2 (88×88 px)
     this.portrait = this.scene.add.image(118, 304, this.baseMoodKey).setScale(2);
 
-    this.bodyText = this.scene.add.text(172, 293, '', {
+    this.bodyText = this.scene.add.text(172, 294, '', {
       fontFamily: 'PixelifySans, monospace',
       fontSize: '12px',
       color: '#181425',
       lineSpacing: 2,
-      wordWrap: { width: 336 },
+      wordWrap: { width: 338 },
     });
 
     this.container.add([outerRect, innerRect, circle, this.portrait, this.bodyText]);
 
     if (config.source) {
-      this.appendNasaSeal(172, 324, config.source, config.label ?? 'ARCHIVO REAL');
+      this.appendNasaSeal(172, 268, config.source, config.label ?? 'ARCHIVO REAL', 348);
     }
 
     const closeDelay = config.autoCloseMs ?? 3000;
@@ -211,36 +212,42 @@ export class DialogBox {
     outerRect.on('pointerdown', () => this.advanceOrFinish());
   }
 
-  private appendNasaSeal(x: number, y: number, source: string, label: Label): void {
-    // Sello amarillo #fee761 con estrella naranja #f77622 y borde #181425 + etiqueta de honestidad
+  private appendNasaSeal(
+    x: number,
+    y: number,
+    source: string,
+    label: Label,
+    maxTotalW = 320
+  ): void {
+    // Sello amarillo #fee761 con estrella naranja #f77622 y etiqueta de honestidad compacta arriba del cuadro
     const sealTextStr = `${uiText.transmision.nasaSealPrefix} · ${source}`;
-    const sealText = this.scene.add.text(x + 18, y + 2, sealTextStr, {
+    const sealText = this.scene.add.text(x + 15, y + 2, sealTextStr, {
       fontFamily: 'PixelifySans, monospace',
-      fontSize: '10px',
+      fontSize: '9px',
       color: '#181425',
     });
 
-    const sealW = Math.round(sealText.width + 24);
+    const sealW = Math.min(maxTotalW - 88, Math.round(sealText.width + 20));
     const sealBg = this.scene.add
-      .rectangle(x, y, sealW, 16, 0xfee761)
+      .rectangle(x, y, sealW, 15, 0xfee761)
       .setOrigin(0, 0)
       .setStrokeStyle(1, 0x181425);
 
-    const star = this.scene.add.text(x + 4, y + 1, '★', {
+    const star = this.scene.add.text(x + 3, y + 1, '★', {
       fontFamily: 'PixelifySans, monospace',
-      fontSize: '11px',
+      fontSize: '10px',
       color: '#f77622',
     });
 
-    const tagX = x + sealW + 6;
-    const tagText = this.scene.add.text(tagX + 6, y + 2, `▪ ${label}`, {
+    const tagX = x + sealW + 4;
+    const tagText = this.scene.add.text(tagX + 5, y + 2, `▪ ${label}`, {
       fontFamily: 'PixelifySans, monospace',
-      fontSize: '10px',
+      fontSize: '9px',
       color: '#262b44',
     });
-    const tagW = Math.round(tagText.width + 12);
+    const tagW = Math.round(tagText.width + 10);
     const tagBg = this.scene.add
-      .rectangle(tagX, y, tagW, 16, 0xffffff)
+      .rectangle(tagX, y, tagW, 15, 0xffffff)
       .setOrigin(0, 0)
       .setStrokeStyle(1, 0x5a6988);
 

@@ -41,17 +41,21 @@ export class Titulo extends Phaser.Scene {
       },
     });
 
-    // Horizonte marciano
-    const g = this.add.graphics();
-    g.fillStyle(0x733e39).fillRect(0, 280, 640, 80);
-    g.fillStyle(0xb86f50);
-    for (let x = 0; x < 640; x += 8) g.fillRect(x, 272 + Math.round(Math.sin(x / 40) * 6), 8, 12);
-    g.fillStyle(0x3e2731).fillRect(0, 300, 640, 60);
-    this.add.tileSprite(0, 300, 640, 60, 'ground_var').setOrigin(0, 0).setAlpha(0.6);
-    this.add.image(470, 262, 'base_exterior').setScale(1.2).setOrigin(0.5, 1);
-    this.add.image(150, 290, 'corvi_happy').setScale(1.4);
-    const hair = gameStore.state.customization?.hair === 2 ? 'astronaut_mini_hair2' : 'astronaut_mini_hair1';
-    this.add.image(560, 292, hair).setScale(2);
+    // Horizonte marciano (o fondo ilustrado menu_bg si está disponible)
+    if (this.textures.exists('menu_bg')) {
+      this.add.image(320, 180, 'menu_bg').setDisplaySize(640, 360);
+    } else {
+      const g = this.add.graphics();
+      g.fillStyle(0x733e39).fillRect(0, 280, 640, 80);
+      g.fillStyle(0xb86f50);
+      for (let x = 0; x < 640; x += 8) g.fillRect(x, 272 + Math.round(Math.sin(x / 40) * 6), 8, 12);
+      g.fillStyle(0x3e2731).fillRect(0, 300, 640, 60);
+      this.add.tileSprite(0, 300, 640, 60, 'ground_var').setOrigin(0, 0).setAlpha(0.6);
+      this.add.image(470, 262, 'base_exterior').setScale(1.2).setOrigin(0.5, 1);
+      this.add.image(148, 284, 'corvi_perch').setScale(1.8);
+      const hair = gameStore.state.customization?.hair === 2 ? 'astronaut_mini_hair2' : 'astronaut_mini_hair1';
+      this.add.image(560, 292, hair).setScale(2);
+    }
 
     // Título
     txt(this, 320, 44, uiText.gameTitle, 40, '#fee761').setOrigin(0.5).setShadow(3, 3, '#a22633', 0, false, true);

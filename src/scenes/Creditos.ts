@@ -96,7 +96,6 @@ export class Creditos extends Phaser.Scene {
     this.add
       .text(320, 26, 'CRÉDITOS Y FUENTES DE DATOS ABIERTOS NASA', {
         fontFamily: 'PixelifySans, monospace',
-        resolution: 2,
         fontSize: '14px',
         color: '#fee761',
       })
@@ -105,7 +104,6 @@ export class Creditos extends Phaser.Scene {
     this.add
       .text(320, 48, `${uiText.gameTitle} · ${uiText.subtitle}`, {
         fontFamily: 'PixelifySans, monospace',
-        resolution: 2,
         fontSize: '11px',
         color: '#ead4aa',
       })
@@ -122,14 +120,12 @@ export class Creditos extends Phaser.Scene {
 
       this.add.text(34, cy + 4, `★ ${item.title}`, {
         fontFamily: 'PixelifySans, monospace',
-        resolution: 2,
         fontSize: '11px',
         color: '#fee761',
       });
 
       this.add.text(34, cy + 19, item.detail, {
         fontFamily: 'PixelifySans, monospace',
-        resolution: 2,
         fontSize: '10px',
         color: '#c0cbdc',
       });
@@ -141,7 +137,6 @@ export class Creditos extends Phaser.Scene {
       void badge;
       this.add.text(518, cy + 8, `▪ ${item.tag}`, {
         fontFamily: 'PixelifySans, monospace',
-        resolution: 2,
         fontSize: '9px',
         color: '#262b44',
       });
@@ -154,7 +149,6 @@ export class Creditos extends Phaser.Scene {
     this.add
       .text(320, 284, uiText.honestyNotice, {
         fontFamily: 'PixelifySans, monospace',
-        resolution: 2,
         fontSize: '11px',
         color: '#181425',
       })
@@ -189,7 +183,6 @@ export class Creditos extends Phaser.Scene {
     this.add
       .text(320, 322, 'Volver (Espacio / Esc)', {
         fontFamily: 'PixelifySans, monospace',
-        resolution: 2,
         fontSize: '12px',
         color: '#ffffff',
       })
