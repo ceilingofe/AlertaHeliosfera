@@ -24,58 +24,126 @@ export class Titulo extends Phaser.Scene {
     AudioSystem.playMusic('starboard');
     AudioSystem.stopAllLoops();
 
-    // Cielo con estrellas que titilan
-    this.add.rectangle(0, 0, 640, 360, 0x181425).setOrigin(0, 0);
-    for (let i = 0; i < 90; i++) {
-      const s = this.add.rectangle(Math.random() * 640, Math.random() * 250, 1, 1, 0xffffff, 0.4 + Math.random() * 0.6);
-      this.tweens.add({ targets: s, alpha: 0.15, duration: 800 + Math.random() * 1600, yoyo: true, repeat: -1, delay: Math.random() * 1500 });
-    }
-    // Estrella fugaz de vez en cuando
-    this.time.addEvent({
-      delay: 2600,
-      loop: true,
-      callback: () => {
-        const x = 80 + Math.random() * 480;
-        const star = this.add.rectangle(x, 20 + Math.random() * 60, 6, 1, 0xfee761);
-        this.tweens.add({ targets: star, x: x + 120, y: star.y + 50, alpha: 0, duration: 700, onComplete: () => star.destroy() });
-      },
-    });
-
-    // Horizonte marciano (o fondo ilustrado menu_bg si está disponible)
+    // Fondo marciano ilustrado (Sprite-0002-Menu2.jpeg)
     if (this.textures.exists('menu_bg')) {
       this.add.image(320, 180, 'menu_bg').setDisplaySize(640, 360);
     } else {
-      const g = this.add.graphics();
-      g.fillStyle(0x733e39).fillRect(0, 280, 640, 80);
-      g.fillStyle(0xb86f50);
-      for (let x = 0; x < 640; x += 8) g.fillRect(x, 272 + Math.round(Math.sin(x / 40) * 6), 8, 12);
-      g.fillStyle(0x3e2731).fillRect(0, 300, 640, 60);
-      this.add.tileSprite(0, 300, 640, 60, 'ground_var').setOrigin(0, 0).setAlpha(0.6);
-      this.add.image(470, 262, 'base_exterior').setScale(1.2).setOrigin(0.5, 1);
-      this.add.image(148, 284, 'corvi_perch').setScale(1.8);
-      const hair = gameStore.state.customization?.hair === 2 ? 'astronaut_mini_hair2' : 'astronaut_mini_hair1';
-      this.add.image(560, 292, hair).setScale(2);
+      this.add.rectangle(0, 0, 640, 360, 0x181425).setOrigin(0, 0);
     }
 
-    // Título
-    txt(this, 320, 44, uiText.gameTitle, 40, '#fee761').setOrigin(0.5).setShadow(3, 3, '#a22633', 0, false, true);
-    txt(this, 320, 82, T.tagline, 12, '#ead4aa').setOrigin(0.5);
-    txt(this, 320, 100, uiText.subtitle, 10, '#8b9bb4').setOrigin(0.5);
+    // Estrellas sutiles en la franja superior del cielo marciano
+    for (let i = 0; i < 45; i++) {
+      const s = this.add.rectangle(
+        Math.random() * 640,
+        Math.random() * 110,
+        1,
+        1,
+        0xffffff,
+        0.25 + Math.random() * 0.45
+      );
+      this.tweens.add({
+        targets: s,
+        alpha: 0.08,
+        duration: 900 + Math.random() * 1500,
+        yoyo: true,
+        repeat: -1,
+        delay: Math.random() * 1200,
+      });
+    }
+
+    // Estrella fugaz ocasional en el cielo
+    this.time.addEvent({
+      delay: 3200,
+      loop: true,
+      callback: () => {
+        const x = 90 + Math.random() * 440;
+        const star = this.add.rectangle(x, 16 + Math.random() * 50, 7, 1, 0xfee761);
+        this.tweens.add({
+          targets: star,
+          x: x + 110,
+          y: star.y + 42,
+          alpha: 0,
+          duration: 650,
+          onComplete: () => star.destroy(),
+        });
+      },
+    });
+
+    // Cintillo superior traslúcido que enmarca el título sin cubrir el cohete ni la base
+    this.add
+      .rectangle(320, 52, 540, 76, 0x181425, 0.78)
+      .setStrokeStyle(2, 0xfee761);
+    txt(this, 320, 34, uiText.gameTitle, 34, '#fee761')
+      .setOrigin(0.5)
+      .setShadow(2, 2, '#a22633', 0, false, true);
+    txt(this, 320, 62, T.tagline, 11, '#ead4aa').setOrigin(0.5);
+    txt(this, 320, 78, uiText.subtitle, 9, '#c0cbdc').setOrigin(0.5);
+
+    // Consola inferior estética en cuadrícula 2×2 para dejar libre la ilustración central de la base
+    this.add
+      .rectangle(320, 306, 560, 92, 0x181425, 0.84)
+      .setStrokeStyle(2, 0x5a6988);
 
     const saved = Save.load();
-    let y = 140;
     if (saved) {
-      const b = button(this, 320, y, 220, 30, `${T.continue} · ${T.dayPrefix} ${saved.day}`, () => this.continueGame(), 0x63c74d, '#181425');
-      void b;
-      y += 38;
+      button(
+        this,
+        192,
+        282,
+        236,
+        28,
+        `${T.continue} · ${T.dayPrefix} ${saved.day}`,
+        () => this.continueGame(),
+        0x63c74d,
+        '#181425'
+      );
+      button(
+        this,
+        448,
+        282,
+        236,
+        28,
+        T.newGameOver,
+        () => this.newGame(true),
+        0xb86f50
+      );
+    } else {
+      button(
+        this,
+        192,
+        282,
+        236,
+        28,
+        T.newGame,
+        () => this.newGame(false),
+        0x63c74d,
+        '#181425'
+      );
+      button(
+        this,
+        448,
+        282,
+        236,
+        28,
+        uiText.personaliza.openButton,
+        () => this.scene.start('Personaliza', { nextScene: 'Titulo' }),
+        0x5a6988
+      );
     }
-    button(this, 320, y, 220, 30, saved ? T.newGameOver : T.newGame, () => this.newGame(saved !== null));
-    y += 38;
-    button(this, 320, y, 220, 30, T.howToButton, () => this.toggleHowTo(), 0x5a6988);
-    y += 38;
-    button(this, 320, y, 220, 30, uiText.hud.creditsButton, () => this.scene.start('Creditos', { returnScene: 'Titulo' }), 0x3a4466);
 
-    txt(this, 320, 346, uiText.honestyNotice, 9, '#c0cbdc').setOrigin(0.5);
+    button(this, 192, 316, 236, 26, T.howToButton, () => this.toggleHowTo(), 0x3a4466);
+    button(
+      this,
+      448,
+      316,
+      236,
+      26,
+      uiText.hud.creditsButton,
+      () => this.scene.start('Creditos', { returnScene: 'Titulo' }),
+      0x262b44
+    );
+
+    txt(this, 320, 342, uiText.honestyNotice, 9, '#ead4aa').setOrigin(0.5);
 
     const kb = this.input.keyboard;
     kb?.on('keydown-ENTER', () => (saved ? this.continueGame() : this.newGame(false)));
@@ -119,8 +187,10 @@ export class Titulo extends Phaser.Scene {
       return;
     }
     AudioSystem.play('ui_confirm_big');
+    const keepLook = { ...gameStore.state.customization };
     Save.clear();
     gameStore.reset();
+    gameStore.state.customization = keepLook;
     Quota.applyDailyQuota(gameStore.state);
     this.scene.start('Despegue');
   }

@@ -45,6 +45,8 @@ export class Personaliza extends Phaser.Scene {
     AudioSystem.playMusic('starboard');
     const state = gameStore.state;
     Clock.setPaused(state, true);
+    state.unlocks.customization = true;
+    Customization.syncUnlocksForDay(state);
 
     // 1. Fondo espacial oscuro y marco principal
     this.add.rectangle(320, 180, 640, 360, 0x181425);
@@ -132,21 +134,27 @@ export class Personaliza extends Phaser.Scene {
       state.customization.hair,
       state.customization.suit,
       'down',
-      0
+      0,
+      state.customization.accessory,
+      state.customization.patch
     );
     const sideKey = AstronautAppearance.getDirectionalMiniKey(
       this,
       state.customization.hair,
       state.customization.suit,
       'right',
-      1
+      1,
+      state.customization.accessory,
+      state.customization.patch
     );
     const backKey = AstronautAppearance.getDirectionalMiniKey(
       this,
       state.customization.hair,
       state.customization.suit,
       'up',
-      0
+      0,
+      state.customization.accessory,
+      state.customization.patch
     );
     this.miniFrontImg.setTexture(frontKey);
     this.miniSideImg.setTexture(sideKey);
@@ -200,22 +208,23 @@ export class Personaliza extends Phaser.Scene {
       color: '#ead4aa',
     });
 
-    const hairs: (1 | 2)[] = [1, 2];
-    hairs.forEach((hairNum, idx) => {
-      const bx = x + 72 + idx * 164;
+    const hairs: { id: 1 | 2 | 3; label: string }[] = [
+      { id: 1, label: uiText.personaliza.hair1Label },
+      { id: 2, label: uiText.personaliza.hair2Label },
+      { id: 3, label: uiText.personaliza.hair3Label },
+    ];
+    hairs.forEach((item, idx) => {
+      const bx = x + 52 + idx * 112;
       const by = y + 28;
-      const isSelected = state.customization.hair === hairNum;
-      const unlocked = state.unlocks.customization || hairNum === 1;
+      const isSelected = state.customization.hair === item.id;
 
       const btn = this.add
-        .rectangle(bx, by, 144, 26, isSelected ? 0x5a6988 : 0x3a4466)
+        .rectangle(bx, by, 102, 26, isSelected ? 0x5a6988 : 0x3a4466)
         .setStrokeStyle(2, isSelected ? 0xfee761 : 0x181425)
-        .setInteractive({ useHandCursor: unlocked });
+        .setInteractive({ useHandCursor: true });
 
-      const label =
-        hairNum === 1 ? uiText.personaliza.hair1Label : uiText.personaliza.hair2Label;
       this.add
-        .text(bx, by, unlocked ? label : `${label} 🔒`, {
+        .text(bx, by, item.label, {
           fontFamily: 'PixelifySans, monospace',
           fontSize: '11px',
           color: isSelected ? '#fee761' : '#ffffff',
@@ -223,7 +232,7 @@ export class Personaliza extends Phaser.Scene {
         .setOrigin(0.5);
 
       btn.on('pointerdown', () => {
-        if (Customization.setHair(state, hairNum)) {
+        if (Customization.setHair(state, item.id)) {
           AudioSystem.play('ui_click');
           Save.save(state);
           this.scene.restart({ nextScene: this.nextScene });

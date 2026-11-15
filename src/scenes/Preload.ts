@@ -40,6 +40,25 @@ const SPRITE_KEYS = [
   'solar_panel_dusty',
   'tube_empty',
   'tube_full',
+  'planet_earth',
+  'planet_mars',
+  'bed_base',
+  'brush_clean',
+  'flask_blue',
+  'flask_conical',
+  'tube_sample',
+] as const;
+
+const WALK_SHEET_KEYS = [
+  'girl_walk_front',
+  'girl_walk_back',
+  'girl_walk_side',
+  'boy1_walk_front',
+  'boy1_walk_back',
+  'boy1_walk_side',
+  'boy2_walk_front',
+  'boy2_walk_back',
+  'boy2_walk_side',
 ] as const;
 
 const CHAR_SPRITE_KEYS = [
@@ -137,8 +156,14 @@ export class Preload extends Phaser.Scene {
       void loadingLabel;
     });
 
+    this.load.image('menu_bg', 'assets/sprites/menu_bg.jpg');
+
     for (const key of SPRITE_KEYS) {
       this.load.image(key, `assets/sprites/${key}.png`);
+    }
+
+    for (const key of WALK_SHEET_KEYS) {
+      this.load.image(key, `assets/sprites/walk/${key}.png`);
     }
 
     for (const key of CHAR_SPRITE_KEYS) {

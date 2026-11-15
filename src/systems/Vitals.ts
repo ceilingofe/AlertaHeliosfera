@@ -62,9 +62,11 @@ export class Vitals {
         );
       }
 
-      // 2. Oxígeno del traje (sección 7.2): si hace frío (< 18 °C) se multiplica por 3
+      // 2. Oxígeno del traje (sección 7.2): si hace frío (< 18 °C) se multiplica por 3;
+      //    de noche el traje trabaja más (×2) para mantener presión y calor.
       const isCold = state.astronaut.suitTempC < balance.heater.comfortMinC;
-      const o2Multiplier = isCold ? balance.o2.coldMultiplier : 1;
+      const o2Multiplier =
+        (isCold ? balance.o2.coldMultiplier : 1) * (isNight ? balance.o2.nightMultiplier : 1);
       const o2Drain = balance.o2.drainPerSec * o2Multiplier * dt;
       state.astronaut.o2 = Math.max(0, state.astronaut.o2 - o2Drain);
 

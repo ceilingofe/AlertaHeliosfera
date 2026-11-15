@@ -2,19 +2,33 @@
 <html lang="es-MX">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>Alerta Heliosfera</title>
     <style>
       @font-face {
         font-family: 'PixelifySans';
-        src: url('%BASE_URL%assets/fonts/PixelifySans-Regular.woff2') format('woff2');
+        src: url('%BASE_URL%assets/fonts/ChakraPetch-Regular.woff2') format('woff2');
         font-weight: 400;
         font-style: normal;
         font-display: block;
       }
       @font-face {
         font-family: 'PixelifySans';
-        src: url('%BASE_URL%assets/fonts/PixelifySans-Bold.woff2') format('woff2');
+        src: url('%BASE_URL%assets/fonts/ChakraPetch-Bold.woff2') format('woff2');
+        font-weight: 700;
+        font-style: normal;
+        font-display: block;
+      }
+      @font-face {
+        font-family: 'ChakraPetch';
+        src: url('%BASE_URL%assets/fonts/ChakraPetch-Regular.woff2') format('woff2');
+        font-weight: 400;
+        font-style: normal;
+        font-display: block;
+      }
+      @font-face {
+        font-family: 'ChakraPetch';
+        src: url('%BASE_URL%assets/fonts/ChakraPetch-Bold.woff2') format('woff2');
         font-weight: 700;
         font-style: normal;
         font-display: block;
@@ -25,28 +39,54 @@
         padding: 0;
         user-select: none;
         -webkit-user-select: none;
+        -webkit-touch-callout: none;
       }
       html, body {
-        width: 100%;
-        height: 100%;
+        width: 100vw;
+        height: 100vh;
+        height: 100dvh;
         background-color: #181425;
         overflow: hidden;
+        touch-action: none;
         font-family: 'PixelifySans', monospace;
       }
       #game {
-        width: 100%;
-        height: 100%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        position: fixed;
+        inset: 0;
+        width: 100vw;
+        height: 100vh;
+        height: 100dvh;
+        overflow: hidden;
       }
       canvas {
+        display: block;
         image-rendering: auto;
+      }
+      #mobile-fs-btn {
+        position: fixed;
+        right: 10px;
+        bottom: 10px;
+        z-index: 9999;
+        background: rgba(24, 20, 37, 0.85);
+        color: #fee761;
+        border: 1.5px solid #fee761;
+        border-radius: 6px;
+        padding: 6px 10px;
+        font-family: 'PixelifySans', monospace;
+        font-size: 13px;
+        cursor: pointer;
+        display: none;
+      }
+      @media (hover: none) and (pointer: coarse), (max-width: 920px) {
+        #mobile-fs-btn {
+          display: block;
+        }
       }
     </style>
   </head>
   <body>
     <div id="game"></div>
+    <button id="mobile-fs-btn" type="button" aria-label="Pantalla completa">⛶ Pantalla completa</button>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

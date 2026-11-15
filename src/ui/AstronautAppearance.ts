@@ -1,48 +1,69 @@
 import Phaser from 'phaser';
+import { gameStore } from '../state/GameState';
 import { Customization } from '../systems/Customization';
 import type { Accessory, SuitColor } from '../types';
 
 export type AstronautDirection = 'down' | 'up' | 'left' | 'right';
-export type WalkStep = 0 | 1 | 2;
+export type WalkStep = 0 | 1 | 2 | 3;
 
 export interface AstronautVisualConfig {
   suit: SuitColor;
-  hair: 1 | 2;
+  hair: 1 | 2 | 3;
   accessory: Accessory | null;
   patch?: string;
 }
 
+const PATCH_COLORS: Record<string, { bg: string; accent: string; border: string }> = {
+  SPACECROWS: { bg: '#b55088', accent: '#fee761', border: '#181425' },
+  JEZERO: { bg: '#0099db', accent: '#2ce8f5', border: '#181425' },
+  HELIOSFERA: { bg: '#e43b44', accent: '#fee761', border: '#181425' },
+  PERSEVERANCE: { bg: '#3e8948', accent: '#ffffff', border: '#181425' },
+  'LUNA-7': { bg: '#3a4466', accent: '#fee761', border: '#181425' },
+};
+
 /**
  * Utilidad visual de Phaser para generar y reutilizar las texturas recoloreadas
- * del astronauta (tamaño completo 24×56 y mini 12×28 / 14×23), con vistas en 4 direcciones
- * (frente, espalda, perfil izquierdo y perfil derecho) y cuadros de caminata animados.
+ * del astronauta (tamaño completo y mini), con los spritesheets de caminata fluida
+ * de 4 cuadros (`caminata.zip`), accesorios visibles en el casco y parche de misión en el pecho.
  */
 export class AstronautAppearance {
+  private static getCharPrefix(hair: 1 | 2 | 3): 'girl' | 'boy1' | 'boy2' {
+    if (hair === 2) return 'boy1';
+    if (hair === 3) return 'boy2';
+    return 'girl';
+  }
+
   /**
-   * Devuelve la clave de textura para el sprite grande (24×56) con el peinado y color de traje indicados.
+   * Devuelve la clave de textura para el sprite grande (24×56) con el peinado, color de traje y parche indicados.
    */
   static getFullTextureKey(
     scene: Phaser.Scene,
-    hair: 1 | 2,
-    suit: SuitColor
+    hair: 1 | 2 | 3,
+    suit: SuitColor,
+    patch: string = gameStore.state.customization.patch
   ): string {
-    const preferred = hair === 2 ? 'boy1_front' : 'girl_front';
+    const prefix = AstronautAppearance.getCharPrefix(hair);
+    const preferred = `${prefix}_front`;
     const baseKey = scene.textures.exists(preferred)
       ? preferred
       : hair === 2
         ? 'astronaut_hair2'
         : 'astronaut_hair1';
     const startRow = baseKey.endsWith('_front') ? 20 : 18;
-    if (suit === 'blanco') {
-      return baseKey;
-    }
-
-    const targetKey = `${baseKey}_${suit}`;
+    const safePatch = patch || 'LUNA-7';
+    const targetKey = `${baseKey}_${suit}_p_${safePatch}`;
     if (scene.textures.exists(targetKey)) {
       return targetKey;
     }
 
-    AstronautAppearance.buildRecoloredTexture(scene, baseKey, targetKey, startRow, suit);
+    AstronautAppearance.buildRecoloredFullTexture(
+      scene,
+      baseKey,
+      targetKey,
+      startRow,
+      suit,
+      safePatch
+    );
     return scene.textures.exists(targetKey) ? targetKey : baseKey;
   }
 
@@ -51,7 +72,7 @@ export class AstronautAppearance {
    */
   static getMiniTextureKey(
     scene: Phaser.Scene,
-    hair: 1 | 2,
+    hair: 1 | 2 | 3,
     suit: SuitColor
   ): string {
     return AstronautAppearance.getDirectionalMiniKey(scene, hair, suit, 'down', 0);
@@ -59,64 +80,51 @@ export class AstronautAppearance {
 
   /**
    * Devuelve la clave de textura para el sprite mini en la dirección ('down'|'up'|'left'|'right')
-   * y paso de caminata (0 = quieto, 1 = paso izq, 2 = paso der) indicados.
+   * y cuadro de caminata (0..3) usando los spritesheets de `caminata.zip` + accesorio + parche.
    */
   static getDirectionalMiniKey(
     scene: Phaser.Scene,
-    hair: 1 | 2,
+    hair: 1 | 2 | 3,
     suit: SuitColor,
     dir: AstronautDirection = 'down',
-    step: WalkStep = 0
+    step: WalkStep = 0,
+    accessory: Accessory | null = gameStore.state.customization.accessory,
+    patch: string = gameStore.state.customization.patch
   ): string {
-    const prefix = hair === 2 ? 'boy1' : 'girl';
-    let baseKey: string;
-    if (dir === 'up') {
-      baseKey = scene.textures.exists('character_back_mini')
-        ? 'character_back_mini'
-        : hair === 2
-          ? 'astronaut_mini_hair2'
-          : 'astronaut_mini_hair1';
-    } else if (dir === 'left' || dir === 'right') {
-      const sideKey = `${prefix}_side_mini`;
-      baseKey = scene.textures.exists(sideKey)
-        ? sideKey
-        : hair === 2
-          ? 'astronaut_mini_hair2'
-          : 'astronaut_mini_hair1';
-    } else {
-      const frontKey = `${prefix}_front_mini`;
-      baseKey = scene.textures.exists(frontKey)
-        ? frontKey
-        : hair === 2
-          ? 'astronaut_mini_hair2'
-          : 'astronaut_mini_hair1';
+    const prefix = AstronautAppearance.getCharPrefix(hair);
+    const sheetKind = dir === 'up' ? 'back' : dir === 'left' || dir === 'right' ? 'side' : 'front';
+    const walkSheetKey = `${prefix}_walk_${sheetKind}`;
+    const safeAcc = accessory ?? 'none';
+    const safePatch = patch || 'LUNA-7';
+
+    // Si existe la hoja de caminata de 4/8 cuadros, construimos el cuadro animado con gorrito/accesorio y parche
+    if (scene.textures.exists(walkSheetKey)) {
+      const frameIdx =
+        dir === 'left' ? 4 + (step % 4) : step % 4;
+      const targetKey = `walk_${walkSheetKey}_f${frameIdx}_${suit}_a_${safeAcc}_p_${safePatch}`;
+      if (scene.textures.exists(targetKey)) {
+        return targetKey;
+      }
+      AstronautAppearance.buildWalkFrameMiniTexture(
+        scene,
+        walkSheetKey,
+        targetKey,
+        frameIdx,
+        suit,
+        dir,
+        step,
+        accessory,
+        safePatch
+      );
+      if (scene.textures.exists(targetKey)) {
+        return targetKey;
+      }
     }
 
-    const isCharMini = baseKey.endsWith('_mini') && !baseKey.startsWith('astronaut_');
-    const startRow = isCharMini ? 10 : 8;
-
-    const targetKey = `${baseKey}_${suit}_s${step}`;
-    if (scene.textures.exists(targetKey)) {
-      return targetKey;
-    }
-
-    if (suit === 'blanco' && step === 0) {
-      return baseKey;
-    }
-
-    const viewKind: 'front' | 'back' | 'side' =
-      dir === 'up' ? 'back' : dir === 'left' || dir === 'right' ? 'side' : 'front';
-
-    AstronautAppearance.buildRecoloredTexture(
-      scene,
-      baseKey,
-      targetKey,
-      startRow,
-      suit,
-      step,
-      viewKind
-    );
-    return scene.textures.exists(targetKey) ? targetKey : baseKey;
+    // Respaldo (fallback) para entornos sin las hojas de caminata
+    const fallbackKey =
+      hair === 2 ? 'astronaut_mini_hair2' : 'astronaut_mini_hair1';
+    return fallbackKey;
   }
 
   /**
@@ -125,7 +133,7 @@ export class AstronautAppearance {
   static updatePlayerWalk(
     scene: Phaser.Scene,
     sprite: Phaser.GameObjects.Sprite,
-    hair: 1 | 2,
+    hair: 1 | 2 | 3,
     suit: SuitColor,
     vx: number,
     vy: number,
@@ -142,11 +150,10 @@ export class AstronautAppearance {
       }
     }
 
-    // Ciclo de 4 tiempos: 0 (quieto) -> 1 (paso A) -> 0 (centro) -> 2 (paso B)
+    // Ciclo fluido de 4 cuadros (0 -> 1 -> 2 -> 3) de caminata.zip
     let step: WalkStep = 0;
     if (moving) {
-      const phase = Math.floor(walkTimeMs / 130) % 4;
-      step = phase === 1 ? 1 : phase === 3 ? 2 : 0;
+      step = (Math.floor(walkTimeMs / 110) % 4) as WalkStep;
     }
 
     const texKey = AstronautAppearance.getDirectionalMiniKey(scene, hair, suit, dir, step);
@@ -154,26 +161,19 @@ export class AstronautAppearance {
       sprite.setTexture(texKey);
     }
 
-    // En vista lateral ('side_mini' mira hacia la izquierda), volteamos al ir a la derecha
-    if (dir === 'right') {
-      sprite.setFlipX(true);
-    } else if (dir === 'left') {
-      sprite.setFlipX(false);
-    } else {
-      sprite.setFlipX(false);
-    }
+    // Las hojas laterales ya incluyen los 4 cuadros derechos (0..3) y los 4 izquierdos (4..7)
+    sprite.setFlipX(false);
 
     return dir;
   }
 
-  private static buildRecoloredTexture(
+  private static buildRecoloredFullTexture(
     scene: Phaser.Scene,
     sourceKey: string,
     targetKey: string,
     startRow: number,
     suit: SuitColor,
-    step: WalkStep = 0,
-    viewKind: 'front' | 'back' | 'side' = 'front'
+    patch: string
   ): void {
     if (!scene.textures.exists(sourceKey)) return;
     const srcTex = scene.textures.get(sourceKey);
@@ -199,80 +199,110 @@ export class AstronautAppearance {
     if (suit !== 'blanco') {
       Customization.recolorRgbaBuffer(imgData.data, width, height, startRow, suit);
     }
-    if (step !== 0 && height >= 23) {
-      AstronautAppearance.applyWalkStepToBuffer(imgData.data, width, height, step, viewKind);
-    }
     ctx.putImageData(imgData, 0, 0);
+
+    // Dibujar insignia/parche de misión en el pecho del traje grande (24×56)
+    AstronautAppearance.drawPatchBadge(ctx, 13, 27, 6, 5, patch);
+
     canvasTex.refresh();
   }
 
   /**
-   * Anima las botas/piernas y el braceo en el buffer RGBA para dar caminata fluida en 4 direcciones.
+   * Extrae un cuadro de 64×64 de la hoja de caminata, recolorea el traje,
+   * dibuja el parche en el pecho y el accesorio en el casco, y lo escala a 16×32 nítido.
    */
-  private static applyWalkStepToBuffer(
-    data: Uint8ClampedArray,
-    width: number,
-    height: number,
+  private static buildWalkFrameMiniTexture(
+    scene: Phaser.Scene,
+    sheetKey: string,
+    targetKey: string,
+    frameIdx: number,
+    suit: SuitColor,
+    dir: AstronautDirection,
     step: WalkStep,
-    viewKind: 'front' | 'back' | 'side'
+    accessory: Accessory | null,
+    patch: string
   ): void {
-    const copy = new Uint8ClampedArray(data);
-    const getPx = (x: number, y: number): [number, number, number, number] => {
-      if (x < 0 || x >= width || y < 0 || y >= height) return [0, 0, 0, 0];
-      const i = (y * width + x) * 4;
-      return [copy[i], copy[i + 1], copy[i + 2], copy[i + 3]];
-    };
-    const setPx = (x: number, y: number, rgba: [number, number, number, number]): void => {
-      if (x < 0 || x >= width || y < 0 || y >= height) return;
-      const i = (y * width + x) * 4;
-      data[i] = rgba[0];
-      data[i + 1] = rgba[1];
-      data[i + 2] = rgba[2];
-      data[i + 3] = rgba[3];
-    };
+    if (!scene.textures.exists(sheetKey)) return;
+    const srcTex = scene.textures.get(sheetKey);
+    const sourceImage = srcTex.getSourceImage() as
+      | HTMLImageElement
+      | HTMLCanvasElement
+      | undefined;
+    if (!sourceImage) return;
 
-    const legStart = Math.max(16, height - 7);
-    const halfX = Math.floor(width / 2);
+    // Lienzo temporal de resolución completa (32×64) centrado en el personaje del cuadro de 64×64 (x=15..47, y=0..64)
+    const workCanvas = document.createElement('canvas');
+    workCanvas.width = 32;
+    workCanvas.height = 64;
+    const workCtx = workCanvas.getContext('2d');
+    if (!workCtx) return;
+    workCtx.imageSmoothingEnabled = false;
 
-    if (viewKind === 'front' || viewKind === 'back') {
-      // Levantar la pierna activa 1 px (izquierda en step 1, derecha en step 2)
-      const xMin = step === 1 ? 0 : halfX;
-      const xMax = step === 1 ? halfX - 1 : width - 1;
-      for (let y = legStart; y < height - 1; y++) {
-        for (let x = xMin; x <= xMax; x++) {
-          setPx(x, y, getPx(x, y + 1));
-        }
-      }
-      for (let x = xMin; x <= xMax; x++) {
-        setPx(x, height - 1, [0, 0, 0, 0]);
-      }
-    } else {
-      // Vista de perfil: separar las dos piernas hacia adelante y atrás 1 px
-      for (let y = legStart; y < height; y++) {
-        for (let x = 0; x < width; x++) {
-          setPx(x, y, [0, 0, 0, 0]);
-        }
-        for (let x = 0; x < width; x++) {
-          const px = getPx(x, y);
-          if (px[3] === 0) continue;
-          const isFrontHalf = x < halfX;
-          if (step === 1) {
-            const tx = isFrontHalf ? x - 1 : x + 1;
-            const ty = isFrontHalf ? y : Math.max(legStart, y - 1);
-            setPx(tx, ty, px);
-          } else {
-            const tx = isFrontHalf ? x : x + 1;
-            const ty = isFrontHalf ? Math.max(legStart, y - 1) : y;
-            setPx(tx, ty, px);
-          }
+    const sx = frameIdx * 64 + 15;
+    workCtx.drawImage(sourceImage, sx, 0, 32, 64, 0, 0, 32, 64);
+
+    // Recolorear traje desde y=28 (donde empieza el cuello del traje en el lienzo de 64px de alto)
+    if (suit !== 'blanco') {
+      const imgData = workCtx.getImageData(0, 0, 32, 64);
+      Customization.recolorRgbaBuffer(imgData.data, 32, 64, 28, suit);
+      workCtx.putImageData(imgData, 0, 0);
+    }
+
+    // Dibujar parche de misión en el pecho o brazo según la dirección
+    const bobY = step === 1 || step === 3 ? 2 : 0;
+    if (dir === 'down') {
+      AstronautAppearance.drawPatchBadge(workCtx, 17, 35 + bobY, 6, 5, patch);
+    } else if (dir === 'right') {
+      AstronautAppearance.drawPatchBadge(workCtx, 15, 35 + bobY, 5, 5, patch);
+    } else if (dir === 'left') {
+      AstronautAppearance.drawPatchBadge(workCtx, 13, 35 + bobY, 5, 5, patch);
+    }
+
+    // Superponer el accesorio (sombrero, diadema, moño, antena, audífonos) alineado al casco
+    if (accessory) {
+      const accKey = `acc_${accessory}`;
+      if (scene.textures.exists(accKey)) {
+        const accImg = scene.textures.get(accKey).getSourceImage() as
+          | HTMLImageElement
+          | HTMLCanvasElement
+          | undefined;
+        if (accImg) {
+          const dx = dir === 'right' ? 2 : dir === 'left' ? -1 : 0;
+          workCtx.drawImage(accImg, dx, bobY);
         }
       }
     }
+
+    // Escalar de 32×64 a 16×32 para mantener las proporciones mini del mundo y la base
+    const canvasTex = scene.textures.createCanvas(targetKey, 16, 32);
+    if (!canvasTex) return;
+    const outCtx = canvasTex.getContext();
+    outCtx.imageSmoothingEnabled = false;
+    outCtx.clearRect(0, 0, 16, 32);
+    outCtx.drawImage(workCanvas, 0, 0, 32, 64, 0, 0, 16, 32);
+    canvasTex.refresh();
+  }
+
+  private static drawPatchBadge(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    patch: string
+  ): void {
+    const style = PATCH_COLORS[patch] ?? PATCH_COLORS['LUNA-7'];
+    ctx.fillStyle = style.border;
+    ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = style.bg;
+    ctx.fillRect(x + 1, y + 1, Math.max(1, w - 2), Math.max(1, h - 2));
+    ctx.fillStyle = style.accent;
+    ctx.fillRect(x + Math.floor(w / 2) - 1, y + Math.floor(h / 2) - 1, 2, 2);
   }
 
   /**
-   * Crea un contenedor con el astronauta grande (24×56) recoloreado y su accesorio (32×64)
-   * alineado exactamente en x=4, y=8 del lienzo de 32×64 (desplazamiento central y = -4 * scale).
+   * Crea un contenedor con el astronauta grande (24×56) recoloreado, su parche de misión en el pecho
+   * y su accesorio (32×64) alineado exactamente sobre el casco.
    */
   static createFullAstronautContainer(
     scene: Phaser.Scene,
@@ -282,13 +312,31 @@ export class AstronautAppearance {
     config: AstronautVisualConfig
   ): Phaser.GameObjects.Container {
     const container = scene.add.container(x, y);
+    const patchName = config.patch ?? gameStore.state.customization.patch ?? 'LUNA-7';
     const texKey = AstronautAppearance.getFullTextureKey(
       scene,
       config.hair,
-      config.suit
+      config.suit,
+      patchName
     );
     const bodyImg = scene.add.image(0, 0, texKey).setScale(scale);
     container.add(bodyImg);
+
+    // Placa miniatura del parche sobre el pecho para que resalte visualmente
+    const patchStyle = PATCH_COLORS[patchName] ?? PATCH_COLORS['LUNA-7'];
+    const bgInt = Number.parseInt(patchStyle.bg.replace('#', ''), 16);
+    const accInt = Number.parseInt(patchStyle.accent.replace('#', ''), 16);
+    const badgeBg = scene.add
+      .rectangle(3.2 * scale, 1.5 * scale, 5.2 * scale, 3.6 * scale, bgInt)
+      .setStrokeStyle(Math.max(1, 0.4 * scale), 0x181425);
+    const badgeDot = scene.add.rectangle(
+      3.2 * scale,
+      1.5 * scale,
+      2 * scale,
+      1.6 * scale,
+      accInt
+    );
+    container.add([badgeBg, badgeDot]);
 
     if (config.accessory) {
       const accKey = `acc_${config.accessory}`;
@@ -303,3 +351,4 @@ export class AstronautAppearance {
     return container;
   }
 }
+

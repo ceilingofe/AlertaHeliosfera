@@ -40,7 +40,8 @@ const config: Phaser.Types.Core.GameConfig = {
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
-    autoRound: true,
+    expandParent: true,
+    autoRound: false,
   },
   input: { activePointers: 3 },
   scene: [
@@ -70,6 +71,46 @@ const config: Phaser.Types.Core.GameConfig = {
 };
 
 const game = new Phaser.Game(config);
+
+const refreshScale = (): void => {
+  if (game.scale) {
+    game.scale.refresh();
+  }
+};
+window.addEventListener('resize', refreshScale);
+window.addEventListener('orientationchange', () => {
+  setTimeout(refreshScale, 120);
+  setTimeout(refreshScale, 350);
+});
+window.visualViewport?.addEventListener('resize', refreshScale);
+
+const fsBtn = document.getElementById('mobile-fs-btn');
+if (fsBtn) {
+  fsBtn.addEventListener('click', async () => {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+        const orientation = screen.orientation as ScreenOrientation & {
+          lock?: (mode: string) => Promise<void>;
+        };
+        if (orientation?.lock) {
+          await orientation.lock('landscape').catch(() => undefined);
+        }
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch {
+      // Ignorar si el navegador móvil bloquea fullscreen nativo
+    }
+    setTimeout(refreshScale, 150);
+  });
+  document.addEventListener('fullscreenchange', () => {
+    fsBtn.textContent = document.fullscreenElement ? '✕ Salir' : '⛶ Pantalla completa';
+    setTimeout(refreshScale, 120);
+  });
+}
+
 // Acceso de depuración para pruebas automatizadas (no afecta el juego).
 (window as unknown as { __game?: Phaser.Game }).__game = game;
 export default game;
+

@@ -17,7 +17,7 @@ Equipo **SpaceCrows** (NASA Space Apps Challenge 2026): Sergio, Karmin (arte y s
 - **Efectos originales** sintetizados para este juego (pasos, broca, viento, zumbido de la base, válvulas, sirena, cohete, estática, etc.). Se regeneran con `python3 tools/sfx/generate_sfx.py && bash tools/sfx/build_audio.sh`. Se liberan bajo la misma licencia que el juego.
 
 ## Tipografía y código
-- **Pixelify Sans** — SIL Open Font License (`public/assets/fonts/OFL.txt`).
+- **Chakra Petch** (Cadson Demak) y **Pixelify Sans** — SIL Open Font License (`public/assets/fonts/OFL.txt`).
 - **Phaser 3** (MIT) y **phaser3-rex-plugins** (MIT).
 
 ## Datos y ciencia NASA

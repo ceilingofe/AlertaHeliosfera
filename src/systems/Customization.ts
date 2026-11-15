@@ -110,9 +110,25 @@ export class Customization {
     return state.unlocks.customization;
   }
 
+  /**
+   * Sincroniza los accesorios desbloqueados según el día actual para que nunca queden bloqueados si ya se alcanzó el día.
+   */
+  static syncUnlocksForDay(state: GameState): void {
+    for (const acc of ACCESSORY_ORDER) {
+      if (
+        state.day >= ACCESSORY_UNLOCK_DAY[acc] &&
+        !state.unlocks.accessories.includes(acc)
+      ) {
+        state.unlocks.accessories.push(acc);
+      }
+    }
+  }
+
   static isAccessoryUnlocked(state: GameState, accessory: Accessory): boolean {
+    Customization.syncUnlocksForDay(state);
     return (
-      state.unlocks.customization && state.unlocks.accessories.includes(accessory)
+      state.unlocks.accessories.includes(accessory) ||
+      state.day >= ACCESSORY_UNLOCK_DAY[accessory]
     );
   }
 
@@ -124,7 +140,7 @@ export class Customization {
     return true;
   }
 
-  static setHair(state: GameState, hair: 1 | 2): boolean {
+  static setHair(state: GameState, hair: 1 | 2 | 3): boolean {
     if (!state.unlocks.customization && hair !== 1) {
       return false;
     }
@@ -145,7 +161,7 @@ export class Customization {
   }
 
   static setPatch(state: GameState, patch: string): boolean {
-    if (!state.unlocks.customization) {
+    if (!state.unlocks.customization && patch !== 'LUNA-7' && patch !== 'SPACECROWS') {
       return false;
     }
     state.customization.patch = patch;

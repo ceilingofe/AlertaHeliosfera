@@ -15,6 +15,7 @@ import { Vitals } from '../systems/Vitals';
 import { AstronautAppearance, type AstronautDirection } from '../ui/AstronautAppearance';
 import { DialogBox } from '../ui/DialogBox';
 import { getSharedJoystickVector } from '../ui/Joystick';
+import type { SampleType } from '../types';
 import { Dialogo } from './Dialogo';
 
 type StationId =
@@ -285,30 +286,36 @@ export class Base extends Phaser.Scene {
     addBlock(468, 82, 38, 28);
     suitLocker.on('pointerdown', () => this.openSuitCustomization());
 
-    // 4e. Cama a la izquierda (s04_base.png: cabecera blanca, sábana gris, cobija acolchada magenta #b55088)
-    const bedFrame = this.add
-      .rectangle(64, 252, 82, 74, 0x181425)
-      .setOrigin(0.5)
-      .setInteractive({ useHandCursor: true });
-    this.add.rectangle(64, 226, 78, 18, 0xffffff).setOrigin(0.5);
-    // Almohada suave
-    this.add.rectangle(64, 226, 44, 12, 0xe8b796).setOrigin(0.5).setStrokeStyle(1, 0xc28569);
-    this.add.rectangle(64, 240, 78, 8, 0xc0cbdc).setOrigin(0.5);
-    this.add.rectangle(64, 265, 78, 42, 0xb55088).setOrigin(0.5);
-    addBlock(64, 252, 82, 74);
+    // 4e. Cama a la izquierda (sprite Cama_base.png de Karmin)
+    let bedFrame: Phaser.GameObjects.GameObject;
+    if (this.textures.exists('bed_base')) {
+      bedFrame = this.add
+        .image(64, 252, 'bed_base')
+        .setScale(2)
+        .setInteractive({ useHandCursor: true });
+    } else {
+      bedFrame = this.add
+        .rectangle(64, 252, 82, 74, 0x181425)
+        .setOrigin(0.5)
+        .setInteractive({ useHandCursor: true });
+      this.add.rectangle(64, 226, 78, 18, 0xffffff).setOrigin(0.5);
+      this.add.rectangle(64, 265, 78, 42, 0xb55088).setOrigin(0.5);
+    }
+    addBlock(64, 252, 72, 78);
     bedFrame.on('pointerdown', () => this.goToSleep());
 
-    // 4f. Corvi en su percha (cuervo pixel-art de cuerpo entero proporcional, no el retrato gigante)
+    // 4f. Corvi en su percha: diseño original de Corvi, a tamaño de cuervito
     this.add.rectangle(228, 212, 36, 6, 0xe4a672).setStrokeStyle(2, 0x181425);
     this.add.rectangle(228, 224, 8, 20, 0x262b44).setStrokeStyle(2, 0x181425);
     this.add.rectangle(228, 234, 22, 5, 0x3a4466).setStrokeStyle(1, 0x181425);
+    const corviKey = this.textures.exists('corvi_neutral') ? 'corvi_neutral' : 'corvi_perch';
     this.corviSprite = this.add
-      .image(228, 196, 'corvi_perch')
-      .setScale(1.6)
+      .image(228, 194, corviKey)
+      .setScale(corviKey === 'corvi_neutral' ? 0.8 : 1.6)
       .setInteractive({ useHandCursor: true });
     this.tweens.add({
       targets: this.corviSprite,
-      y: 194,
+      y: 192,
       duration: 1100,
       yoyo: true,
       repeat: -1,
@@ -320,20 +327,32 @@ export class Base extends Phaser.Scene {
       this.openCorviFaqMenu();
     });
 
-    // 4g. Mesa de muestras con 6 tubos y microscopio (x = 382, y = 204)
+    // 4g. Mesa de laboratorio: 6 tubos de ensayo para las muestras entregadas, matraces y microscopio
     const tableTop = this.add
       .rectangle(382, 204, 148, 34, 0xc0cbdc)
       .setStrokeStyle(2, 0x181425)
       .setInteractive({ useHandCursor: true });
     this.add.rectangle(382, 224, 148, 10, 0x181425);
-    // Pequeño microscopio/analizador en la esquina derecha de la mesa
-    this.add.rectangle(442, 192, 12, 16, 0x3a4466).setStrokeStyle(1, 0x181425);
-    this.add.circle(442, 184, 4, 0x2ce8f5);
+    // Gradilla de los tubos
+    this.add.rectangle(366, 206, 80, 6, 0x5a6988).setStrokeStyle(1, 0x181425);
+    // Microscopio/analizador en la esquina derecha
+    this.add.rectangle(444, 192, 12, 16, 0x3a4466).setStrokeStyle(1, 0x181425);
+    this.add.circle(444, 184, 4, 0x2ce8f5);
+    // Matraces con reactivos (Erlenmeyer verde y matraz azul con corcho)
+    if (this.textures.exists('flask_conical')) {
+      this.add.image(424, 198, 'flask_conical').setTint(0x63c74d);
+    }
+    if (this.textures.exists('flask_blue')) {
+      this.add.image(312, 198, 'flask_blue');
+    }
     addBlock(382, 208, 148, 40);
 
+    const tubeKey = this.textures.exists('tube_sample') ? 'tube_sample' : 'tube_empty';
     for (let i = 0; i < 6; i++) {
-      const tx = 324 + i * 19;
-      const tSprite = this.add.image(tx, 192, 'tube_empty').setScale(2);
+      const tx = 336 + i * 12;
+      const tSprite = this.add
+        .image(tx, 194, tubeKey)
+        .setScale(tubeKey === 'tube_sample' ? 1 : 2);
       this.tableTubeSprites.push(tSprite);
     }
     this.refreshTableTubes();
@@ -602,9 +621,10 @@ export class Base extends Phaser.Scene {
 
     // Parpadeo periódico de Corvi en su percha
     if (this.corviSprite && time >= this.nextBlinkAt) {
-      this.corviSprite.setTexture('corvi_perch_blink');
+      const original = this.corviSprite.texture.key === 'corvi_neutral';
+      this.corviSprite.setTexture(original ? 'corvi_blink' : 'corvi_perch_blink');
       this.time.delayedCall(150, () => {
-        if (this.corviSprite?.active) this.corviSprite.setTexture('corvi_perch');
+        if (this.corviSprite?.active) this.corviSprite.setTexture(original ? 'corvi_neutral' : 'corvi_perch');
       });
       this.nextBlinkAt = time + Phaser.Math.Between(2800, 4600);
     }
@@ -905,14 +925,24 @@ export class Base extends Phaser.Scene {
 
   private refreshTableTubes(): void {
     const state = gameStore.state;
-    const totalDelivered =
-      state.deliveredToday.roca +
-      state.deliveredToday.suelo +
-      state.deliveredToday.minerales +
-      state.deliveredToday.aire;
+    const colors: Record<SampleType, number> = {
+      roca: 0xb86f50,
+      suelo: 0xe4a672,
+      minerales: 0xb55088,
+      aire: 0x2ce8f5,
+    };
+    const filled: number[] = [];
+    for (const t of ['roca', 'suelo', 'minerales', 'aire'] as SampleType[]) {
+      for (let i = 0; i < state.deliveredToday[t]; i++) filled.push(colors[t]);
+    }
 
     this.tableTubeSprites.forEach((sp, idx) => {
-      sp.setTexture(idx < totalDelivered ? 'tube_full' : 'tube_empty');
+      if (sp.texture.key === 'tube_sample') {
+        if (idx < filled.length) sp.setTint(filled[idx]).setAlpha(1);
+        else sp.clearTint().setAlpha(0.7);
+      } else {
+        sp.setTexture(idx < filled.length ? 'tube_full' : 'tube_empty');
+      }
     });
   }
 
@@ -944,12 +974,19 @@ export class Base extends Phaser.Scene {
     Save.save(state);
   }
 
-  private tryExitToWorld(): void {
+  private tryExitToWorld(confirmedNight = false): void {
     const state = gameStore.state;
     if (!BaseSystem.canExitToWorld(state)) {
       bus.emit('interact:prompt', { text: uiText.base.curfewBlocked });
       return;
     }
+    if (BaseSystem.isNightExit(state) && !confirmedNight) {
+      this.openConfirm(uiText.base.nightExitConfirm, uiText.base.nightExitYes, () =>
+        this.tryExitToWorld(true)
+      );
+      return;
+    }
+    this.closeModal();
     state.location = 'mundo';
     state.astronaut.pos = { x: 640, y: 512 };
     Save.save(state);

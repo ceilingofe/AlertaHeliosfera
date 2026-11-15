@@ -61,12 +61,20 @@ export class Transmision extends Phaser.Scene {
     const delayInfo = Data.getLightDelay(state.day);
     this.add.rectangle(320, 74, 596, 60, 0x262b44).setStrokeStyle(1, 0x3a4466);
 
-    this.add.circle(60, 74, 22, 0x0099db);
-    this.add.circle(54, 68, 8, 0x63c74d);
-    this.add.circle(68, 82, 6, 0x63c74d);
+    if (this.textures.exists('planet_earth')) {
+      this.add.image(60, 74, 'planet_earth').setDisplaySize(44, 42);
+    } else {
+      this.add.circle(60, 74, 22, 0x0099db);
+      this.add.circle(54, 68, 8, 0x63c74d);
+      this.add.circle(68, 82, 6, 0x63c74d);
+    }
 
-    this.add.circle(580, 74, 20, 0xb86f50);
-    this.add.circle(573, 69, 5, 0x733e39);
+    if (this.textures.exists('planet_mars')) {
+      this.add.image(580, 74, 'planet_mars').setDisplaySize(42, 40);
+    } else {
+      this.add.circle(580, 74, 20, 0xb86f50);
+      this.add.circle(573, 69, 5, 0x733e39);
+    }
 
     const dots = this.add.graphics();
     for (let x = 96; x <= 544; x += 14) {
@@ -201,7 +209,11 @@ export class Transmision extends Phaser.Scene {
       // Mini diagrama visual Sol -> onda CME -> Marte a la derecha de la tarjeta
       const sg = this.add.graphics();
       this.add.circle(558, 138, 7, 0xfee761);
-      this.add.circle(602, 138, 5, 0xb86f50);
+      if (this.textures.exists('planet_mars')) {
+        this.add.image(602, 138, 'planet_mars').setDisplaySize(13, 12);
+      } else {
+        this.add.circle(602, 138, 5, 0xb86f50);
+      }
       if (state.day === 3 || solar.hasAlert) {
         sg.lineStyle(2, state.day === 5 ? 0x2ce8f5 : 0xe43b44, 1);
         sg.beginPath();
