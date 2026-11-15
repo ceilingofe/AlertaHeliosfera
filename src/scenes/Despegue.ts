@@ -165,8 +165,6 @@ export class Despegue extends Phaser.Scene {
       mode: 'big',
       mood: 'happy',
       text: uiText.despegue.corviWelcome,
-      source: 'Perseverance (Jezero)',
-      label: 'ARCHIVO REAL',
       onComplete: () => {
         this.goToTransmision();
       },
