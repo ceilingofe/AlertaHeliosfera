@@ -30,6 +30,7 @@ export abstract class MinigameBase extends Phaser.Scene {
       day,
       difficulty: data?.difficulty ?? difficulty,
       zone: data?.zone,
+      panelId: data?.panelId,
     };
     this.failures = 0;
   }

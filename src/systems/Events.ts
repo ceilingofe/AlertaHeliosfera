@@ -190,11 +190,14 @@ export class Events {
    */
   static resolveMaintenanceEvent(
     state: GameState,
-    type: 'dust' | 'moxie_pipes' | 'antenna'
+    type: 'dust' | 'moxie_pipes' | 'antenna',
+    panelId?: string
   ): void {
     if (type === 'dust') {
       for (const p of state.base.panels) {
-        p.dust = 0;
+        if (!panelId || p.id === panelId) {
+          p.dust = 0;
+        }
       }
       state.base.energy = 100;
     } else if (type === 'moxie_pipes') {

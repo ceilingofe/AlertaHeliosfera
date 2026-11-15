@@ -10,7 +10,7 @@ interface PipeCell {
   row: number;
   col: number;
   isOnPath: boolean;
-  targetRot: number;
+  targetConnections: number;
   currentRot: number;
   clogCount: number;
   container: Phaser.GameObjects.Container;
@@ -104,7 +104,8 @@ export class MinijuegoTuberias extends MinigameBase {
           (c === 2 && r >= 0 && r <= gridSize - 1) ||
           (r === gridSize - 1 && c >= 2);
 
-        const mismatch = isOnPath && (r + c) % 2 === 1 ? 90 : 0;
+        const targetConnections = this.getTargetConnections(r, c, gridSize);
+        const mismatch = isOnPath && (r + c) % 2 === 1 ? 1 : 0;
         const clogCount =
           this.inputData.difficulty >= 2 && r === 1 && c === 2 ? 2 : 0;
 
@@ -117,8 +118,12 @@ export class MinijuegoTuberias extends MinigameBase {
           .setInteractive({ useHandCursor: true });
 
         const pipeGraphic = this.add.graphics();
-        this.drawPipeSegment(pipeGraphic, cellSize, isOnPath, false);
-        pipeGraphic.setAngle(mismatch);
+        this.drawPipeSegment(
+          pipeGraphic,
+          cellSize,
+          this.rotateConnections(targetConnections, mismatch),
+          false
+        );
 
         const container = this.add.container(cx, cy, [tileBg, pipeGraphic]);
 
@@ -134,7 +139,7 @@ export class MinijuegoTuberias extends MinigameBase {
           row: r,
           col: c,
           isOnPath,
-          targetRot: 0,
+          targetConnections,
           currentRot: mismatch,
           clogCount,
           container,
@@ -160,14 +165,63 @@ export class MinijuegoTuberias extends MinigameBase {
   private drawPipeSegment(
     g: Phaser.GameObjects.Graphics,
     cellSize: number,
-    isOnPath: boolean,
+    connections: number,
     connected: boolean
   ): void {
     g.clear();
     const half = (cellSize - 6) / 2;
-    g.fillStyle(connected ? 0x2ce8f5 : isOnPath ? 0xc0cbdc : 0x5a6988, 1);
-    g.fillRect(-half, -5, half * 2, 10);
-    g.fillRect(-5, -half, 10, half * 2);
+    g.fillStyle(connected ? 0x2ce8f5 : 0xc0cbdc, 1);
+    if (connections & 1) g.fillRect(-5, -half, 10, half);
+    if (connections & 2) g.fillRect(0, -5, half, 10);
+    if (connections & 4) g.fillRect(-5, 0, 10, half);
+    if (connections & 8) g.fillRect(-half, -5, half, 10);
+    g.fillCircle(0, 0, 6);
+  }
+
+  private getTargetConnections(row: number, col: number, gridSize: number): number {
+    if (
+      (row === 0 && col <= 2) ||
+      (col === 2 && row >= 0 && row < gridSize) ||
+      (row === gridSize - 1 && col >= 2)
+    ) {
+      if (row === 0 && col === 0) return 8 | 2;
+      if (row === 0 && col === 2) return 8 | 4;
+      if (row > 0 && row < gridSize - 1 && col === 2) return 1 | 4;
+      if (row === gridSize - 1 && col === 2) return 1 | 2;
+      return 8 | 2;
+    }
+    return 0;
+  }
+
+  private rotateConnections(connections: number, rotations: number): number {
+    let rotated = connections;
+    for (let i = 0; i < rotations % 4; i++) {
+      rotated =
+        ((rotated & 1) ? 2 : 0) |
+        ((rotated & 2) ? 4 : 0) |
+        ((rotated & 4) ? 8 : 0) |
+        ((rotated & 8) ? 1 : 0);
+    }
+    return rotated;
+  }
+
+  private isConnectedToNeighbours(cell: PipeCell): boolean {
+    if (!cell.isOnPath) return true;
+    const directions = [
+      { bit: 1, row: cell.row - 1, col: cell.col, opposite: 4 },
+      { bit: 2, row: cell.row, col: cell.col + 1, opposite: 8 },
+      { bit: 4, row: cell.row + 1, col: cell.col, opposite: 1 },
+      { bit: 8, row: cell.row, col: cell.col - 1, opposite: 2 },
+    ];
+    return directions.every(({ bit, row, col, opposite }) => {
+      if (!(this.getCurrentConnections(cell) & bit)) return true;
+      const neighbour = this.cells.find((candidate) => candidate.row === row && candidate.col === col);
+      return Boolean(neighbour && (this.getCurrentConnections(neighbour) & opposite));
+    });
+  }
+
+  private getCurrentConnections(cell: PipeCell): number {
+    return this.rotateConnections(cell.targetConnections, cell.currentRot);
   }
 
   private rotateOrUnclogCell(cell: PipeCell, cellSize: number): void {
@@ -189,15 +243,24 @@ export class MinijuegoTuberias extends MinigameBase {
       return;
     }
 
-    cell.currentRot = (cell.currentRot + 90) % 180;
-    cell.pipeGraphic.setAngle(cell.currentRot);
+    cell.currentRot = (cell.currentRot + 1) % 4;
+    this.drawPipeSegment(
+      cell.pipeGraphic,
+      cellSize,
+      this.getCurrentConnections(cell),
+      false
+    );
 
     this.checkAllConnected(cellSize);
   }
 
   private checkAllConnected(cellSize: number): void {
     const allReady = this.cells.every(
-      (c) => !c.isOnPath || (c.clogCount === 0 && c.currentRot % 180 === c.targetRot)
+      (c) =>
+        !c.isOnPath ||
+        (c.clogCount === 0 &&
+          c.currentRot === 0 &&
+          this.isConnectedToNeighbours(c))
     );
 
     if (!allReady) return;
@@ -207,7 +270,7 @@ export class MinijuegoTuberias extends MinigameBase {
 
     for (const c of this.cells) {
       if (c.isOnPath) {
-        this.drawPipeSegment(c.pipeGraphic, cellSize, true, true);
+        this.drawPipeSegment(c.pipeGraphic, cellSize, this.getCurrentConnections(c), true);
       }
     }
 
@@ -245,15 +308,7 @@ export class MinijuegoTuberias extends MinigameBase {
         this.activeDialog?.advanceOrFinish();
         return;
       }
-      // Con Espacio/E alinea el siguiente tramo pendiente de la ruta
-      const pending = this.cells.find(
-        (c) => c.isOnPath && (c.clogCount > 0 || c.currentRot % 180 !== c.targetRot)
-      );
-      if (pending) {
-        const gridSize = this.inputData.difficulty >= 3 ? 5 : 4;
-        const cellSize = gridSize === 5 ? 34 : 42;
-        this.rotateOrUnclogCell(pending, cellSize);
-      }
+      this.setInstruction(uiText.minigamePipes.instRotate);
     }
   }
 }

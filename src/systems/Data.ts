@@ -175,12 +175,17 @@ export class Data {
       | undefined;
 
     const found = obj?.curated?.find((e) => e.id === eventId);
+    const donkiActivityID = found?.donkiActivityID ?? 'TODO_DATO';
+    const speedKmS = found?.speedKmS ?? 'TODO_DATO';
+    const containsTodo = [donkiActivityID, speedKmS].some(
+      (value) => typeof value === 'string' && value.includes('TODO_DATO')
+    );
     return {
       id: found?.id ?? eventId,
       type: found?.type ?? (eventId === 'cme_falsa_alarma' ? 'cme_miss' : 'cme_hit'),
-      donkiActivityID: found?.donkiActivityID ?? 'TODO_DATO',
-      speedKmS: found?.speedKmS ?? 'TODO_DATO',
-      label: found?.label ?? 'ARCHIVO REAL',
+      donkiActivityID,
+      speedKmS,
+      label: containsTodo ? 'SIMULADO' : found?.label ?? 'ARCHIVO REAL',
       source: found?.source ?? 'DONKI',
     };
   }
@@ -278,7 +283,7 @@ export class Data {
       eventType: day === 5 ? 'cme_miss' : day <= 3 ? 'cme_hit' : 'none',
       activityId: shortId,
       speedText,
-      label: 'ARCHIVO REAL',
+      label: ev.label,
       source: 'DONKI',
     };
   }

@@ -28,23 +28,48 @@ describe('Sistemas BaseSystem y Save (Fase 2)', () => {
     expect(gained).toBe(25);
     expect(state.astronaut.o2).toBe(85);
     expect(state.base.o2Reserve).toBeCloseTo(67.5, 4);
+    expect(state.base.energy).toBeCloseTo(99.5, 4);
 
     // Otro segundo completa hasta 100 (+15 puntos) y baja 7.5 más de reserva (a 60)
     const gained2 = BaseSystem.refillO2(state, 1);
     expect(gained2).toBe(15);
     expect(state.astronaut.o2).toBe(100);
     expect(state.base.o2Reserve).toBeCloseTo(60, 4);
+    expect(state.base.energy).toBeCloseTo(99.2, 4);
   });
 
-  it('calentarse devuelve el traje a 21 °C y recarga la batería a 20 por segundo', () => {
+  it('calentarse devuelve el traje a 21 °C, recarga la batería y consume energía de la base', () => {
     const state = createInitialGameState();
     state.astronaut.suitTempC = 12;
     state.astronaut.heaterBattery = 50;
+    state.base.energy = 100;
 
     const added = BaseSystem.rechargeHeater(state, 2);
     expect(added).toBe(40);
     expect(state.astronaut.suitTempC).toBe(21);
     expect(state.astronaut.heaterBattery).toBe(90);
+    expect(state.base.energy).toBeCloseTo(99, 4);
+  });
+
+  it('aplica el bonus de batería del suministro extra al iniciar el día siguiente', () => {
+    const state = createInitialGameState();
+    state.base.energy = 40;
+
+    BaseSystem.sleepToNextDay(state, 'extra');
+
+    expect(state.base.o2Reserve).toBe(100);
+    expect(state.base.energy).toBe(70);
+  });
+
+  it('no calienta el traje si la base no tiene energía', () => {
+    const state = createInitialGameState();
+    state.astronaut.suitTempC = 12;
+    state.astronaut.heaterBattery = 50;
+    state.base.energy = 0;
+
+    expect(BaseSystem.rechargeHeater(state, 1)).toBe(0);
+    expect(state.astronaut.suitTempC).toBe(12);
+    expect(state.astronaut.heaterBattery).toBe(50);
   });
 
   it('no permite salir por la puerta después de las 17:00 (1020 min)', () => {

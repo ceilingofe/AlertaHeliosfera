@@ -8,6 +8,7 @@ import { BaseSystem } from '../systems/BaseSystem';
 import { Clock } from '../systems/Clock';
 import { Events } from '../systems/Events';
 import { Vitals } from '../systems/Vitals';
+import { resetPlayerMotion, updatePlayerMotion } from '../systems/PlayerMotion';
 import type { SampleType } from '../types';
 import { getSharedJoystickVector } from '../ui/Joystick';
 
@@ -406,9 +407,12 @@ export class Mundo extends Phaser.Scene {
     }
 
     if (state.clock.paused || this.isAnyMinigameActive()) {
-      this.player.setVelocity(0, 0);
-      this.walkBobTime = 0;
-      this.player.setDisplayOrigin(this.player.displayOriginX, this.playerOriginY);
+      const motion = {
+        originY: this.playerOriginY,
+        bobTime: this.walkBobTime,
+      };
+      resetPlayerMotion(this.player, motion);
+      this.walkBobTime = motion.bobTime;
       return;
     }
 
@@ -431,28 +435,19 @@ export class Mundo extends Phaser.Scene {
       vy = joy.y;
     }
 
-    const moving = vx !== 0 || vy !== 0;
-    if (moving) {
-      const len = Math.hypot(vx, vy);
-      const speed = balance.player.speed;
-      this.player.setVelocity((vx / len) * speed, (vy / len) * speed);
-      if (vx < 0) {
-        this.player.setFlipX(true);
-      } else if (vx > 0) {
-        this.player.setFlipX(false);
-      }
-    } else {
-      this.player.setVelocity(0, 0);
-    }
-
-    if (moving) {
-      this.walkBobTime += delta;
-      const bob = Math.sin(this.walkBobTime * 0.018) * 0.8;
-      this.player.setDisplayOrigin(this.player.displayOriginX, this.playerOriginY + bob);
-    } else {
-      this.walkBobTime = 0;
-      this.player.setDisplayOrigin(this.player.displayOriginX, this.playerOriginY);
-    }
+    const motion = {
+      originY: this.playerOriginY,
+      bobTime: this.walkBobTime,
+    };
+    updatePlayerMotion(
+      this.player,
+      motion,
+      vx,
+      vy,
+      delta,
+      balance.player.speed
+    );
+    this.walkBobTime = motion.bobTime;
 
     state.astronaut.pos.x = Math.round(this.player.x);
     state.astronaut.pos.y = Math.round(this.player.y);
@@ -662,6 +657,8 @@ export class Mundo extends Phaser.Scene {
   private activatePoint(pt: InteractPoint): void {
     const state = gameStore.state;
     if (this.isAnyMinigameActive()) return;
+    const distance = Phaser.Math.Distance.Between(this.player.x, this.player.y, pt.x, pt.y);
+    if (distance > balance.player.interactRadius + 6) return;
 
     switch (pt.kind) {
       case 'door':
@@ -681,16 +678,28 @@ export class Mundo extends Phaser.Scene {
         break;
       }
       case 'panel': {
+        const panel = pt.panelId
+          ? state.base.panels.find((item) => item.id === pt.panelId)
+          : undefined;
+        if (!panel || panel.dust <= 0.2) {
+          bus.emit('interact:prompt', { text: uiText.hud.interactPanelClean });
+          return;
+        }
         this.activeSamplePoint = pt;
         this.player.setVelocity(0, 0);
         this.scene.launch('MinijuegoPaneles', {
           type: 'panel',
           day: state.day,
           difficulty: state.day <= 3 ? 1 : state.day <= 9 ? 2 : 3,
+          panelId: pt.panelId,
         });
         break;
       }
       case 'moxie': {
+        if (state.base.moxieOk) {
+          bus.emit('interact:prompt', { text: uiText.hud.interactMoxieOk });
+          return;
+        }
         this.activeSamplePoint = pt;
         this.player.setVelocity(0, 0);
         this.scene.launch('MinijuegoTuberias', {

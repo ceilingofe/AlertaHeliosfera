@@ -8,14 +8,18 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "data": "node --experimental-strip-types scripts/fetch-nasa.ts"
+    "data": "node --experimental-strip-types scripts/fetch-nasa.ts",
+    "lint": "eslint ."
   },
   "dependencies": {
     "phaser": "^3.87.0",
     "phaser3-rex-plugins": "^1.80.0"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.15.0",
     "typescript": "^5.6.3",
+    "typescript-eslint": "^8.72.2",
     "vite": "^5.4.11",
     "vitest": "^2.1.5"
   }

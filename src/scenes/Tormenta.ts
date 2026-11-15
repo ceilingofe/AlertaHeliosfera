@@ -160,12 +160,13 @@ export class Tormenta extends Phaser.Scene {
     const stormKey = `${storm.eventId}:${storm.type}`;
     if (this.lastAnnouncedStormId !== stormKey) {
       this.lastAnnouncedStormId = stormKey;
+      const isFalseAlarm = storm.type === 'cme_miss';
       bus.emit('dialog:open', {
         mode: 'big',
-        mood: 'alert',
-        text: uiText.storm.corviAlertHit,
-        source: uiText.storm.sealSource,
-        label: 'ARCHIVO REAL',
+        mood: isFalseAlarm ? 'think' : 'alert',
+        text: isFalseAlarm ? uiText.storm.corviAlertMiss : uiText.storm.corviAlertHit,
+        source: isFalseAlarm ? uiText.storm.sealSourceMiss : uiText.storm.sealSource,
+        label: storm.donkiActivityID.startsWith('TODO_DATO') ? 'SIMULADO' : 'ARCHIVO REAL',
       });
     }
 
@@ -173,10 +174,15 @@ export class Tormenta extends Phaser.Scene {
       const secs = Math.ceil(storm.countdownSec);
       const mm = Math.floor(secs / 60);
       const ss = String(secs % 60).padStart(2, '0');
-      this.bannerText.setText(
-        `${uiText.storm.bannerCountdownPrefix} ${mm}:${ss}`
-      );
-      this.ochreOverlay.setAlpha(0.27);
+      if (storm.type === 'cme_miss') {
+        this.bannerText.setText(uiText.storm.bannerFalseAlarm);
+        this.ochreOverlay.setAlpha(0.14);
+      } else {
+        this.bannerText.setText(
+          `${uiText.storm.bannerCountdownPrefix} ${mm}:${ss}`
+        );
+        this.ochreOverlay.setAlpha(0.27);
+      }
     } else if (storm.phase === 'impact') {
       const secs = Math.ceil(storm.impactRemainingSec);
       const ss = String(secs).padStart(2, '0');
@@ -187,7 +193,11 @@ export class Tormenta extends Phaser.Scene {
     const shortId = storm.donkiActivityID.startsWith('TODO_DATO')
       ? 'TODO_DATO (CME mayo 2024)'
       : storm.donkiActivityID;
-    this.honestyTagText.setText(`▪ ARCHIVO REAL · DONKI · ${shortId}`);
+    const label = storm.donkiActivityID.startsWith('TODO_DATO')
+      ? 'SIMULADO'
+      : 'ARCHIVO REAL';
+    const source = storm.type === 'cme_miss' ? 'DONKI WSA-Enlil' : 'DONKI';
+    this.honestyTagText.setText(`▪ ${label} · ${source} · ${shortId}`);
     this.honestyTagBg.width = Math.max(238, Math.round(this.honestyTagText.width + 14));
 
     // Parpadeo de las barras de estática de la antena

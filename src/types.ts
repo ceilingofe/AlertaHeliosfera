@@ -10,6 +10,7 @@ export interface MinigameInput {
   day: number;
   difficulty: 1 | 2 | 3;
   zone?: string;
+  panelId?: string;
 }
 
 export interface MinigameResult {

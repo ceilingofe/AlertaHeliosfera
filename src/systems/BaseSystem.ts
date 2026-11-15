@@ -49,8 +49,10 @@ export class BaseSystem {
 
     if (state.base.energy > balance.base.moxieMinEnergy && state.base.moxieOk) {
       const o2Produced = balance.base.moxieFillPerGameHour * gameHoursDelta;
-      state.base.o2Reserve = Math.min(100, state.base.o2Reserve + o2Produced);
-      state.stats.moxieGrams += balance.base.moxieGramsPerGameHour * gameHoursDelta;
+      const storableO2 = Math.min(o2Produced, Math.max(0, 100 - state.base.o2Reserve));
+      state.base.o2Reserve += storableO2;
+      state.stats.moxieGrams +=
+        balance.base.moxieGramsPerGameHour * gameHoursDelta * (storableO2 / o2Produced);
     }
   }
 
@@ -64,21 +66,29 @@ export class BaseSystem {
       return 0;
     }
 
-    const maxByTime = balance.o2.refillPerSec * dt;
+    const energyCostPerSec = balance.o2.energyCostPerSec;
+    const maxByEnergyTime = state.base.energy / energyCostPerSec;
+    const effectiveDt = Math.min(dt, maxByEnergyTime);
+    if (effectiveDt <= 0) {
+      return 0;
+    }
+
+    const maxByTime = balance.o2.refillPerSec * effectiveDt;
     const maxByReserve = state.base.o2Reserve / balance.o2.reserveCostPerPoint;
     const addedO2 = Math.min(missingO2, maxByTime, maxByReserve);
+    const usedDt = addedO2 / balance.o2.refillPerSec;
 
     state.astronaut.o2 = Math.min(100, state.astronaut.o2 + addedO2);
     state.base.o2Reserve = Math.max(
       0,
       state.base.o2Reserve - addedO2 * balance.o2.reserveCostPerPoint
     );
+    state.base.energy = Math.max(0, state.base.energy - usedDt * energyCostPerSec);
 
     return addedO2;
   }
 
   static rechargeHeater(state: GameState, dt: number): number {
-    state.astronaut.suitTempC = balance.heater.suitC;
     if (dt <= 0 || state.base.energy <= 0) {
       return 0;
     }
@@ -88,8 +98,18 @@ export class BaseSystem {
       return 0;
     }
 
-    const added = Math.min(missingBattery, balance.heater.rechargePerSec * dt);
+    const energyCostPerSec = balance.heater.energyCostPerSec;
+    const maxByEnergyTime = state.base.energy / energyCostPerSec;
+    const effectiveDt = Math.min(dt, maxByEnergyTime);
+    if (effectiveDt <= 0) {
+      return 0;
+    }
+
+    const added = Math.min(missingBattery, balance.heater.rechargePerSec * effectiveDt);
+    const usedDt = added / balance.heater.rechargePerSec;
     state.astronaut.heaterBattery = Math.min(100, state.astronaut.heaterBattery + added);
+    state.astronaut.suitTempC = balance.heater.suitC;
+    state.base.energy = Math.max(0, state.base.energy - usedDt * energyCostPerSec);
     return added;
   }
 
@@ -169,6 +189,10 @@ export class BaseSystem {
 
     if (bonus === 'extra') {
       state.base.o2Reserve = balance.supplies.extra.reserve;
+      state.base.energy = Math.min(
+        100,
+        state.base.energy + balance.supplies.extra.batteryBonus
+      );
       state.astronaut.heaterBattery = 100;
     } else if (bonus === 'normal') {
       state.base.o2Reserve = balance.supplies.normal.reserve;

@@ -31,6 +31,7 @@ export class MinijuegoRoca extends MinigameBase {
   private sealMarkerPos = 0;
   private sealMarkerDir = 1;
   private sealMarkerRect?: Phaser.GameObjects.Rectangle;
+  private rockSelected = false;
 
   private keySpace!: Phaser.Input.Keyboard.Key;
   private keyE!: Phaser.Input.Keyboard.Key;
@@ -44,6 +45,7 @@ export class MinijuegoRoca extends MinigameBase {
     this.isDrilling = false;
     this.drillDepth = 0;
     this.drillHeat = 0;
+    this.rockSelected = false;
 
     this.drawHeader(
       uiText.minigameRock.title,
@@ -178,6 +180,7 @@ export class MinijuegoRoca extends MinigameBase {
     };
 
     const selectLeopardRock = (): void => {
+      this.rockSelected = true;
       this.buildDrillStep();
     };
 
@@ -185,7 +188,13 @@ export class MinijuegoRoca extends MinigameBase {
     rockRight.on('pointerdown', showWrongRock);
     rockCenter.on('pointerdown', selectLeopardRock);
     scannerLensOuter.on('pointerdown', selectLeopardRock);
-    drillBtnBg.on('pointerdown', selectLeopardRock);
+    drillBtnBg.on('pointerdown', () => {
+      if (this.rockSelected) {
+        this.buildDrillStep();
+      } else {
+        this.setInstruction(uiText.minigameRock.instScan);
+      }
+    });
   }
 
   private buildDrillStep(): void {
@@ -434,11 +443,7 @@ export class MinijuegoRoca extends MinigameBase {
         Phaser.Input.Keyboard.JustDown(this.keySpace) ||
         Phaser.Input.Keyboard.JustDown(this.keyE)
       ) {
-        if (this.activeDialog && this.activeDialog.isTyping()) {
-          this.activeDialog.completeTyping();
-        } else {
-          this.buildDrillStep();
-        }
+        this.setInstruction(uiText.minigameRock.instScan);
       }
       return;
     }

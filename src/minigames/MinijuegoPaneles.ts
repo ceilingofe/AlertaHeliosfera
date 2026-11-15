@@ -174,7 +174,7 @@ export class MinijuegoPaneles extends MinigameBase {
     if (this.isDone) return;
     this.isDone = true;
 
-    Events.resolveMaintenanceEvent(gameStore.state, 'dust');
+    Events.resolveMaintenanceEvent(gameStore.state, 'dust', this.inputData.panelId);
     const fact = Data.getFactById('polvo');
     if (!gameStore.state.learnedToday.includes('polvo')) {
       gameStore.state.learnedToday.push('polvo');
