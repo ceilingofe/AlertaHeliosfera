@@ -75,10 +75,17 @@ export const MINIGAME_KEYS = [
 ] as const;
 
 const SAMPLE_SPRITES: Record<SampleType, string> = {
-  roca: 'rock_leopard',
+  roca: 'rock_mars',
   suelo: 'rock_sandstone',
   minerales: 'rock_sparkle',
-  aire: 'air_station',
+  aire: 'air_pump',
+};
+
+const SAMPLE_SPRITE_VARIANTS: Record<SampleType, readonly string[]> = {
+  roca: ['rock_mars', 'rock_mars_2'],
+  suelo: ['rock_sandstone', 'rock_sandstone_2'],
+  minerales: ['rock_sparkle', 'rock_sparkle_2'],
+  aire: ['air_pump'],
 };
 
 /** Dificultad de los minijuegos según el día (1 = aprendiz, 3 = experto). */
@@ -104,6 +111,7 @@ export class Mundo extends Phaser.Scene {
   private warnedNightFirst = false;
   private warnedHeaterEmpty = false;
 
+  private nightGroundTile!: Phaser.GameObjects.TileSprite;
   private nightOverlay!: Phaser.GameObjects.Rectangle;
   private nightCosmosGfx!: Phaser.GameObjects.Graphics;
   private playerLightGfx!: Phaser.GameObjects.Graphics;
@@ -170,9 +178,16 @@ export class Mundo extends Phaser.Scene {
     const mapHeight = 960;
     this.cameras.main.setOrigin(0.5, 0.5).setZoom(4);
 
-    // 1. Suelo: sprite base de Karmin + capa de variación para que no se note la repetición
-    this.add.tileSprite(0, 0, mapWidth, mapHeight, 'ground_placeholder').setOrigin(0, 0);
-    this.add.tileSprite(0, 0, mapWidth, mapHeight, 'ground_var').setOrigin(0, 0).setAlpha(0.9);
+    // 1. Terreno de Karmin: mosaico de día + mosaico nocturno que se funde suavemente al atardecer
+    this.add
+      .tileSprite(0, 0, mapWidth, mapHeight, 'ground_day')
+      .setOrigin(0, 0)
+      .setTileScale(0.5, 0.5);
+    this.nightGroundTile = this.add
+      .tileSprite(0, 0, mapWidth, mapHeight, 'ground_night')
+      .setOrigin(0, 0)
+      .setTileScale(0.5, 0.5)
+      .setAlpha(0);
 
     const deco = this.add.graphics();
     this.drawTerrain(deco);
@@ -480,11 +495,30 @@ export class Mundo extends Phaser.Scene {
       [480, 150], [820, 210], [180, 640], [1040, 520], [1180, 380], [340, 430], [760, 860], [140, 140],
     ];
     for (const [x, y] of outcrops) this.add.image(x, y, 'outcrop');
-    for (let i = 0; i < 160; i++) {
+    for (let i = 0; i < 120; i++) {
       const x = rnd.between(10, 1270);
       const y = rnd.between(10, 950);
       if (Math.abs(x - 640) < 140 && Math.abs(y - 490) < 70) continue;
+      if (Math.abs(x - 940) < 44 && Math.abs(y - 490) < 34) continue;
       this.add.image(x, y, rnd.pick(['pebble_a', 'pebble_b', 'pebble_c']));
+    }
+    const terrainRocks = [
+      'rock_mars',
+      'rock_mars_2',
+      'rock_sandstone',
+      'rock_sandstone_2',
+      'rock_sparkle',
+      'rock_sparkle_2',
+    ];
+    for (let i = 0; i < 64; i++) {
+      const x = rnd.between(24, 1256);
+      const y = rnd.between(24, 936);
+      if (Math.abs(x - 640) < 150 && Math.abs(y - 490) < 80) continue;
+      if (Math.abs(x - 940) < 52 && Math.abs(y - 490) < 40) continue;
+      this.add
+        .image(x, y, rnd.pick(terrainRocks))
+        .setScale(rnd.pick([0.75, 0.9, 1]))
+        .setAlpha(0.9);
     }
   }
 
@@ -521,9 +555,15 @@ export class Mundo extends Phaser.Scene {
 
   private spawnSampleSite(site: SampleSite, used: boolean): void {
     const uiText = I18n.ui();
-    this.add.ellipse(site.x, site.y + 6, 14, 4, 0x3e2731, 0.4);
-    const rockImg = this.add.image(site.x, site.y, SAMPLE_SPRITES[site.type]).setInteractive({ useHandCursor: true });
-    const marker = this.add.image(site.x, site.y - 14, 'marker_sample').setInteractive({ useHandCursor: true });
+    const variants = SAMPLE_SPRITE_VARIANTS[site.type];
+    const hash = site.id.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+    const spriteKey = variants[hash % variants.length] ?? SAMPLE_SPRITES[site.type];
+    this.add.ellipse(site.x, site.y + 6, spriteKey === 'air_pump' ? 20 : 14, 4, 0x3e2731, 0.4);
+    const rockImg = this.add
+      .image(site.x, site.y, spriteKey)
+      .setScale(spriteKey === 'air_pump' ? 0.5 : 1.05)
+      .setInteractive({ useHandCursor: true });
+    const marker = this.add.image(site.x, site.y - (spriteKey === 'air_pump' ? 17 : 14), 'marker_sample').setInteractive({ useHandCursor: true });
     this.bob(marker);
 
     const promptMap: Record<SampleType, string> = {
@@ -902,8 +942,9 @@ export class Mundo extends Phaser.Scene {
     const night = Clock.isNight(minutes);
     const skyBlend = night ? 1 : dusk * 0.72;
 
-    // Oscuridad azul profundo sobre la superficie marciana (suelo)
-    this.nightOverlay.setFillStyle(night ? 0x0b1026 : 0x1c2559, night ? 0.50 : dusk * 0.25);
+    // Transición suave al terreno azul nocturno de Karmin + veladura sutil
+    this.nightGroundTile.setAlpha(skyBlend);
+    this.nightOverlay.setFillStyle(night ? 0x0b1026 : 0x1c2559, night ? 0.24 : dusk * 0.12);
 
     const cg = this.nightCosmosGfx;
     const lg = this.playerLightGfx;
@@ -1323,7 +1364,7 @@ export class Mundo extends Phaser.Scene {
     state.location = targetLocation;
     Save.save(state);
     AudioSystem.play('airlock', { volume: 0.7 });
-    this.scene.start('Base');
+    this.scene.start(targetLocation === 'refugio' ? 'Refugio' : 'Base');
   }
 
   private updateCurrentZone(): void {

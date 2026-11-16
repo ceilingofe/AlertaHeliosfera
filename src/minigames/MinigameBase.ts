@@ -77,9 +77,10 @@ export abstract class MinigameBase extends Phaser.Scene {
     this.stepTexts = [];
     this.heartTexts = [];
 
-    const ground = this.add.tileSprite(0, 0, 640, 360, 'ground_placeholder').setOrigin(0, 0);
-    ground.setTileScale(2, 2);
-    this.add.tileSprite(0, 0, 640, 360, 'ground_var').setOrigin(0, 0).setTileScale(2, 2).setAlpha(0.8);
+    const terrainKey = Clock.isNight(gameStore.state.clock.minutes) ? 'ground_night' : 'ground_day';
+    const ground = this.add.tileSprite(0, 0, 640, 360, terrainKey).setOrigin(0, 0);
+    ground.setTileScale(0.6, 0.6);
+    this.add.rectangle(0, 0, 640, 360, 0x181425, 0.18).setOrigin(0, 0);
 
     this.add.rectangle(320, 20, 632, 34, 0x262b44).setStrokeStyle(2, 0x181425);
     this.add.text(14, 10, title, { fontFamily: FONT, fontSize: '16px', color: '#ffffff' });

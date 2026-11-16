@@ -16,6 +16,7 @@ import { Mundo } from './scenes/Mundo';
 import { Noche } from './scenes/Noche';
 import { Personaliza } from './scenes/Personaliza';
 import { Preload } from './scenes/Preload';
+import { Refugio } from './scenes/Refugio';
 import { Rescate } from './scenes/Rescate';
 import { Tormenta } from './scenes/Tormenta';
 import { Titulo } from './scenes/Titulo';
@@ -63,6 +64,7 @@ const config: Phaser.Types.Core.GameConfig = {
     Transmision,
     Mundo,
     Base,
+    Refugio,
     HUD,
     Dialogo,
     Tormenta,

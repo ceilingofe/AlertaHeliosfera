@@ -1,6 +1,7 @@
 import type { GameState, Label, Mood, SampleType } from '../types';
 import { Ephemeris } from './Ephemeris';
 import { I18n } from './I18n';
+import type { LiveCmeSnapshot } from './LiveNasa';
 
 export interface FactEntry {
   id: string;
@@ -65,6 +66,7 @@ export interface SolarAlertInfo {
   speedText: string;
   label: Label;
   source: string;
+  isLive?: boolean;
 }
 
 export interface DonkiCuratedEvent {
@@ -82,12 +84,13 @@ const HOURS_06_TO_18 = [
 
 /**
  * Carga, valida y entrega datos científicos con sus etiquetas de honestidad
- * ("ARCHIVO REAL" o "SIMULADO") según el idioma activo.
+ * ("ARCHIVO REAL", "EN VIVO", "CALCULADO" o "SIMULADO") según el idioma activo.
  */
 export class Data {
   private static horizonsCache: unknown = null;
   private static medaCache: unknown = null;
   private static eventsCache: unknown = null;
+  private static liveCmeCache: LiveCmeSnapshot | null = null;
 
   static setNasaDataCache(payload: {
     horizons?: unknown;
@@ -97,6 +100,14 @@ export class Data {
     if (payload.horizons !== undefined) Data.horizonsCache = payload.horizons;
     if (payload.meda !== undefined) Data.medaCache = payload.meda;
     if (payload.events !== undefined) Data.eventsCache = payload.events;
+  }
+
+  static setLiveCme(snapshot: LiveCmeSnapshot | null): void {
+    Data.liveCmeCache = snapshot;
+  }
+
+  static getLiveCme(): LiveCmeSnapshot | null {
+    return Data.liveCmeCache;
   }
 
   static getDayScript(day: number): DayScriptEntry | null {
@@ -231,9 +242,24 @@ export class Data {
   }
 
   /**
-   * Obtiene la alerta solar desde events.json (DONKI).
+   * Obtiene la alerta solar desde NASA DONKI en vivo (si hay conexión) o desde el respaldo curado events.json.
    */
   static getSolarAlert(day: number, rawEvents: unknown = Data.eventsCache): SolarAlertInfo {
+    const live = Data.liveCmeCache;
+    if (live && day !== 3 && day !== 5) {
+      const compactId = live.donkiActivityID.replace(/T\d{2}:\d{2}:\d{2}-?/, ' ');
+      const speedText = live.speedKmS ? `${live.speedKmS} km/s` : '';
+      return {
+        hasAlert: day <= 3,
+        eventType: day <= 3 ? 'cme_hit' : 'none',
+        activityId: compactId,
+        speedText,
+        label: 'EN VIVO',
+        source: 'NASA DONKI API',
+        isLive: true,
+      };
+    }
+
     const targetId = day === 5 ? 'cme_falsa_alarma' : 'cme_mayo_2024';
     const ev = Data.getDonkiEventById(targetId, rawEvents);
     const shortId = ev.donkiActivityID;
@@ -248,6 +274,7 @@ export class Data {
       speedText,
       label: 'ARCHIVO REAL',
       source: 'DONKI',
+      isLive: false,
     };
   }
 }

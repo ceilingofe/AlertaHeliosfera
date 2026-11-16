@@ -2,9 +2,10 @@ import Phaser from 'phaser';
 import { gameStore } from '../state/GameState';
 import { AudioSystem } from '../systems/Audio';
 import { Clock } from '../systems/Clock';
-import { Data } from '../systems/Data';
+import { Data, type SolarAlertInfo } from '../systems/Data';
 import { Events } from '../systems/Events';
 import { I18n } from '../systems/I18n';
+import { LiveNasa } from '../systems/LiveNasa';
 import { Quota } from '../systems/Quota';
 import type { Label, SampleType } from '../types';
 import { StaticEffect } from '../ui/StaticEffect';
@@ -175,7 +176,7 @@ export class Transmision extends Phaser.Scene {
       });
     }
 
-    // 4. Tarjeta 2 (arriba derecha): ALERTA SOLAR (events.json DONKI) + Diagrama visual Sol -> CME -> Marte
+    // 4. Tarjeta 2 (arriba derecha): ALERTA SOLAR (DONKI en vivo con respaldo en events.json) + Diagrama Sol -> CME -> Marte
     const solar = Data.getSolarAlert(state.day);
     this.add
       .rectangle(326, 112, 292, 68, 0x262b44)
@@ -189,16 +190,17 @@ export class Transmision extends Phaser.Scene {
     });
 
     if (state.base.antennaOk) {
-      const alertDesc =
-        state.day === 3
-          ? uiText.transmision.solarAlertDay3
-          : state.day === 5
-            ? uiText.transmision.solarAlertDay5
-            : solar.hasAlert
-              ? uiText.transmision.solarAlertStorm
-              : uiText.transmision.solarAlertCalm;
+      const formatSolarDesc = (info: SolarAlertInfo): string => {
+        if (state.day === 3) return uiText.transmision.solarAlertDay3;
+        if (state.day === 5) return uiText.transmision.solarAlertDay5;
+        const base = info.hasAlert ? uiText.transmision.solarAlertStorm : uiText.transmision.solarAlertCalm;
+        if (info.isLive && info.speedText) {
+          return `${base.split('\n')[0]}\nCME · ${info.speedText}`;
+        }
+        return base;
+      };
 
-      this.add.text(336, 129, alertDesc, {
+      const solarDescText = this.add.text(336, 129, formatSolarDesc(solar), {
         fontFamily: 'PixelifySans, monospace',
         fontSize: '9px',
         color: '#ffffff',
@@ -230,13 +232,35 @@ export class Transmision extends Phaser.Scene {
         sg.lineBetween(568, 138, 594, 138);
       }
 
-      this.drawHonestyTag(
+      let solarTagObjs = this.drawHonestyTag(
         336,
         162,
         solar.label,
         `${solar.source} · ${solar.activityId}`,
         274
       );
+
+      let alive = true;
+      this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+        alive = false;
+      });
+
+      void LiveNasa.fetchLatestCme().then((liveSnapshot) => {
+        if (!liveSnapshot || !alive || !this.sys?.isActive()) return;
+        Data.setLiveCme(liveSnapshot);
+        const updated = Data.getSolarAlert(state.day);
+        if (!updated.isLive) return;
+        solarDescText.setText(formatSolarDesc(updated));
+        solarTagObjs.bg.destroy();
+        solarTagObjs.txt.destroy();
+        solarTagObjs = this.drawHonestyTag(
+          336,
+          162,
+          updated.label,
+          `${updated.source} · ${updated.activityId}`,
+          274
+        );
+      });
     } else {
       this.add.text(336, 136, uiText.transmision.antennaBrokenNotice, {
         fontFamily: 'PixelifySans, monospace',
@@ -259,10 +283,10 @@ export class Transmision extends Phaser.Scene {
     });
 
     const sampleSpriteMap: Record<SampleType, string> = {
-      roca: 'rock_leopard',
+      roca: 'rock_mars',
       suelo: 'rock_sandstone',
       minerales: 'rock_sparkle',
-      aire: 'air_station',
+      aire: 'air_pump',
     };
     const isEs = I18n.getLang() === 'es';
     const sampleNameShort: Record<SampleType, string> = {
@@ -281,7 +305,7 @@ export class Transmision extends Phaser.Scene {
         .rectangle(chipX, 201, 64, 16, 0x181425)
         .setOrigin(0, 0)
         .setStrokeStyle(1, 0x5a6988);
-      this.add.image(chipX + 9, 209, sampleSpriteMap[type]).setScale(0.85);
+      this.add.image(chipX + 9, 209, sampleSpriteMap[type]).setDisplaySize(13, 11);
       this.add.text(chipX + 18, 203, `×${state.quotaToday[type]} ${sampleNameShort[type]}`, {
         fontFamily: 'PixelifySans, monospace',
         fontSize: '9px',
@@ -393,18 +417,19 @@ export class Transmision extends Phaser.Scene {
     label: Label,
     source: string,
     maxWidth = 274
-  ): void {
+  ): { bg: Phaser.GameObjects.Rectangle; txt: Phaser.GameObjects.Text } {
     const textObj = this.add.text(x + 5, y + 2, `▪ ${I18n.formatLabel(label)} · ${source}`, {
       fontFamily: 'PixelifySans, monospace',
       fontSize: '8px',
-      color: '#262b44',
+      color: label === 'EN VIVO' ? '#124e89' : '#262b44',
     });
     const w = Math.min(maxWidth, Math.round(textObj.width + 10));
     const bg = this.add
-      .rectangle(x, y, w, 13, 0xffffff)
+      .rectangle(x, y, w, 13, label === 'EN VIVO' ? 0xd9f9ff : 0xffffff)
       .setOrigin(0, 0)
-      .setStrokeStyle(1, 0x5a6988);
+      .setStrokeStyle(1, label === 'EN VIVO' ? 0x0099db : 0x5a6988);
     textObj.setDepth(bg.depth + 1);
+    return { bg, txt: textObj };
   }
 
   private drawNasaSealAndTag(

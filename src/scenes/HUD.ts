@@ -262,11 +262,18 @@ export class HUD extends Phaser.Scene {
 
   private buildZoneAndRadio(): void {
     const uiText = I18n.ui();
+    const loc = gameStore.state.location;
+    const initialZone =
+      loc === 'refugio'
+        ? uiText.base.refugeZoneName
+        : loc === 'base'
+          ? uiText.base.zoneName
+          : uiText.hud.zoneDefault;
     this.zoneBg = this.add
       .rectangle(320, 14, 160, 16, 0x262b44, 0.92)
       .setOrigin(0.5)
       .setStrokeStyle(1, 0x181425);
-    this.zoneText = this.label(320, 14, uiText.hud.zoneDefault, 11, '#ead4aa').setOrigin(0.5);
+    this.zoneText = this.label(320, 14, initialZone, 11, '#ead4aa').setOrigin(0.5);
     this.zoneBg.setSize(Math.round(this.zoneText.width + 18), 16).updateDisplayOrigin();
 
     this.radioBg = this.add
@@ -349,13 +356,20 @@ export class HUD extends Phaser.Scene {
       })
       .setOrigin(0.5, 0);
 
+    const activeWorldScene = (): 'Mundo' | 'Refugio' | 'Base' =>
+      gameStore.state.location === 'mundo'
+        ? 'Mundo'
+        : gameStore.state.location === 'refugio'
+          ? 'Refugio'
+          : 'Base';
+
     // Selector de idioma ES / EN en la esquina superior derecha del modal
     const flags = LanguageFlags.create(
       this,
       444,
       76,
       () => {
-        const worldScene = gameStore.state.location === 'mundo' ? 'Mundo' : 'Base';
+        const worldScene = activeWorldScene();
         Clock.setPaused(gameStore.state, true);
         this.scene.stop('HUD');
         this.scene.get(worldScene).scene.restart({ openPauseAfterRestart: true });
@@ -480,14 +494,14 @@ export class HUD extends Phaser.Scene {
       if (gameStore.state.location === 'mundo') this.toggleMap();
     });
     button(242, 244, () => I18n.ui().hud.creditsButton, 0x5a6988, () => {
-      const returnScene = gameStore.state.location === 'mundo' ? 'Mundo' : 'Base';
+      const returnScene = activeWorldScene();
       this.scene.stop('Dialogo');
       this.scene.stop('Tormenta');
       this.scene.stop(returnScene);
       this.scene.start('Creditos', { returnScene });
     });
     button(398, 244, () => I18n.ui().hud.titleButton, 0x733e39, () => {
-      const current = gameStore.state.location === 'mundo' ? 'Mundo' : 'Base';
+      const current = activeWorldScene();
       Clock.setPaused(gameStore.state, false);
       this.scene.stop('Dialogo');
       this.scene.stop('Tormenta');

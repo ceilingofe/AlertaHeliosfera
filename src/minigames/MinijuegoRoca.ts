@@ -19,7 +19,7 @@ interface RockSlot {
 const TEX: Record<RockKind, string> = {
   leopard: 'rock_leopard',
   sandstone: 'rock_sandstone',
-  volcanic: 'rock_volcanic',
+  volcanic: 'rock_mars',
   sparkle: 'rock_sparkle',
 };
 
@@ -48,7 +48,7 @@ export class MinijuegoRoca extends MinigameBase {
   private hardLayers: { from: number; to: number }[] = [];
   private depthFill!: Phaser.GameObjects.Rectangle;
   private heatFill!: Phaser.GameObjects.Rectangle;
-  private bit!: Phaser.GameObjects.Rectangle;
+  private drillSprite!: Phaser.GameObjects.Image;
   private drillStatus!: Phaser.GameObjects.Text;
 
   private bar: TimingBar | null = null;
@@ -92,7 +92,11 @@ export class MinijuegoRoca extends MinigameBase {
     kinds.forEach((kind, i) => {
       const x = 20 + spacing * (i + 0.5);
       const frame = this.add.rectangle(x, 160, spacing - 18, 112, 0x181425, 0.35).setStrokeStyle(2, 0x3a4466);
-      const img = this.add.image(x, 156, TEX[kind]).setScale(7).setTint(0x733e39).setInteractive({ useHandCursor: true });
+      const img = this.add
+        .image(x, 156, TEX[kind])
+        .setScale(kind === 'leopard' ? 6.5 : 5.2)
+        .setTint(0x733e39)
+        .setInteractive({ useHandCursor: true });
       const read = txt(this, x, 226, '???', 10, '#c0cbdc', spacing - 24).setOrigin(0.5, 0).setAlign('center');
       const slot: RockSlot = { kind, img, scan: 0, read, frame };
       img.on('pointerdown', () => this.selectRock(slot));
@@ -284,10 +288,9 @@ export class MinijuegoRoca extends MinigameBase {
       this.hardLayers.push({ from, to: from + 8 + d * 2 });
     }
 
-    const rock = this.add.image(150, 196, 'rock_leopard').setScale(10);
-    this.bit = this.add.rectangle(150, 112, 12, 44, 0xc0cbdc).setStrokeStyle(2, 0x181425);
-    const icon = this.add.image(150, 84, 'icon_drill').setScale(3);
-    this.stage.add([rock, this.bit, icon]);
+    const rock = this.add.image(150, 214, 'rock_leopard').setScale(9);
+    this.drillSprite = this.add.image(150, 124, 'drill_karmin').setScale(2.1);
+    this.stage.add([rock, this.drillSprite]);
 
     this.stage.add(panel(this, 286, 76, 340, 196));
     this.stage.add(txt(this, 300, 86, T.depth, 12, '#ead4aa'));
@@ -343,8 +346,15 @@ export class MinijuegoRoca extends MinigameBase {
     this.heatFill.setVisible(hw > 0);
     if (hw > 0) this.heatFill.setSize(hw, 10).updateDisplayOrigin();
     this.heatFill.setFillStyle(this.heat >= 82 ? 0xe43b44 : this.heat >= 55 ? 0xf77622 : 0xfeae34);
-    this.bit.y = 112 + (this.depth / 100) * 40;
-    if (active) this.bit.x = 150 + (Math.random() - 0.5) * (hard ? 3 : 1.5);
+    this.drillSprite.y = 124 + (this.depth / 100) * 38;
+    if (active) {
+      this.drillSprite.x = 150 + (Math.random() - 0.5) * (hard ? 4 : 2);
+      if (this.heat >= 82) this.drillSprite.setTint(0xffb4a2);
+      else this.drillSprite.clearTint();
+    } else {
+      this.drillSprite.x = 150;
+      this.drillSprite.clearTint();
+    }
 
     if (this.heat >= 100) {
       this.drilling = false;

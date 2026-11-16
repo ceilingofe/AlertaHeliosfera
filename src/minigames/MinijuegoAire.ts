@@ -35,7 +35,7 @@ export class MinijuegoAire extends MinigameBase {
 
   private closeWindow = 0;
   private closeFill!: Phaser.GameObjects.Rectangle;
-  private pumpPiston: Phaser.GameObjects.Rectangle | null = null;
+  private pumpSprite: Phaser.GameObjects.Image | null = null;
   private pumpTime = 0;
 
   private get t() {
@@ -61,9 +61,9 @@ export class MinijuegoAire extends MinigameBase {
     this.setActiveStep(0);
     this.stage.removeAll(true);
     this.stage.add(txt(this, 14, 72, T.objective, 11, '#fee761', 612));
-    this.stage.add(this.add.image(118, 196, 'air_station').setScale(6.5));
+    this.stage.add(this.add.image(112, 194, 'air_pump').setScale(2.4));
     if (this.textures.exists('tube_sample')) {
-      this.stage.add(this.add.image(186, 206, 'tube_sample').setScale(2.5).setTint(0x2ce8f5));
+      this.stage.add(this.add.image(190, 206, 'tube_sample').setScale(2.5).setTint(0x2ce8f5));
     }
 
     const g = this.add.graphics();
@@ -127,23 +127,20 @@ export class MinijuegoAire extends MinigameBase {
     this.pressureText = txt(this, 96, 274, '0.0 mbar', 11, '#ffffff').setOrigin(0.5, 0);
     this.stage.add(this.pressureText);
 
-    // Panel derecho con barra estable + bomba de aire animada y tubo/matraz
+    // Panel derecho con barra estable + bomba de aire de Karmin y tubo de muestra
     this.stage.add(panel(this, 174, 76, 448, 134));
     this.stage.add(txt(this, 188, 86, T.holdTitle, 11, '#ead4aa'));
-    this.stage.add(this.add.rectangle(188, 112, 320, 14, 0x3a4466).setOrigin(0, 0.5).setStrokeStyle(2, 0x181425));
+    this.stage.add(this.add.rectangle(188, 112, 304, 14, 0x3a4466).setOrigin(0, 0.5).setStrokeStyle(2, 0x181425));
     this.stableFill = this.add.rectangle(190, 112, 1, 10, 0x2ce8f5).setOrigin(0, 0.5).setVisible(false);
     this.stage.add(this.stableFill);
     this.stage.add(txt(this, 188, 134, `${T.co2}   ${T.n2}   ${T.ar}`, 11, '#c0cbdc'));
     this.stage.add(txt(this, 188, 154, T.pressureCompare, 10, '#8b9bb4'));
 
-    // Bomba neumática y tubo de muestra a la derecha del panel
-    this.stage.add(this.add.rectangle(544, 154, 24, 48, 0x5a6988).setStrokeStyle(2, 0x181425));
-    this.stage.add(this.add.rectangle(544, 154, 16, 40, 0x181425));
-    this.pumpPiston = this.add.rectangle(544, 144, 14, 12, 0x2ce8f5).setStrokeStyle(1, 0xffffff);
-    this.stage.add(this.pumpPiston);
-    this.stage.add(txt(this, 544, 186, T.pumpLabel, 8, '#ead4aa').setOrigin(0.5));
+    this.pumpSprite = this.add.image(538, 148, 'air_pump').setScale(1.35);
+    this.stage.add(this.pumpSprite);
+    this.stage.add(txt(this, 538, 186, T.pumpLabel, 8, '#ead4aa').setOrigin(0.5));
     if (this.textures.exists('tube_sample')) {
-      this.stage.add(this.add.image(586, 154, 'tube_sample').setScale(2.4).setTint(0x2ce8f5));
+      this.stage.add(this.add.image(592, 152, 'tube_sample').setScale(2.4).setTint(0x2ce8f5));
     }
 
     const b = button(this, 408, 256, 260, 40, T.valveButton, () => (this.holding = true));
@@ -165,8 +162,10 @@ export class MinijuegoAire extends MinigameBase {
       this.pressure -= (0.55 + d * 0.15) * dt;
       AudioSystem.stopLoop('minigame');
     }
-    if (this.pumpPiston) {
-      this.pumpPiston.y = 148 + Math.sin(this.pumpTime) * 12;
+    if (this.pumpSprite) {
+      const pulse = Math.sin(this.pumpTime);
+      this.pumpSprite.y = 148 + (open ? pulse * 4 : 0);
+      this.pumpSprite.setScale(1.35 + (open ? pulse * 0.06 : 0), 1.35 - (open ? pulse * 0.08 : 0));
     }
 
     this.gustTimer -= dt;
@@ -187,7 +186,7 @@ export class MinijuegoAire extends MinigameBase {
     this.needle.y = 112 + 160 - (160 * this.pressure) / MAX_MBAR;
     this.needle.setFillStyle(inBand ? 0x63c74d : 0xfee761);
     this.pressureText.setText(`${this.pressure.toFixed(1)} mbar`);
-    const sw = Math.round(316 * this.stable);
+    const sw = Math.round(300 * this.stable);
     this.stableFill.setVisible(sw > 0);
     if (sw > 0) this.stableFill.setSize(sw, 10).updateDisplayOrigin();
 
@@ -208,7 +207,7 @@ export class MinijuegoAire extends MinigameBase {
     const T = this.t;
     this.phase = 'close';
     this.holding = false;
-    this.pumpPiston = null;
+    this.pumpSprite = null;
     AudioSystem.stopLoop('minigame');
     this.setActiveStep(2);
     this.setInstruction(T.instClose, '#fee761');

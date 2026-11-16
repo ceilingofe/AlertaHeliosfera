@@ -154,9 +154,9 @@ export class I18n {
         headerTitle: 'CRÉDITOS Y FUENTES DE DATOS ABIERTOS NASA',
         nasaSources: [
           {
-            title: 'NASA DONKI & Modelo WSA-Enlil (CCMC)',
-            detail: 'Eyecciones de masa coronal (CME de mayo de 2024 y trayectorias en el sistema solar).',
-            tag: 'ARCHIVO REAL',
+            title: 'NASA DONKI API & Modelo WSA-Enlil (CCMC)',
+            detail: 'Consulta en vivo de eyecciones CME (api.nasa.gov) con respaldo curado de mayo 2024.',
+            tag: 'EN VIVO / REAL',
           },
           {
             title: 'Curiosity RAD (Radiation Assessment Detector)',
@@ -215,9 +215,9 @@ export class I18n {
       headerTitle: 'CREDITS & NASA OPEN DATA SOURCES',
       nasaSources: [
         {
-          title: 'NASA DONKI & WSA-Enlil Model (CCMC)',
-          detail: 'Coronal mass ejections (May 2024 CME and solar-wind propagation tracks).',
-          tag: 'REAL ARCHIVE',
+          title: 'NASA DONKI API & WSA-Enlil Model (CCMC)',
+          detail: 'Live CME telemetry (api.nasa.gov) with May 2024 real-archive fallback.',
+          tag: 'LIVE / ARCHIVE',
         },
         {
           title: 'Curiosity RAD (Radiation Assessment Detector)',

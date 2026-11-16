@@ -156,7 +156,8 @@ export class MinijuegoSuelo extends MinigameBase {
     const x = 250 + (Math.random() - 0.5) * 160;
     const y = 170 + (Math.random() - 0.5) * 60;
     const ttl = this.inputData.difficulty === 1 ? 3 : this.inputData.difficulty === 2 ? 2.3 : 1.7;
-    const obj = this.add.image(x, y, 'pebble_c').setScale(4).setInteractive({ useHandCursor: true });
+    const key = Phaser.Utils.Array.GetRandom(['rock_mars_2', 'rock_sandstone_2', 'rock_sparkle_2']);
+    const obj = this.add.image(x, y, key).setScale(1.8).setInteractive({ useHandCursor: true });
     const ring = this.add.circle(x, y, 18).setStrokeStyle(2, 0xfeae34);
     const p = { obj, ttl, ring };
     const remove = (): void => {

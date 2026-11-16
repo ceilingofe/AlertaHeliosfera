@@ -26,7 +26,6 @@ type StationId =
   | 'journalDesk'
   | 'suitLocker'
   | 'table'
-  | 'refugeDoor'
   | 'exitDoor';
 
 interface BaseStation {
@@ -37,7 +36,7 @@ interface BaseStation {
 }
 
 /**
- * Escena interior de la base marciana (fiel al storyboard s04_base.png) + Cámara del Refugio Blindado.
+ * Escena interior del módulo principal de la base marciana.
  */
 export class Base extends Phaser.Scene {
   private player!: Phaser.Physics.Arcade.Sprite;
@@ -62,9 +61,6 @@ export class Base extends Phaser.Scene {
   private corviSprite!: Phaser.GameObjects.Image;
   private nextBlinkAt = 0;
   private tableTubeSprites: Phaser.GameObjects.Image[] = [];
-  private refugeBanner!: Phaser.GameObjects.Container;
-  private refugeChamberGlow!: Phaser.GameObjects.Rectangle;
-  private refugeDoorPanel!: Phaser.GameObjects.Rectangle;
 
   private promptContainer!: Phaser.GameObjects.Container;
   private promptBg!: Phaser.GameObjects.Rectangle;
@@ -90,14 +86,12 @@ export class Base extends Phaser.Scene {
   create(): void {
     const uiText = I18n.ui();
     const state = gameStore.state;
-    if (state.location !== 'refugio') {
-      state.location = 'base';
-    }
+    state.location = 'base';
     Clock.setPaused(state, this.openPauseAfterRestart);
     state.astronaut.suitTempC = balance.heater.suitC;
     this.sceneEnteredAt = this.time.now;
 
-    // Guardar automáticamente al entrar a la base (sección 6)
+    // Guardar automáticamente al entrar a la base
     Save.save(state);
 
     this.activeRefill = false;
@@ -110,17 +104,17 @@ export class Base extends Phaser.Scene {
     this.facingDir = 'down';
     this.walkBobTime = 0;
 
-    // 1. Piso embaldosado cálido del hábitat principal (x = 0..500) y pared superior (y = 0..88)
+    // 1. Piso embaldosado cálido del hábitat principal (todo el ancho x = 0..640) y pared superior (y = 0..88)
     const g = this.add.graphics();
     g.fillStyle(0x5a6988, 1);
     g.fillRect(0, 0, 640, 88);
     g.fillStyle(0x3a4466, 1);
-    g.fillRect(0, 74, 500, 12);
+    g.fillRect(0, 74, 640, 12);
     g.fillStyle(0x181425, 1);
     g.fillRect(0, 86, 640, 4);
 
     for (let y = 90; y < 360; y += 28) {
-      for (let x = 0; x < 504; x += 32) {
+      for (let x = 0; x < 640; x += 32) {
         const isAlt = ((x / 32) + Math.floor((y - 90) / 28)) % 2 === 0;
         g.fillStyle(isAlt ? 0x8b9bb4 : 0x7a8ba6, 1);
         g.fillRect(x, y, 30, 26);
@@ -130,26 +124,16 @@ export class Base extends Phaser.Scene {
       }
     }
 
-    // Tapetes acogedores en el piso (junto a la cama/calentador y bajo la mesa/estación de Corvi)
+    // Tapetes acogedores en el piso (junto a la cama/calentador y bajo la estación de Corvi)
     g.fillStyle(0x733e39, 0.85);
-    g.fillRect(108, 218, 62, 66);
+    g.fillRect(108, 224, 66, 60);
     g.lineStyle(2, 0xe4a672, 0.9);
-    g.strokeRect(110, 220, 58, 62);
+    g.strokeRect(110, 226, 62, 56);
 
-    g.fillStyle(0x262b44, 0.45);
-    g.fillEllipse(228, 214, 58, 26);
+    g.fillStyle(0x262b44, 0.4);
+    g.fillEllipse(252, 214, 54, 24);
 
-    // Póster espacial en la pared izquierda (Tierra y Marte)
-    this.add.rectangle(152, 48, 38, 42, 0x181425).setStrokeStyle(2, 0xead4aa);
-    this.add.circle(144, 42, 6, 0x0099db);
-    this.add.circle(142, 40, 2, 0x63c74d);
-    this.add.circle(160, 54, 5, 0xb86f50);
-
-    // 2. CÁMARA DEL REFUGIO BLINDADO (x = 500..632, y = 88..296)
-    // Claramente diferenciada de la base con muros gruesos de ladrillos de regolito compactado
-    this.drawRefugeChamber(g, state.location === 'refugio');
-
-    // 3. Monitor central en la pared: estado de la base + Examen diario (x = 318, y = 55)
+    // 2. Monitor central en la pared: estado de la base + Examen diario (x = 318, y = 55)
     const consoleMonitor = this.add
       .rectangle(318, 55, 148, 56, 0x262b44)
       .setStrokeStyle(2, 0x181425)
@@ -174,7 +158,7 @@ export class Base extends Phaser.Scene {
     this.moxieBarFill = this.add.rectangle(268, 68, 82, 6, 0x2ce8f5).setOrigin(0, 0.5);
     consoleMonitor.on('pointerdown', () => this.openTrivia());
 
-    // 4. Estaciones físicas interactivas del hábitat
+    // 3. Estaciones físicas interactivas del hábitat (con colliders compactos sin paredes invisibles)
     const obstacles = this.physics.add.staticGroup();
     const addBlock = (x: number, y: number, w: number, h: number): void => {
       const r = this.add.rectangle(x, y, w, h, 0x000000, 0);
@@ -185,32 +169,32 @@ export class Base extends Phaser.Scene {
     // Pared superior
     addBlock(320, 44, 640, 88);
 
-    // 4a. Estación de Oxígeno MOXIE (tanques cian con manómetro en la pared norte, x = 218, y = 84)
-    const o2Pad = this.add.ellipse(218, 108, 42, 16, 0x124e89, 0.55).setStrokeStyle(1, 0x2ce8f5);
+    // 3a. Estación de Oxígeno MOXIE (x = 214, y = 84)
+    const o2Pad = this.add.ellipse(214, 108, 42, 14, 0x124e89, 0.5).setStrokeStyle(1, 0x2ce8f5);
     const o2TankLeft = this.add
-      .rectangle(209, 76, 14, 34, 0x0099db)
+      .rectangle(205, 76, 14, 34, 0x0099db)
       .setStrokeStyle(2, 0x181425)
       .setInteractive({ useHandCursor: true });
     const o2TankRight = this.add
-      .rectangle(227, 76, 14, 34, 0x2ce8f5)
+      .rectangle(223, 76, 14, 34, 0x2ce8f5)
       .setStrokeStyle(2, 0x181425)
       .setInteractive({ useHandCursor: true });
-    this.add.circle(218, 66, 5, 0xffffff).setStrokeStyle(1, 0x181425);
-    this.add.image(218, 84, 'icon_o2').setScale(1.2);
+    this.add.circle(214, 66, 5, 0xffffff).setStrokeStyle(1, 0x181425);
+    this.add.image(214, 84, 'icon_o2').setScale(1.2);
     this.add
-      .text(218, 127, uiText.base.o2StationSign, {
+      .text(214, 124, uiText.base.o2StationSign, {
         fontFamily: 'PixelifySans, monospace',
         fontSize: '8px',
         color: '#2ce8f5',
       })
       .setOrigin(0.5);
-    addBlock(218, 82, 38, 22);
+    addBlock(214, 86, 36, 14);
     o2TankLeft.on('pointerdown', () => this.triggerRefillO2());
     o2TankRight.on('pointerdown', () => this.triggerRefillO2());
     o2Pad.setInteractive({ useHandCursor: true }).on('pointerdown', () => this.triggerRefillO2());
 
-    // 4b. Calentador Térmico junto a la cama (radiador naranja cálido, x = 138, y = 188)
-    const heaterGlow = this.add.circle(138, 192, 24, 0xf77622, 0.22);
+    // 3b. Calentador Térmico de Karmin (heater_base + extensión radiador tipo resorte heater_radiator)
+    const heaterGlow = this.add.circle(152, 166, 28, 0xf77622, 0.22);
     this.tweens.add({
       targets: heaterGlow,
       alpha: 0.42,
@@ -219,40 +203,43 @@ export class Base extends Phaser.Scene {
       repeat: -1,
       ease: 'Sine.easeInOut',
     });
-    const heaterBody = this.add
-      .rectangle(138, 188, 34, 28, 0x3a4466)
-      .setStrokeStyle(2, 0x181425)
+    const heaterPipe = this.add.rectangle(152, 166, 16, 6, 0x3a4466).setStrokeStyle(1, 0x181425).setDepth(164);
+    void heaterPipe;
+    const heaterSprite = this.add
+      .image(132, 162, 'heater_base')
+      .setScale(1)
+      .setDepth(168)
       .setInteractive({ useHandCursor: true });
-    // Bobinas térmicas naranjas
-    for (let i = 0; i < 3; i++) {
-      this.add.rectangle(130 + i * 8, 188, 5, 18, 0xf77622);
-    }
+    const radiatorKey = this.textures.exists('heater_radiator') ? 'heater_radiator' : 'heater_base';
+    const radiatorSprite = this.add
+      .image(174, 166, radiatorKey)
+      .setScale(0.9)
+      .setDepth(168)
+      .setInteractive({ useHandCursor: true });
     this.add
-      .text(138, 166, uiText.base.heaterStationSign, {
+      .text(153, 136, uiText.base.heaterStationSign, {
         fontFamily: 'PixelifySans, monospace',
         fontSize: '8px',
         color: '#feae34',
       })
       .setOrigin(0.5);
-    addBlock(138, 188, 34, 28);
-    heaterBody.on('pointerdown', () => this.triggerHeatSuit());
+    addBlock(153, 168, 66, 16);
+    heaterSprite.on('pointerdown', () => this.triggerHeatSuit());
+    radiatorSprite.on('pointerdown', () => this.triggerHeatSuit());
 
-    // 4c. Escritorio de Bitácora con lámpara cálida, taza y planta hidropónica (x = 420, y = 84)
+    // 3c. Escritorio de Bitácora con lámpara cálida y planta hidropónica (x = 420, y = 84)
     const deskRect = this.add
-      .rectangle(420, 84, 46, 26, 0x733e39)
+      .rectangle(420, 84, 46, 24, 0x733e39)
       .setStrokeStyle(2, 0x181425)
       .setInteractive({ useHandCursor: true });
-    // Cuaderno abierto
     this.add.rectangle(414, 83, 18, 13, 0xead4aa).setStrokeStyle(1, 0x181425);
     this.add.rectangle(414, 83, 2, 13, 0xbe4a2f);
-    // Lámpara cálida de escritorio
     this.add.circle(433, 78, 10, 0xfee761, 0.28);
     this.add.circle(433, 78, 4, 0xfee761).setStrokeStyle(1, 0x181425);
-    // Planta hidropónica marciana junto al escritorio (toque de vida en la base)
-    this.add.rectangle(450, 86, 12, 10, 0xb86f50).setStrokeStyle(1, 0x181425);
-    this.add.circle(450, 78, 6, 0x3e8948);
-    this.add.circle(447, 76, 4, 0x63c74d);
-    this.add.circle(453, 76, 4, 0x63c74d);
+    this.add.rectangle(452, 86, 12, 10, 0xb86f50).setStrokeStyle(1, 0x181425);
+    this.add.circle(452, 78, 6, 0x3e8948);
+    this.add.circle(449, 76, 4, 0x63c74d);
+    this.add.circle(455, 76, 4, 0x63c74d);
     this.add
       .text(420, 60, uiText.base.journalButton, {
         fontFamily: 'PixelifySans, monospace',
@@ -260,107 +247,112 @@ export class Base extends Phaser.Scene {
         color: '#ead4aa',
       })
       .setOrigin(0.5);
-    addBlock(420, 86, 48, 24);
+    addBlock(428, 86, 54, 16);
     deskRect.on('pointerdown', () => this.openJournal());
 
-    // 4d. Armario de Trajes (x = 476, y = 78)
+    // 3d. Armario de Trajes (x = 486, y = 74 — libre del HUD superior derecho)
     const suitLocker = this.add
-      .rectangle(476, 74, 36, 48, 0x3a4466)
+      .rectangle(486, 74, 36, 48, 0x3a4466)
       .setStrokeStyle(2, 0x181425)
       .setInteractive({ useHandCursor: true });
-    this.add.rectangle(476, 76, 26, 36, 0x262b44);
+    this.add.rectangle(486, 76, 26, 36, 0x262b44);
     const miniSuitPreview = AstronautAppearance.getMiniTextureKey(
       this,
       state.customization.hair,
       state.customization.suit
     );
-    this.add.image(476, 77, miniSuitPreview).setScale(0.65);
+    this.add.image(486, 77, miniSuitPreview).setScale(0.65);
     this.add
-      .text(476, 42, uiText.base.suitButton, {
+      .text(486, 42, uiText.base.suitButton, {
         fontFamily: 'PixelifySans, monospace',
         fontSize: '8px',
         color: '#fee761',
       })
       .setOrigin(0.5);
-    addBlock(476, 82, 36, 28);
+    addBlock(486, 84, 34, 18);
     suitLocker.on('pointerdown', () => this.openSuitCustomization());
 
-    // 4e. Cama a la izquierda (sprite Cama_base.png de Karmin)
+    // 3e. Cama a la izquierda (sprite Cama_base.png de Karmin, collider ajustado a su huella real)
     let bedFrame: Phaser.GameObjects.GameObject;
     if (this.textures.exists('bed_base')) {
       bedFrame = this.add
-        .image(64, 252, 'bed_base')
+        .image(64, 248, 'bed_base')
         .setScale(2)
+        .setDepth(248)
         .setInteractive({ useHandCursor: true });
     } else {
       bedFrame = this.add
-        .rectangle(64, 252, 82, 74, 0x181425)
+        .rectangle(64, 248, 76, 68, 0x181425)
         .setOrigin(0.5)
+        .setDepth(248)
         .setInteractive({ useHandCursor: true });
-      this.add.rectangle(64, 226, 78, 18, 0xffffff).setOrigin(0.5);
-      this.add.rectangle(64, 265, 78, 42, 0xb55088).setOrigin(0.5);
+      this.add.rectangle(64, 224, 72, 16, 0xffffff).setOrigin(0.5).setDepth(249);
+      this.add.rectangle(64, 260, 72, 38, 0xb55088).setOrigin(0.5).setDepth(249);
     }
-    addBlock(64, 252, 72, 78);
+    addBlock(64, 252, 54, 52);
     bedFrame.on('pointerdown', () => this.goToSleep());
 
-    // 4f. Corvi en su percha: diseño original de Corvi, a tamaño de cuervito
-    this.add.rectangle(228, 212, 36, 6, 0xe4a672).setStrokeStyle(2, 0x181425);
-    this.add.rectangle(228, 224, 8, 20, 0x262b44).setStrokeStyle(2, 0x181425);
-    this.add.rectangle(228, 234, 22, 5, 0x3a4466).setStrokeStyle(1, 0x181425);
+    // 3f. Corvi en su percha: collider solo en la base de la percha para caminar alrededor sin muros invisibles
+    this.add.rectangle(252, 206, 34, 6, 0xe4a672).setStrokeStyle(2, 0x181425).setDepth(208);
+    this.add.rectangle(252, 217, 8, 18, 0x262b44).setStrokeStyle(2, 0x181425).setDepth(208);
+    this.add.rectangle(252, 226, 20, 5, 0x3a4466).setStrokeStyle(1, 0x181425).setDepth(208);
     const corviKey = this.textures.exists('corvi_neutral') ? 'corvi_neutral' : 'corvi_perch';
     this.corviSprite = this.add
-      .image(228, 194, corviKey)
+      .image(252, 188, corviKey)
       .setScale(corviKey === 'corvi_neutral' ? 0.8 : 1.6)
+      .setDepth(209)
       .setInteractive({ useHandCursor: true });
     this.tweens.add({
       targets: this.corviSprite,
-      y: 192,
+      y: 186,
       duration: 1100,
       yoyo: true,
       repeat: -1,
       ease: 'Sine.easeInOut',
     });
     this.nextBlinkAt = this.time.now + 2400;
-    addBlock(228, 212, 36, 36);
+    addBlock(252, 218, 20, 12);
     this.corviSprite.on('pointerdown', () => {
       this.openCorviFaqMenu();
     });
 
-    // 4g. Mesa de laboratorio: 6 tubos de ensayo para las muestras entregadas, matraces y microscopio
+    // 3g. Mesa de laboratorio a la derecha (x = 468, y = 204): collider ajustado a la base de la mesa
     const tableTop = this.add
-      .rectangle(382, 204, 148, 34, 0xc0cbdc)
+      .rectangle(468, 204, 152, 32, 0xc0cbdc)
       .setStrokeStyle(2, 0x181425)
+      .setDepth(204)
       .setInteractive({ useHandCursor: true });
-    this.add.rectangle(382, 224, 148, 10, 0x181425);
-    this.add.rectangle(366, 206, 80, 6, 0x5a6988).setStrokeStyle(1, 0x181425);
-    this.add.rectangle(444, 192, 12, 16, 0x3a4466).setStrokeStyle(1, 0x181425);
-    this.add.circle(444, 184, 4, 0x2ce8f5);
+    this.add.rectangle(468, 222, 152, 8, 0x181425).setDepth(204);
+    this.add.rectangle(452, 206, 80, 6, 0x5a6988).setStrokeStyle(1, 0x181425).setDepth(205);
+    this.add.rectangle(530, 192, 12, 16, 0x3a4466).setStrokeStyle(1, 0x181425).setDepth(206);
+    this.add.circle(530, 184, 4, 0x2ce8f5).setDepth(207);
     if (this.textures.exists('flask_conical')) {
-      this.add.image(424, 198, 'flask_conical').setTint(0x63c74d);
+      this.add.image(510, 198, 'flask_conical').setTint(0x63c74d).setDepth(206);
     }
     if (this.textures.exists('flask_blue')) {
-      this.add.image(312, 198, 'flask_blue');
+      this.add.image(398, 198, 'flask_blue').setDepth(206);
     }
-    addBlock(382, 208, 148, 40);
+    addBlock(468, 214, 142, 16);
 
     const tubeKey = this.textures.exists('tube_sample') ? 'tube_sample' : 'tube_empty';
     for (let i = 0; i < 6; i++) {
-      const tx = 336 + i * 12;
+      const tx = 422 + i * 12;
       const tSprite = this.add
         .image(tx, 194, tubeKey)
-        .setScale(tubeKey === 'tube_sample' ? 1 : 2);
+        .setScale(tubeKey === 'tube_sample' ? 1 : 2)
+        .setDepth(206);
       this.tableTubeSprites.push(tSprite);
     }
     this.refreshTableTubes();
     tableTop.on('pointerdown', () => this.deliverSamplesAtTable());
 
-    // 4h. Puerta de salida al exterior (abajo al centro, arriba de la barra de herramientas del HUD)
+    // 3h. Puerta de salida al exterior (abajo al centro, arriba del HUD)
     const exitDoor = this.add
-      .rectangle(284, 298, 82, 20, 0x3a4466)
+      .rectangle(320, 304, 88, 20, 0x3a4466)
       .setStrokeStyle(2, 0x181425)
       .setInteractive({ useHandCursor: true });
     this.add
-      .text(284, 298, uiText.base.exitSign, {
+      .text(320, 304, uiText.base.exitSign, {
         fontFamily: 'PixelifySans, monospace',
         fontSize: '10px',
         color: '#fee761',
@@ -368,36 +360,19 @@ export class Base extends Phaser.Scene {
       .setOrigin(0.5);
     exitDoor.on('pointerdown', () => this.tryExitToWorld());
 
-    // 5. Indicador visual superior cuando el astronauta está dentro del Refugio Blindado
-    const refBg = this.add
-      .rectangle(300, 118, 286, 24, 0x265c42, 0.95)
-      .setStrokeStyle(2, 0x63c74d);
-    const refTxt = this.add
-      .text(300, 118, uiText.base.refugeEnteredMsg, {
-        fontFamily: 'PixelifySans, monospace',
-        fontSize: '11px',
-        color: '#ffffff',
-      })
-      .setOrigin(0.5);
-    this.refugeBanner = this.add
-      .container(0, 0, [refBg, refTxt])
-      .setVisible(state.location === 'refugio')
-      .setDepth(25);
-
     this.stations = [
-      { id: 'bed', x: 112, y: 252, prompt: uiText.base.interactBed },
-      { id: 'heaterStation', x: 138, y: 214, prompt: uiText.base.interactHeaterStation },
-      { id: 'o2Station', x: 218, y: 110, prompt: uiText.base.interactO2Station },
-      { id: 'corvi', x: 228, y: 232, prompt: uiText.base.interactCorvi },
-      { id: 'console', x: 318, y: 108, prompt: uiText.base.interactConsole },
+      { id: 'bed', x: 108, y: 252, prompt: uiText.base.interactBed },
+      { id: 'heaterStation', x: 153, y: 194, prompt: uiText.base.interactHeaterStation },
+      { id: 'o2Station', x: 214, y: 112, prompt: uiText.base.interactO2Station },
+      { id: 'corvi', x: 252, y: 234, prompt: uiText.base.interactCorvi },
+      { id: 'console', x: 318, y: 110, prompt: uiText.base.interactConsole },
       { id: 'journalDesk', x: 420, y: 112, prompt: uiText.base.interactJournalDesk },
-      { id: 'suitLocker', x: 476, y: 112, prompt: uiText.base.interactSuitLocker },
-      { id: 'table', x: 382, y: 242, prompt: uiText.base.interactTable },
-      { id: 'refugeDoor', x: 484, y: 190, prompt: uiText.base.interactRefugeDoor },
-      { id: 'exitDoor', x: 284, y: 280, prompt: uiText.base.interactExitDoor },
+      { id: 'suitLocker', x: 486, y: 112, prompt: uiText.base.interactSuitLocker },
+      { id: 'table', x: 468, y: 238, prompt: uiText.base.interactTable },
+      { id: 'exitDoor', x: 320, y: 282, prompt: uiText.base.interactExitDoor },
     ];
 
-    // 6. Astronauta en el interior (sprite 32×64 a escala 1 = 32×64 px)
+    // 4. Astronauta en el interior (sprite 32×64 a escala 1, collider solo en los pies para evitar muros invisibles)
     const startKey = AstronautAppearance.getDirectionalMiniKey(
       this,
       state.customization.hair,
@@ -405,18 +380,19 @@ export class Base extends Phaser.Scene {
       'down',
       0
     );
-    const startX = state.location === 'refugio' ? 566 : 284;
-    const startY = state.location === 'refugio' ? 192 : 164;
     this.player = this.physics.add
-      .sprite(startX, startY, startKey)
+      .sprite(320, 162, startKey)
       .setScale(1)
       .setCollideWorldBounds(true)
-      .setDepth(15);
+      .setDepth(162);
+    const pBody = this.player.body as Phaser.Physics.Arcade.Body;
+    pBody.setSize(14, 14);
+    pBody.setOffset(9, 44);
 
-    this.applyLocationBounds(state.location === 'refugio');
+    this.physics.world.setBounds(14, 86, 612, 232);
     this.physics.add.collider(this.player, obstacles);
 
-    // 7. Etiqueta flotante de interacción
+    // 5. Etiqueta flotante de interacción
     this.promptBg = this.add
       .rectangle(0, 0, 170, 20, 0x262b44, 0.96)
       .setStrokeStyle(2, 0x181425);
@@ -429,7 +405,7 @@ export class Base extends Phaser.Scene {
       .setOrigin(0.5);
     this.promptContainer = this.add
       .container(0, 0, [this.promptBg, this.promptLabel])
-      .setDepth(30)
+      .setDepth(520)
       .setVisible(false);
 
     // 8. Teclado: WASD, flechas, E, Espacio y Esc
@@ -509,12 +485,7 @@ export class Base extends Phaser.Scene {
       })
     );
 
-    bus.emit('zone:changed', {
-      name:
-        state.location === 'refugio'
-          ? uiText.base.refugeZoneName
-          : uiText.base.zoneName,
-    });
+    bus.emit('zone:changed', { name: uiText.base.zoneName });
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       window.removeEventListener('blur', onBlur);
@@ -525,85 +496,6 @@ export class Base extends Phaser.Scene {
       this.closeCorviFaqMenu();
       AudioSystem.stopLoop('ambient');
     });
-  }
-
-  /**
-   * Dibuja la Cámara del Refugio Blindado a la derecha (x = 500..632, y = 90..294)
-   */
-  private drawRefugeChamber(g: Phaser.GameObjects.Graphics, insideRefuge: boolean): void {
-    const uiText = I18n.ui();
-    g.fillStyle(0x262b44, 1);
-    g.fillRect(504, 90, 128, 204);
-    for (let ry = 98; ry < 288; ry += 24) {
-      g.fillStyle(0x181425, 0.6);
-      g.fillRect(512, ry, 112, 2);
-    }
-
-    this.refugeChamberGlow = this.add
-      .rectangle(568, 192, 112, 184, 0x3e8948, insideRefuge ? 0.28 : 0.06)
-      .setStrokeStyle(1, 0x63c74d, insideRefuge ? 0.85 : 0.3);
-
-    const drawBrickWall = (wx: number, wy: number, ww: number, wh: number): void => {
-      g.fillStyle(0x733e39, 1);
-      g.fillRect(wx, wy, ww, wh);
-      g.lineStyle(2, 0x181425, 1);
-      g.strokeRect(wx, wy, ww, wh);
-      g.fillStyle(0xb86f50, 0.85);
-      for (let by = wy + 3; by < wy + wh - 4; by += 8) {
-        for (let bx = wx + 3; bx < wx + ww - 6; bx += 14) {
-          g.fillRect(bx, by, 10, 5);
-        }
-      }
-    };
-
-    drawBrickWall(500, 88, 134, 14);
-    drawBrickWall(500, 282, 134, 14);
-    drawBrickWall(622, 88, 12, 208);
-    drawBrickWall(498, 88, 14, 78);
-    drawBrickWall(498, 214, 14, 82);
-
-    this.add.rectangle(604, 152, 18, 52, 0x0099db).setStrokeStyle(2, 0x181425);
-    this.add
-      .text(604, 152, 'H₂O', {
-        fontFamily: 'PixelifySans, monospace',
-        fontSize: '8px',
-        color: '#ffffff',
-      })
-      .setOrigin(0.5);
-    this.add.rectangle(568, 256, 72, 18, 0x5a6988).setStrokeStyle(2, 0x181425);
-    this.add.circle(564, 152, 16, 0x181425).setStrokeStyle(2, 0x63c74d);
-    this.add.image(564, 152, 'icon_rad').setScale(1.5);
-
-    this.add
-      .text(566, 112, uiText.base.refugeSign, {
-        fontFamily: 'PixelifySans, monospace',
-        fontSize: '9px',
-        color: '#63c74d',
-      })
-      .setOrigin(0.5);
-    this.add
-      .text(566, 224, uiText.base.refugeDoseBadge, {
-        fontFamily: 'PixelifySans, monospace',
-        fontSize: '9px',
-        color: '#fee761',
-      })
-      .setOrigin(0.5);
-
-    this.refugeDoorPanel = this.add
-      .rectangle(505, 190, 16, 48, insideRefuge ? 0x3e8948 : 0xe4a672)
-      .setStrokeStyle(2, 0x181425)
-      .setInteractive({ useHandCursor: true });
-    this.add.circle(505, 190, 4, 0x181425);
-    this.refugeDoorPanel.on('pointerdown', () => this.toggleRefuge());
-    this.refugeChamberGlow.setInteractive({ useHandCursor: true }).on('pointerdown', () => this.toggleRefuge());
-  }
-
-  private applyLocationBounds(insideRefuge: boolean): void {
-    if (insideRefuge) {
-      this.physics.world.setBounds(514, 108, 104, 168);
-    } else {
-      this.physics.world.setBounds(16, 94, 476, 198);
-    }
   }
 
   update(time: number, delta: number): void {
@@ -691,6 +583,7 @@ export class Base extends Phaser.Scene {
       this.walkBobTime,
       this.facingDir
     );
+    this.player.setDepth(Math.round(this.player.y));
 
     // 2. Recarga continua de oxígeno y calefactor cuando están activas
     if (this.activeRefill) {
@@ -835,7 +728,7 @@ export class Base extends Phaser.Scene {
       });
     });
 
-    this.faqContainer = this.add.container(0, 0, items).setDepth(85);
+    this.faqContainer = this.add.container(0, 0, items).setDepth(600);
     this.scene.setVisible(false, 'HUD');
   }
 
@@ -949,35 +842,6 @@ export class Base extends Phaser.Scene {
     });
   }
 
-  private toggleRefuge(): void {
-    const uiText = I18n.ui();
-    const state = gameStore.state;
-    this.player.setVelocity(0, 0);
-    if (state.location === 'refugio') {
-      state.location = 'base';
-      this.applyLocationBounds(false);
-      this.player.setPosition(468, 190);
-      this.facingDir = 'left';
-      this.refugeBanner.setVisible(false);
-      this.refugeChamberGlow.setFillStyle(0x3e8948, 0.06);
-      this.refugeDoorPanel.setFillStyle(0xe4a672, 1);
-      bus.emit('zone:changed', { name: uiText.base.zoneName });
-      bus.emit('interact:prompt', { text: uiText.base.refugeExitedMsg });
-    } else {
-      state.location = 'refugio';
-      this.applyLocationBounds(true);
-      this.player.setPosition(564, 190);
-      this.facingDir = 'down';
-      this.refugeBanner.setVisible(true);
-      this.refugeChamberGlow.setFillStyle(0x3e8948, 0.28);
-      this.refugeDoorPanel.setFillStyle(0x3e8948, 1);
-      bus.emit('zone:changed', { name: uiText.base.refugeZoneName });
-      bus.emit('interact:prompt', { text: uiText.base.refugeEnteredMsg });
-    }
-    AudioSystem.play('airlock', { volume: 0.5 });
-    Save.save(state);
-  }
-
   private tryExitToWorld(confirmedNight = false): void {
     const uiText = I18n.ui();
     const state = gameStore.state;
@@ -1015,10 +879,6 @@ export class Base extends Phaser.Scene {
   }
 
   private getNearestStation(): BaseStation | null {
-    const state = gameStore.state;
-    if (state.location === 'refugio') {
-      return this.stations.find((s) => s.id === 'refugeDoor') ?? null;
-    }
     let best: BaseStation | null = null;
     let bestDist = Infinity;
     for (const st of this.stations) {
@@ -1032,14 +892,9 @@ export class Base extends Phaser.Scene {
   }
 
   private updateNearestPrompt(): void {
-    const uiText = I18n.ui();
     const st = this.getNearestStation();
     if (st) {
-      const label =
-        st.id === 'refugeDoor' && gameStore.state.location === 'refugio'
-          ? uiText.base.interactExitRefuge
-          : st.prompt;
-      this.promptLabel.setText(label);
+      this.promptLabel.setText(st.prompt);
       const w = Math.max(120, Math.round(this.promptLabel.width + 20));
       this.promptBg.setSize(w, 20).updateDisplayOrigin();
       this.promptContainer.setPosition(
@@ -1086,9 +941,6 @@ export class Base extends Phaser.Scene {
         break;
       case 'table':
         this.deliverSamplesAtTable();
-        break;
-      case 'refugeDoor':
-        this.toggleRefuge();
         break;
       case 'exitDoor':
         this.tryExitToWorld();
@@ -1184,7 +1036,7 @@ export class Base extends Phaser.Scene {
     if (p > 0) mkBtn(160, '◄', () => this.openJournal(p - 1));
     if (p < pages - 1) mkBtn(480, '►', () => this.openJournal(p + 1));
     mkBtn(320, uiText.corviFaq.closeButton, () => this.closeModal());
-    this.modal = this.add.container(0, 0, items).setDepth(86);
+    this.modal = this.add.container(0, 0, items).setDepth(600);
     this.scene.setVisible(false, 'HUD');
   }
 
@@ -1218,7 +1070,7 @@ export class Base extends Phaser.Scene {
     });
     no.on('pointerdown', () => this.closeModal());
     items.push(yes, yesT, no, noT);
-    this.modal = this.add.container(0, 0, items).setDepth(86);
+    this.modal = this.add.container(0, 0, items).setDepth(600);
     this.scene.setVisible(false, 'HUD');
   }
 

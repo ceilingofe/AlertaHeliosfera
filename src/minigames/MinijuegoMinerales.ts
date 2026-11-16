@@ -53,7 +53,7 @@ export class MinijuegoMinerales extends MinigameBase {
   }
 
   private drawRock(): void {
-    this.stage.add(this.add.image(170, 186, 'rock_sparkle').setScale(11));
+    this.stage.add(this.add.image(170, 186, 'rock_sparkle').setScale(9.5));
     // Veta clara a través de la roca
     const g = this.add.graphics();
     g.lineStyle(5, 0xead4aa, 0.85);

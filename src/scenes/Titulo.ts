@@ -187,7 +187,8 @@ export class Titulo extends Phaser.Scene {
     AudioSystem.play('ui_confirm_big');
     gameStore.reset(saved);
     Quota.applyDailyQuota(gameStore.state);
-    if (saved.location === 'base' || saved.location === 'refugio') this.scene.start('Base');
+    if (saved.location === 'refugio') this.scene.start('Refugio');
+    else if (saved.location === 'base') this.scene.start('Base');
     else this.scene.start('Transmision');
   }
 
